@@ -111,10 +111,13 @@ type Result struct {
 }
 
 type Error struct {
-	error
 	URI    string
 	Args   []any
 	KwArgs map[string]any
+}
+
+func (e *Error) Error() string {
+	return e.URI
 }
 
 type RegisterResponse struct {

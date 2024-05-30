@@ -1,6 +1,9 @@
 package xconn
 
-import "net"
+import (
+	"net"
+	"sync"
+)
 
 func NewBaseSession(id int64, realm, authID, authRole string, cl Peer) BaseSession {
 	return &baseSession{
@@ -80,6 +83,8 @@ type WebSocketPeer struct {
 	conn          net.Conn
 	wsReader      ReaderFunc
 	wsWriter      WriterFunc
+
+	wm sync.Mutex
 }
 
 func (c *WebSocketPeer) Read() ([]byte, error) {
@@ -87,6 +92,9 @@ func (c *WebSocketPeer) Read() ([]byte, error) {
 }
 
 func (c *WebSocketPeer) Write(bytes []byte) error {
+	c.wm.Lock()
+	defer c.wm.Unlock()
+
 	return c.wsWriter(c.conn, bytes)
 }
 
