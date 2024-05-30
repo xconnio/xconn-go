@@ -1,5 +1,5 @@
 # Overview
-WAMP v2 Client for Go.
+WAMP v2 Client and Router for Go.
 
 For full documentation visit [XConnIO](https://xconn.io).
 
