@@ -6,3 +6,13 @@ test:
 
 run:
 	go run ./cmd/xconn
+
+build-docs:
+	mkdir -p site/xconn/
+	mkdocs build -d site/xconn/go
+
+run-docs:
+	mkdocs serve
+
+clean-docs:
+	rm -rf site/
