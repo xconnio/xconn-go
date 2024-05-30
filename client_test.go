@@ -7,6 +7,7 @@ import (
 	"log"
 	"testing"
 
+	"github.com/gammazero/workerpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/xconnio/xconn-go"
@@ -17,7 +18,9 @@ func connect(t *testing.T) *xconn.Session {
 	defer func() { _ = listener.Close() }()
 	address := fmt.Sprintf("ws://%s/ws", listener.Addr().String())
 
-	client := &xconn.Client{}
+	client := &xconn.Client{
+		SerializerSpec: xconn.JSONSerializerSpec,
+	}
 
 	session, err := client.Connect(context.Background(), address, "realm1")
 	require.NoError(t, err)
@@ -54,11 +57,17 @@ func TestRegisterCall(t *testing.T) {
 	require.NotNil(t, reg)
 
 	t.Run("Call", func(t *testing.T) {
-		result, err := session.Call(context.Background(), "foo.bar", nil, nil, nil)
-		require.NoError(t, err)
-		require.NotNil(t, result)
+		wp := workerpool.New(10)
+		for i := 0; i < 100; i++ {
+			wp.Submit(func() {
+				result, err := session.Call(context.Background(), "foo.bar", nil, nil, nil)
+				require.NoError(t, err)
+				require.NotNil(t, result)
+				require.Equal(t, "hello", result.Args[0])
+			})
+		}
 
-		require.Equal(t, "hello", result.Args[0])
+		wp.StopWait()
 	})
 }
 
