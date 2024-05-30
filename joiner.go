@@ -95,7 +95,7 @@ func Join(cl Peer, realm string, serializer serializers.Serializer,
 			return nil, err
 		}
 
-		// nothing to send, this means the session was established.
+		// nothing to send, this means the proto was established.
 		if toSend == nil {
 			details, err := j.SessionDetails()
 			if err != nil {

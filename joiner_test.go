@@ -34,8 +34,8 @@ func startRouter(t *testing.T, realm string) net.Listener {
 func TestJoin(t *testing.T) {
 	listener := startRouter(t, "realm1")
 	defer func() { _ = listener.Close() }()
-
 	address := fmt.Sprintf("ws://%s/ws", listener.Addr().String())
+
 	var joiner xconn.WebSocketJoiner
 	base, err := joiner.Join(context.Background(), address, "realm1")
 	require.NoError(t, err)

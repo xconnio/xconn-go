@@ -6,7 +6,7 @@ require (
 	github.com/gammazero/nexus/v3 v3.2.2
 	github.com/gobwas/ws v1.4.0
 	github.com/stretchr/testify v1.8.4
-	github.com/xconnio/wampproto-go v0.0.0-20240529204913-b111a4553cc8
+	github.com/xconnio/wampproto-go v0.0.0-20240530132134-a9a2ca11944a
 )
 
 require (
