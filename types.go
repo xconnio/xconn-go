@@ -5,6 +5,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 )
 
@@ -37,6 +38,7 @@ type BaseSession interface {
 	NetConn() net.Conn
 	Read() ([]byte, error)
 	Write([]byte) error
+	Close() error
 }
 
 type Peer interface {
@@ -78,4 +80,69 @@ func NewWSSerializerSpec(subProtocol string, serializer serializers.Serializer) 
 		subProtocol: subProtocol,
 		serializer:  serializer,
 	}
+}
+
+type Registration struct {
+	ID int64
+}
+
+type Subscription struct {
+	ID int64
+}
+
+type Event struct {
+	Topic   string
+	Args    []any
+	KwArgs  map[string]any
+	Details map[string]any
+}
+
+type Invocation struct {
+	Procedure string
+	Args      []any
+	KwArgs    map[string]any
+	Details   map[string]any
+}
+
+type Result struct {
+	Args    []any
+	KwArgs  map[string]any
+	Details map[string]any
+}
+
+type Error struct {
+	error
+	URI    string
+	Args   []any
+	KwArgs map[string]any
+}
+
+type RegisterResponse struct {
+	msg   *messages.Registered
+	error *Error
+}
+
+type CallResponse struct {
+	msg   *messages.Result
+	error *Error
+}
+
+type UnRegisterResponse struct {
+	msg   *messages.UnRegistered
+	error *Error
+}
+
+type SubscribeResponse struct {
+	msg   *messages.Subscribed
+	error *Error
+}
+
+type UnSubscribeResponse struct {
+	msg   *messages.UnSubscribed
+	error *Error
+}
+
+type PublishResponse struct {
+	msg   *messages.Published
+	error *Error
 }

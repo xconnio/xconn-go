@@ -24,8 +24,8 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
-github.com/xconnio/wampproto-go v0.0.0-20240529204913-b111a4553cc8 h1:IkY83ySxeDn5k2C6zBZ5I7Z8+VNFpseSPLv3enadLdI=
-github.com/xconnio/wampproto-go v0.0.0-20240529204913-b111a4553cc8/go.mod h1:BH0AFRLJ9POvVfxsFd9GyvA15U9o0XYQfq8TdkqO2vQ=
+github.com/xconnio/wampproto-go v0.0.0-20240530132134-a9a2ca11944a h1:0Vb6+/sNho0zn7kjRsdBvdGylFkz9uZZzeT1RrgKHIU=
+github.com/xconnio/wampproto-go v0.0.0-20240530132134-a9a2ca11944a/go.mod h1:BH0AFRLJ9POvVfxsFd9GyvA15U9o0XYQfq8TdkqO2vQ=
 go.uber.org/goleak v1.2.1 h1:NBol2c7O1ZokfZ0LEU9K6Whx/KnwvepVetCUhtKja4A=
 golang.org/x/crypto v0.23.0 h1:dIJU/v2J8Mdglj/8rJ6UUOM3Zc9zLZxVZwwxMooUSAI=
 golang.org/x/crypto v0.23.0/go.mod h1:CKFgDieR+mRhux2Lsu27y0fO304Db0wZe70UKqHu0v8=

@@ -47,6 +47,10 @@ func (b *baseSession) Write(payload []byte) error {
 	return b.client.Write(payload)
 }
 
+func (b *baseSession) Close() error {
+	return b.client.NetConn().Close()
+}
+
 func NewWebSocketPeer(conn net.Conn, protocol string, binary, server bool) (Peer, error) {
 	var wsReader ReaderFunc
 	var wsWriter WriterFunc
