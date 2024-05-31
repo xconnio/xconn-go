@@ -57,6 +57,16 @@ type WebSocketServerConfig struct {
 	SubProtocols []string
 }
 
+func DefaultWebSocketServerConfig() *WebSocketServerConfig {
+	return &WebSocketServerConfig{
+		SubProtocols: []string{
+			JsonWebsocketProtocol,
+			MsgpackWebsocketProtocol,
+			CborWebsocketProtocol,
+		},
+	}
+}
+
 type WSSerializerSpec interface {
 	SubProtocol() string
 	Serializer() serializers.Serializer
