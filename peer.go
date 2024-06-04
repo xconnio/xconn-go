@@ -3,23 +3,57 @@ package xconn
 import (
 	"net"
 	"sync"
+
+	"github.com/xconnio/wampproto-go/messages"
+	"github.com/xconnio/wampproto-go/serializers"
 )
 
-func NewBaseSession(id int64, realm, authID, authRole string, cl Peer) BaseSession {
+func NewBaseSession(id int64, realm, authID, authRole string, cl Peer, serializer serializers.Serializer) BaseSession {
 	return &baseSession{
-		id:       id,
-		realm:    realm,
-		authID:   authID,
-		authRole: authRole,
-		client:   cl,
+		id:         id,
+		realm:      realm,
+		authID:     authID,
+		authRole:   authRole,
+		client:     cl,
+		serializer: serializer,
 	}
 }
 
 type baseSession struct {
-	id                      int64
-	realm, authID, authRole string
+	id       int64
+	realm    string
+	authID   string
+	authRole string
 
-	client Peer
+	client     Peer
+	serializer serializers.Serializer
+}
+
+func (b *baseSession) Serializer() serializers.Serializer {
+	return b.serializer
+}
+
+func (b *baseSession) ReadMessage() (messages.Message, error) {
+	payload, err := b.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := b.serializer.Deserialize(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
+func (b *baseSession) WriteMessage(message messages.Message) error {
+	payload, err := b.serializer.Serialize(message)
+	if err != nil {
+		return err
+	}
+
+	return b.Write(payload)
 }
 
 func (b *baseSession) ID() int64 {
