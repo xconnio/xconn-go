@@ -35,9 +35,12 @@ type BaseSession interface {
 	AuthID() string
 	AuthRole() string
 
+	Serializer() serializers.Serializer
 	NetConn() net.Conn
 	Read() ([]byte, error)
 	Write([]byte) error
+	ReadMessage() (messages.Message, error)
+	WriteMessage(messages.Message) error
 	Close() error
 }
 

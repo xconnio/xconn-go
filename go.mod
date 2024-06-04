@@ -7,7 +7,7 @@ require (
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gobwas/ws v1.4.0
 	github.com/stretchr/testify v1.8.4
-	github.com/xconnio/wampproto-go v0.0.0-20240531231532-d8fa7f588c4e
+	github.com/xconnio/wampproto-go v0.0.0-20240604204525-b58501a833f2
 	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 )
 

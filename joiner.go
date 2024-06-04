@@ -102,7 +102,8 @@ func Join(cl Peer, realm string, serializer serializers.Serializer,
 				return nil, err
 			}
 
-			return NewBaseSession(details.ID(), details.Realm(), details.AuthID(), details.AuthRole(), cl), nil
+			base := NewBaseSession(details.ID(), details.Realm(), details.AuthID(), details.AuthRole(), cl, serializer)
+			return base, nil
 		}
 
 		if err = cl.Write(toSend); err != nil {
