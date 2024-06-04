@@ -1,14 +1,15 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
-	"github.com/xconnio/wampproto-go"
+	"github.com/xconnio/xconn-go"
 )
 
 func main() {
-	session := wampproto.NewSession(nil)
-	fmt.Println(session)
-	log.Println("HELLO WORLD!")
+	router := xconn.NewRouter()
+	router.AddRealm("realm1")
+
+	server := xconn.NewServer(router, nil)
+	log.Fatal(server.Start("0.0.0.0", 8080))
 }
