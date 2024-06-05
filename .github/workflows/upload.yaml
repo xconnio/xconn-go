@@ -29,7 +29,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy static site to S3 bucket
-        run: aws s3 cp ./site/ s3://${{ secrets.AWS_BUCKET }} --recursive
+        run: aws s3 sync ./site/xconn/go/ s3://${{ secrets.AWS_BUCKET }}/xconn/go/ --delete
 
       - name: Invalidate CloudFront
         run: aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/xconn/go/*"
