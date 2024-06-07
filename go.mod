@@ -7,7 +7,8 @@ require (
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gobwas/ws v1.4.0
 	github.com/stretchr/testify v1.8.4
-	github.com/xconnio/wampproto-go v0.0.0-20240604204525-b58501a833f2
+	github.com/xconnio/wampproto-go v0.0.0-20240606221544-14a7a1771d92
+	github.com/xconnio/wampproto-protobuf/go v0.0.0-20240607222929-52f6a1b22c87
 	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 )
 
@@ -25,5 +26,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
+	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
