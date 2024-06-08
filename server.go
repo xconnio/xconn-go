@@ -9,15 +9,23 @@ import (
 )
 
 type Server struct {
-	router        *Router
-	authenticator auth.ServerAuthenticator
+	router   *Router
+	acceptor *WebSocketAcceptor
 }
 
 func NewServer(router *Router, authenticator auth.ServerAuthenticator) *Server {
-	return &Server{
-		router:        router,
-		authenticator: authenticator,
+	acceptor := &WebSocketAcceptor{
+		Authenticator: authenticator,
 	}
+
+	return &Server{
+		router:   router,
+		acceptor: acceptor,
+	}
+}
+
+func (s *Server) RegisterSpec(spec WSSerializerSpec) error {
+	return s.acceptor.RegisterSpec(spec)
 }
 
 func (s *Server) Start(host string, port int) error {
@@ -27,6 +35,8 @@ func (s *Server) Start(host string, port int) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
+	fmt.Printf("listening on ws://%s/ws\n", address)
+
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -34,8 +44,7 @@ func (s *Server) Start(host string, port int) error {
 		}
 
 		go func() {
-			acceptor := &WebSocketAcceptor{}
-			base, err := acceptor.Accept(conn)
+			base, err := s.acceptor.Accept(conn)
 			if err != nil {
 				log.Println(err)
 				return

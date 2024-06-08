@@ -46,15 +46,15 @@ func (w *WebSocketAcceptor) protocols() []string {
 	return maps.Keys(w.specs)
 }
 
-func (w *WebSocketAcceptor) RegisterSpec(subProtocol string, serializer serializers.Serializer) error {
+func (w *WebSocketAcceptor) RegisterSpec(spec WSSerializerSpec) error {
 	w.once.Do(w.init)
 
-	_, exists := w.specs[subProtocol]
+	_, exists := w.specs[spec.SubProtocol()]
 	if exists {
-		return fmt.Errorf("spec for %s is alraedy registered", subProtocol)
+		return fmt.Errorf("spec for %s is alraedy registered", spec.SubProtocol())
 	}
 
-	w.specs[subProtocol] = serializer
+	w.specs[spec.SubProtocol()] = spec.Serializer()
 	return nil
 }
 
