@@ -1,24 +1,71 @@
 package main
 
 import (
+	_ "embed" // nolint:gci
+	"fmt"
 	"log"
+	"os"
 
-	"github.com/xconnio/wampproto-protobuf/go"
-	"github.com/xconnio/xconn-go"
+	"github.com/alecthomas/kingpin/v2"
 )
 
-func main() {
-	router := xconn.NewRouter()
-	router.AddRealm("realm1")
+var (
+	//go:embed config.yaml.in
+	sampleConfig []byte
+)
 
-	server := xconn.NewServer(router, nil)
+const (
+	versionString = "0.1.0"
 
-	serializer := &wampprotobuf.ProtobufSerializer{}
-	protobufSpec := xconn.NewWSSerializerSpec("wamp.2.protobuf", serializer)
+	ConfigDir  = ".xconn"
+	ConfigFile = ConfigDir + "/config.yaml"
+)
 
-	if err := server.RegisterSpec(protobufSpec); err != nil {
-		log.Fatal(err)
+type cmd struct {
+	parsedCommand string
+
+	init *kingpin.CmdClause
+}
+
+func parseCommand(args []string) (*cmd, error) {
+	app := kingpin.New(args[0], "XConn")
+	app.Version(versionString).VersionFlag.Short('v')
+
+	c := &cmd{
+		init: app.Command("init", "Initialize sample router config."),
 	}
 
-	log.Fatal(server.Start("0.0.0.0", 8080))
+	parsedCommand, err := app.Parse(args[1:])
+	if err != nil {
+		return nil, err
+	}
+	c.parsedCommand = parsedCommand
+
+	return c, nil
+}
+
+func Run(args []string) error {
+	c, err := parseCommand(args)
+	if err != nil {
+		return err
+	}
+
+	switch c.parsedCommand {
+	case c.init.FullCommand():
+		if err := os.MkdirAll(ConfigDir, os.ModePerm); err != nil {
+			return err
+		}
+
+		if err = os.WriteFile(ConfigFile, sampleConfig, 0600); err != nil {
+			return fmt.Errorf("unable to write config: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	if err := Run(os.Args); err != nil {
+		log.Fatalln(err)
+	}
 }
