@@ -91,7 +91,8 @@ func Run(args []string) error {
 			router.AddRealm(realm.Name)
 		}
 
-		server := xconn.NewServer(router, nil)
+		authenticator := NewAuthenticator(config.Authenticators)
+		server := xconn.NewServer(router, authenticator)
 
 		for _, transport := range config.Transports {
 			if slices.Contains(transport.Serializers, "protobuf") {
