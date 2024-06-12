@@ -4,6 +4,9 @@ lint:
 test:
 	go test -count=1 ./... -v
 
+build:
+	go build ./cmd/xconn
+
 run:
 	go run ./cmd/xconn
 
