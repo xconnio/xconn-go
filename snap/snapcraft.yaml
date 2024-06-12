@@ -1,0 +1,24 @@
+name: xconn
+base: core22
+version: '0.1.0'
+summary: WAMP router
+description: |
+  WAMP router
+
+grade: stable
+confinement: strict
+
+apps:
+  xconn:
+    command: bin/xconn
+    plugs:
+      - network
+      - network-bind
+      - home
+
+parts:
+  xconn:
+    plugin: go
+    source: .
+    build-snaps:
+      - go
