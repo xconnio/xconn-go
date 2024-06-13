@@ -20,5 +20,5 @@ jobs:
 
       - name: Publish the snap
         env:
-          SNAPCRAFT_TOKEN: ${{ secrets.SNAPCRAFT_TOKEN }}
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
         run: snapcraft upload xconn_*.snap --release=edge
