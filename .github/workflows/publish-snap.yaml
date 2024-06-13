@@ -16,7 +16,7 @@ jobs:
       - name: Build the snap
         uses: snapcore/action-build@v1
         with:
-          snapcraft-channel: 7.x/stable
+          snapcraft-channel: 8.x/stable
 
       - name: Publish the snap
         env:
