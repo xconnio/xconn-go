@@ -36,7 +36,8 @@ func (s *Server) Start(host string, port int) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 
-	fmt.Printf("listening on ws://%s/ws\n", address)
+	actualPort := ln.Addr().(*net.TCPAddr).Port
+	fmt.Printf("listening on ws://%s:%d/ws\n", host, actualPort)
 
 	return s.startConnectionLoop(ln)
 }
