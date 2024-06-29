@@ -11,6 +11,7 @@ confinement: strict
 apps:
   xconn:
     command: bin/xconn
+    completer: bash_autocomplete.sh
     plugs:
       - network
       - network-bind
@@ -22,3 +23,6 @@ parts:
     source: .
     build-snaps:
       - go
+    override-prime: |
+      craftctl default
+      cp $CRAFT_PART_SRC/bash_autocomplete.sh $CRAFT_PRIME/
