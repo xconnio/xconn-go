@@ -8,7 +8,7 @@ build:
 	go build ./cmd/xconn
 
 run:
-	go run ./cmd/xconn
+	go run ./cmd/xconn start
 
 build-docs:
 	mkdir -p site/xconn/

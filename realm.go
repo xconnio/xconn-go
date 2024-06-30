@@ -9,12 +9,14 @@ import (
 )
 
 type Realm struct {
+	broker  *wampproto.Broker
 	dealer  *wampproto.Dealer
 	clients internal.Map[int64, BaseSession]
 }
 
 func NewRealm() *Realm {
 	return &Realm{
+		broker:  wampproto.NewBroker(),
 		dealer:  wampproto.NewDealer(),
 		clients: internal.Map[int64, BaseSession]{},
 	}
@@ -25,12 +27,30 @@ func (r *Realm) AttachClient(base BaseSession) error {
 
 	details := wampproto.NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole(),
 		base.Serializer().Static())
-	return r.dealer.AddSession(details)
+
+	if err := r.broker.AddSession(details); err != nil {
+		return err
+	}
+
+	if err := r.dealer.AddSession(details); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Realm) DetachClient(base BaseSession) error {
 	r.clients.Delete(base.ID())
-	return r.dealer.RemoveSession(base.ID())
+
+	if err := r.broker.RemoveSession(base.ID()); err != nil {
+		return err
+	}
+
+	if err := r.dealer.RemoveSession(base.ID()); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
@@ -44,6 +64,32 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 
 		client, _ := r.clients.Load(msgWithRecipient.Recipient)
 		return client.WriteMessage(msgWithRecipient.Message)
+	case messages.MessageTypeSubscribe, messages.MessageTypeUnSubscribe:
+		msgWithRecipient, err := r.broker.ReceiveMessage(sessionID, msg)
+		if err != nil {
+			return err
+		}
+
+		client, _ := r.clients.Load(msgWithRecipient.Recipient)
+		return client.WriteMessage(msgWithRecipient.Message)
+	case messages.MessageTypePublish:
+		publish := msg.(*messages.Publish)
+		publication, err := r.broker.ReceivePublish(sessionID, publish)
+		if err != nil {
+			return err
+		}
+
+		for _, recipientID := range publication.Recipients {
+			client, _ := r.clients.Load(recipientID)
+			_ = client.WriteMessage(publication.Event)
+		}
+
+		if publication.Ack != nil {
+			client, _ := r.clients.Load(publication.Ack.Recipient)
+			_ = client.WriteMessage(publication.Ack.Message)
+		}
+
+		return nil
 	case messages.MessageTypeGoodbye:
 		if err := r.dealer.RemoveSession(sessionID); err != nil {
 			return err
