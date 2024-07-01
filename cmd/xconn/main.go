@@ -85,6 +85,10 @@ func Run(args []string) error {
 			return fmt.Errorf("unable to decode config file: %w", err)
 		}
 
+		if err := config.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w", err)
+		}
+
 		router := xconn.NewRouter()
 
 		for _, realm := range config.Realms {
@@ -95,7 +99,7 @@ func Run(args []string) error {
 		server := xconn.NewServer(router, authenticator)
 
 		for _, transport := range config.Transports {
-			if slices.Contains(transport.Serializers, "protobuf") {
+			if slices.Contains(transport.Serializers, ProtobufSerializer) {
 				serializer := &wampprotobuf.ProtobufSerializer{}
 				protobufSpec := xconn.NewWSSerializerSpec(ProtobufSubProtocol, serializer)
 
