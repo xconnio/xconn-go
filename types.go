@@ -7,6 +7,7 @@ import (
 
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
 )
 
 type (
@@ -27,6 +28,8 @@ var (
 		CborWebsocketProtocol, &serializers.CBORSerializer{})
 	MsgPackSerializerSpec = NewWSSerializerSpec( //nolint:gochecknoglobals
 		MsgpackWebsocketProtocol, &serializers.MsgPackSerializer{})
+	ProtobufSerializerSpec = NewWSSerializerSpec( //nolint:gochecknoglobals
+		ProtobufSubProtocol, &wampprotobuf.ProtobufSerializer{})
 )
 
 type BaseSession interface {

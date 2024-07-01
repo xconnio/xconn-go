@@ -11,7 +11,6 @@ import (
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 
-	"github.com/xconnio/wampproto-protobuf/go"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -25,8 +24,6 @@ const (
 
 	ConfigDir  = ".xconn"
 	ConfigFile = ConfigDir + "/config.yaml"
-
-	ProtobufSubProtocol = "wamp.2.protobuf"
 )
 
 type cmd struct {
@@ -96,10 +93,7 @@ func Run(args []string) error {
 
 		for _, transport := range config.Transports {
 			if slices.Contains(transport.Serializers, "protobuf") {
-				serializer := &wampprotobuf.ProtobufSerializer{}
-				protobufSpec := xconn.NewWSSerializerSpec(ProtobufSubProtocol, serializer)
-
-				if err := server.RegisterSpec(protobufSpec); err != nil {
+				if err := server.RegisterSpec(xconn.ProtobufSerializerSpec); err != nil {
 					return err
 				}
 			}
