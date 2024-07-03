@@ -2,9 +2,12 @@ package xconn
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
@@ -32,6 +35,8 @@ type Session struct {
 	unsubscribeRequests map[int64]chan *UnSubscribeResponse
 	subscriptions       map[int64]EventHandler
 	publishRequests     map[int64]chan *PublishResponse
+
+	goodbyeChan chan struct{}
 }
 
 func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
@@ -49,6 +54,8 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 		unsubscribeRequests: map[int64]chan *UnSubscribeResponse{},
 		subscriptions:       map[int64]EventHandler{},
 		publishRequests:     map[int64]chan *PublishResponse{},
+
+		goodbyeChan: make(chan struct{}, 1),
 	}
 
 	go session.waitForRouterMessages()
@@ -59,7 +66,10 @@ func (s *Session) waitForRouterMessages() {
 	for {
 		payload, err := s.base.Read()
 		if err != nil {
-			log.Println("failed to read message: ", err)
+			if !errors.Is(err, io.EOF) {
+				log.Println("failed to read message: ", err)
+			}
+
 			_ = s.base.Close()
 			return
 		}
@@ -225,6 +235,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		default:
 			return fmt.Errorf("unknown error message type %T", msg)
 		}
+	case messages.MessageTypeGoodbye:
+		s.goodbyeChan <- struct{}{}
 	default:
 		return fmt.Errorf("SESSION: received unexpected message %T", msg)
 	}
@@ -381,7 +393,7 @@ func (s *Session) UnSubscribe(ctx context.Context, subscription *Subscription) e
 		delete(s.subscriptions, subscription.ID)
 		return nil
 	case <-ctx.Done():
-		return fmt.Errorf("subscribe request timed")
+		return fmt.Errorf("unsubscribe request timed")
 	}
 }
 
@@ -419,5 +431,24 @@ func (s *Session) Publish(ctx context.Context, topic string, args []any, kwArgs 
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("publish request timed")
+	}
+}
+
+func (s *Session) Leave() error {
+	goodbye := messages.NewGoodBye("wamp.close.close_realm", map[string]any{})
+	toSend, err := s.proto.SendMessage(goodbye)
+	if err != nil {
+		return err
+	}
+
+	if err = s.base.Write(toSend); err != nil {
+		return err
+	}
+
+	select {
+	case <-s.goodbyeChan:
+		return nil
+	case <-time.After(time.Second * 10):
+		return errors.New("leave timeout")
 	}
 }
