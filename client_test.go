@@ -45,7 +45,6 @@ func TestCall(t *testing.T) {
 func TestRegisterCall(t *testing.T) {
 	session := connect(t)
 	reg, err := session.Register(
-		context.Background(),
 		"foo.bar",
 		func(ctx context.Context, invocation *xconn.Invocation) (*xconn.Result, error) {
 			return &xconn.Result{Args: []any{"hello"}}, nil
@@ -75,7 +74,6 @@ func TestPublishSubscribe(t *testing.T) {
 	session := connect(t)
 	event1 := make(chan *xconn.Event, 1)
 	reg, err := session.Subscribe(
-		context.Background(),
 		"foo.bar",
 		func(event *xconn.Event) {
 			event1 <- event
@@ -90,7 +88,7 @@ func TestPublishSubscribe(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
-		err := session.Publish(context.Background(), "foo.bar", nil, nil, opt)
+		err := session.Publish("foo.bar", nil, nil, opt)
 		require.NoError(t, err)
 
 		event := <-event1
