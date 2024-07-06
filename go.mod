@@ -9,7 +9,7 @@ require (
 	github.com/gobwas/ws v1.4.0
 	github.com/stretchr/testify v1.8.4
 	github.com/xconnio/wampproto-go v0.0.0-20240706131442-1870c92694cb
-	github.com/xconnio/wampproto-protobuf/go v0.0.0-20240701141955-e9a1025ec125
+	github.com/xconnio/wampproto-protobuf/go v0.0.0-20240706133816-0ca5f0268ce9
 	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 	gopkg.in/yaml.v3 v3.0.1
 )
