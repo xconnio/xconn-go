@@ -46,7 +46,6 @@ func (s *Server) Start(host string, port int) error {
 		go func() {
 			base, err := s.acceptor.Accept(conn)
 			if err != nil {
-				log.Println(err)
 				return
 			}
 
