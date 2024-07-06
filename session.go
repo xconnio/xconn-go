@@ -32,7 +32,7 @@ type Session struct {
 
 	// publish subscribe data structures
 	subscribeRequests   map[int64]chan *SubscribeResponse
-	unsubscribeRequests map[int64]chan *UnSubscribeResponse
+	unsubscribeRequests map[int64]chan *UnsubscribeResponse
 	subscriptions       map[int64]EventHandler
 	publishRequests     map[int64]chan *PublishResponse
 
@@ -51,7 +51,7 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 		callRequests:       sync.Map{},
 
 		subscribeRequests:   map[int64]chan *SubscribeResponse{},
-		unsubscribeRequests: map[int64]chan *UnSubscribeResponse{},
+		unsubscribeRequests: map[int64]chan *UnsubscribeResponse{},
 		subscriptions:       map[int64]EventHandler{},
 		publishRequests:     map[int64]chan *PublishResponse{},
 
@@ -106,8 +106,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received UNREGISTERED for unknown request")
 		}
 
-		requestChan := request.(chan *UnRegisterResponse)
-		requestChan <- &UnRegisterResponse{msg: unregistered}
+		requestChan := request.(chan *UnregisterResponse)
+		requestChan <- &UnregisterResponse{msg: unregistered}
 	case messages.MessageTypeResult:
 		result := msg.(*messages.Result)
 		request, exists := s.callRequests.Load(result.RequestID())
@@ -156,7 +156,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received UNSUBSCRIBED for unknown request")
 		}
 
-		request <- &UnSubscribeResponse{msg: unsubscribed}
+		request <- &UnsubscribeResponse{msg: unsubscribed}
 	case messages.MessageTypePublished:
 		published := msg.(*messages.Published)
 		request, exists := s.publishRequests[published.RequestID()]
@@ -277,14 +277,14 @@ func (s *Session) Register(procedure string, handler InvocationHandler,
 	}
 }
 
-func (s *Session) UnRegister(registrationID int64) error {
+func (s *Session) Unregister(registrationID int64) error {
 	unregister := messages.NewUnregister(s.idGen.NextID(), registrationID)
 	toSend, err := s.proto.SendMessage(unregister)
 	if err != nil {
 		return err
 	}
 
-	channel := make(chan *UnRegisterResponse, 1)
+	channel := make(chan *UnregisterResponse, 1)
 	s.unregisterRequests.Store(unregister.RequestID(), channel)
 	defer s.unregisterRequests.Delete(unregister.RequestID())
 
@@ -368,14 +368,14 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 	}
 }
 
-func (s *Session) UnSubscribe(subscription *Subscription) error {
+func (s *Session) Unsubscribe(subscription *Subscription) error {
 	unsubscribe := messages.NewUnsubscribe(s.idGen.NextID(), subscription.ID)
 	toSend, err := s.proto.SendMessage(unsubscribe)
 	if err != nil {
 		return err
 	}
 
-	channel := make(chan *UnSubscribeResponse, 1)
+	channel := make(chan *UnsubscribeResponse, 1)
 	s.unsubscribeRequests[unsubscribe.RequestID()] = channel
 	defer delete(s.unsubscribeRequests, unsubscribe.RequestID())
 	if err = s.base.Write(toSend); err != nil {
