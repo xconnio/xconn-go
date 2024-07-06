@@ -99,8 +99,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 
 		requestChan := request.(chan *RegisterResponse)
 		requestChan <- &RegisterResponse{msg: registered}
-	case messages.MessageTypeUnRegistered:
-		unregistered := msg.(*messages.UnRegistered)
+	case messages.MessageTypeUnregistered:
+		unregistered := msg.(*messages.Unregistered)
 		request, exists := s.unregisterRequests.Load(unregistered.RequestID())
 		if !exists {
 			return fmt.Errorf("received UNREGISTERED for unknown request")
@@ -149,8 +149,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 
 		request <- &SubscribeResponse{msg: subscribed}
-	case messages.MessageTypeUnSubscribed:
-		unsubscribed := msg.(*messages.UnSubscribed)
+	case messages.MessageTypeUnsubscribed:
+		unsubscribed := msg.(*messages.Unsubscribed)
 		request, exists := s.unsubscribeRequests[unsubscribed.RequestID()]
 		if !exists {
 			return fmt.Errorf("received UNSUBSCRIBED for unknown request")
@@ -201,7 +201,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			requestChan := request.(chan *RegisterResponse)
 			requestChan <- &RegisterResponse{error: err}
 			return nil
-		case messages.MessageTypeUnRegister:
+		case messages.MessageTypeUnregister:
 			_, exists := s.unregisterRequests.LoadAndDelete(errorMsg.RequestID())
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid unregister request")
@@ -216,7 +216,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 
 			delete(s.subscribeRequests, errorMsg.RequestID())
 			return nil
-		case messages.MessageTypeUnSubscribe:
+		case messages.MessageTypeUnsubscribe:
 			_, exists := s.unsubscribeRequests[errorMsg.RequestID()]
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid unsubscribe request")
@@ -278,7 +278,7 @@ func (s *Session) Register(ctx context.Context, procedure string, handler Invoca
 }
 
 func (s *Session) UnRegister(ctx context.Context, registrationID int64) error {
-	unregister := messages.NewUnRegister(s.idGen.NextID(), registrationID)
+	unregister := messages.NewUnregister(s.idGen.NextID(), registrationID)
 	toSend, err := s.proto.SendMessage(unregister)
 	if err != nil {
 		return err
@@ -371,7 +371,7 @@ func (s *Session) Subscribe(ctx context.Context, topic string, handler EventHand
 }
 
 func (s *Session) UnSubscribe(ctx context.Context, subscription *Subscription) error {
-	unsubscribe := messages.NewUnSubscribe(s.idGen.NextID(), subscription.ID)
+	unsubscribe := messages.NewUnsubscribe(s.idGen.NextID(), subscription.ID)
 	toSend, err := s.proto.SendMessage(unsubscribe)
 	if err != nil {
 		return err
