@@ -56,7 +56,7 @@ func (r *Realm) DetachClient(base BaseSession) error {
 func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 	switch msg.Type() {
 	case messages.MessageTypeCall, messages.MessageTypeYield, messages.MessageTypeRegister,
-		messages.MessageTypeUnRegister:
+		messages.MessageTypeUnregister:
 		msgWithRecipient, err := r.dealer.ReceiveMessage(sessionID, msg)
 		if err != nil {
 			return err
@@ -64,7 +64,7 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 
 		client, _ := r.clients.Load(msgWithRecipient.Recipient)
 		return client.WriteMessage(msgWithRecipient.Message)
-	case messages.MessageTypeSubscribe, messages.MessageTypeUnSubscribe:
+	case messages.MessageTypeSubscribe, messages.MessageTypeUnsubscribe:
 		msgWithRecipient, err := r.broker.ReceiveMessage(sessionID, msg)
 		if err != nil {
 			return err

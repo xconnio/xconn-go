@@ -147,7 +147,7 @@ type CallResponse struct {
 }
 
 type UnRegisterResponse struct {
-	msg   *messages.UnRegistered
+	msg   *messages.Unregistered
 	error *Error
 }
 
@@ -157,7 +157,7 @@ type SubscribeResponse struct {
 }
 
 type UnSubscribeResponse struct {
-	msg   *messages.UnSubscribed
+	msg   *messages.Unsubscribed
 	error *Error
 }
 
