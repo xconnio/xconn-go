@@ -244,7 +244,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 	return nil
 }
 
-func (s *Session) Register(ctx context.Context, procedure string, handler InvocationHandler,
+func (s *Session) Register(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
 
 	register := messages.NewRegister(s.idGen.NextID(), options, procedure)
@@ -272,12 +272,12 @@ func (s *Session) Register(ctx context.Context, procedure string, handler Invoca
 			ID: response.msg.RegistrationID(),
 		}
 		return registration, nil
-	case <-ctx.Done():
+	case <-time.After(10 * time.Second):
 		return nil, fmt.Errorf("register request timed out")
 	}
 }
 
-func (s *Session) UnRegister(ctx context.Context, registrationID int64) error {
+func (s *Session) UnRegister(registrationID int64) error {
 	unregister := messages.NewUnregister(s.idGen.NextID(), registrationID)
 	toSend, err := s.proto.SendMessage(unregister)
 	if err != nil {
@@ -300,7 +300,7 @@ func (s *Session) UnRegister(ctx context.Context, registrationID int64) error {
 
 		s.registrations.Delete(registrationID)
 		return nil
-	case <-ctx.Done():
+	case <-time.After(10 * time.Second):
 		return fmt.Errorf("unregister request timed")
 	}
 }
@@ -338,9 +338,7 @@ func (s *Session) Call(ctx context.Context, procedure string, args []any, kwArgs
 	}
 }
 
-func (s *Session) Subscribe(ctx context.Context, topic string, handler EventHandler,
-	options map[string]any) (*Subscription, error) {
-
+func (s *Session) Subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	toSend, err := s.proto.SendMessage(subscribe)
 	if err != nil {
@@ -365,12 +363,12 @@ func (s *Session) Subscribe(ctx context.Context, topic string, handler EventHand
 			ID: response.msg.SubscriptionID(),
 		}
 		return sub, nil
-	case <-ctx.Done():
+	case <-time.After(10 * time.Second):
 		return nil, fmt.Errorf("subscribe request timed")
 	}
 }
 
-func (s *Session) UnSubscribe(ctx context.Context, subscription *Subscription) error {
+func (s *Session) UnSubscribe(subscription *Subscription) error {
 	unsubscribe := messages.NewUnsubscribe(s.idGen.NextID(), subscription.ID)
 	toSend, err := s.proto.SendMessage(unsubscribe)
 	if err != nil {
@@ -392,12 +390,12 @@ func (s *Session) UnSubscribe(ctx context.Context, subscription *Subscription) e
 
 		delete(s.subscriptions, subscription.ID)
 		return nil
-	case <-ctx.Done():
+	case <-time.After(10 * time.Second):
 		return fmt.Errorf("unsubscribe request timed")
 	}
 }
 
-func (s *Session) Publish(ctx context.Context, topic string, args []any, kwArgs map[string]any,
+func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 	options map[string]any) error {
 
 	publish := messages.NewPublish(s.idGen.NextID(), options, topic, args, kwArgs)
@@ -429,7 +427,7 @@ func (s *Session) Publish(ctx context.Context, topic string, args []any, kwArgs 
 		}
 
 		return nil
-	case <-ctx.Done():
+	case <-time.After(10 * time.Second):
 		return fmt.Errorf("publish request timed")
 	}
 }
