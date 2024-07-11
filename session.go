@@ -169,7 +169,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		event := msg.(*messages.Event)
 		handler, exists := s.subscriptions[event.SubscriptionID()]
 		if !exists {
-			return fmt.Errorf("received PUBLISHED for unknown request")
+			return fmt.Errorf("received EVENT for unknown subscription")
 		}
 
 		evt := &Event{
