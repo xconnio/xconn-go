@@ -358,7 +358,7 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 			return nil, response.error
 		}
 
-		s.subscriptions[subscribe.RequestID()] = handler
+		s.subscriptions[response.msg.SubscriptionID()] = handler
 		sub := &Subscription{
 			ID: response.msg.SubscriptionID(),
 		}
