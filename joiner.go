@@ -3,6 +3,7 @@ package xconn
 import (
 	"context"
 	"fmt"
+	"net"
 	netURL "net/url"
 	"time"
 
@@ -60,6 +61,14 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config WSDialerConfig) 
 		wsDialer.Timeout = time.Second * 10
 	} else {
 		wsDialer.Timeout = config.DialTimeout
+	}
+
+	if url.Scheme == "unix" {
+		// Custom dial function for Unix Domain Socket
+		wsDialer.NetDial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial("unix", url.Path)
+		}
+		url.Scheme = "ws"
 	}
 
 	conn, _, _, err := wsDialer.Dial(ctx, url.String())
