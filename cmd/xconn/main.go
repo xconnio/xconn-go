@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/alecthomas/kingpin/v2"
 	"golang.org/x/exp/slices"
@@ -22,8 +23,7 @@ var (
 const (
 	versionString = "0.1.0"
 
-	ConfigDir  = ".xconn"
-	ConfigFile = ConfigDir + "/config.yaml"
+	DirectoryConfig = ".xconn"
 )
 
 type cmd struct {
@@ -31,16 +31,20 @@ type cmd struct {
 
 	init *kingpin.CmdClause
 
-	start *kingpin.CmdClause
+	start     *kingpin.CmdClause
+	configDir *string
 }
 
 func parseCommand(args []string) (*cmd, error) {
+	cwd, _ := os.Getwd()
+
 	app := kingpin.New(args[0], "XConn")
 	app.Version(versionString).VersionFlag.Short('v')
 
 	c := &cmd{
-		init:  app.Command("init", "Initialize sample router config."),
-		start: app.Command("start", "Start the router."),
+		init:      app.Command("init", "Initialize sample router config."),
+		start:     app.Command("start", "Start the router."),
+		configDir: app.Flag("config", "Set config directory").Default(cwd).Short('c').String(),
 	}
 
 	parsedCommand, err := app.Parse(args[1:])
@@ -57,19 +61,21 @@ func Run(args []string) error {
 	if err != nil {
 		return err
 	}
+	configDir := filepath.Join(*c.configDir, DirectoryConfig)
+	configFile := filepath.Join(configDir, "config.yaml")
 
 	switch c.parsedCommand {
 	case c.init.FullCommand():
-		if err := os.MkdirAll(ConfigDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
 			return err
 		}
 
-		if err = os.WriteFile(ConfigFile, sampleConfig, 0600); err != nil {
+		if err = os.WriteFile(configFile, sampleConfig, 0600); err != nil {
 			return fmt.Errorf("unable to write config: %w", err)
 		}
 
 	case c.start.FullCommand():
-		data, err := os.ReadFile(ConfigFile)
+		data, err := os.ReadFile(configFile)
 		if err != nil {
 			return fmt.Errorf("unable to read config file: %w", err)
 		}
