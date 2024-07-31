@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/xconnio/wampproto-go/auth"
 )
@@ -37,6 +38,10 @@ func (s *Server) Start(host string, port int) error {
 
 	fmt.Printf("listening on ws://%s/ws\n", address)
 
+	return s.startConnectionLoop(ln)
+}
+
+func (s *Server) startConnectionLoop(ln net.Listener) error {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -68,4 +73,19 @@ func (s *Server) Start(host string, port int) error {
 			}
 		}()
 	}
+}
+
+func (s *Server) StartUnixServer(udsPath string) error {
+	if err := os.RemoveAll(udsPath); err != nil {
+		return fmt.Errorf("failed to remove old UDS file: %w", err)
+	}
+
+	ln, err := net.Listen("unix", udsPath)
+	if err != nil {
+		return fmt.Errorf("failed to listen on UDS: %w", err)
+	}
+
+	fmt.Printf("listening on unix://%s\n", udsPath)
+
+	return s.startConnectionLoop(ln)
 }
