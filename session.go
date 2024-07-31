@@ -169,7 +169,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		event := msg.(*messages.Event)
 		handler, exists := s.subscriptions[event.SubscriptionID()]
 		if !exists {
-			return fmt.Errorf("received PUBLISHED for unknown request")
+			return fmt.Errorf("received EVENT for unknown subscription")
 		}
 
 		evt := &Event{
@@ -358,7 +358,7 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 			return nil, response.error
 		}
 
-		s.subscriptions[subscribe.RequestID()] = handler
+		s.subscriptions[response.msg.SubscriptionID()] = handler
 		sub := &Subscription{
 			ID: response.msg.SubscriptionID(),
 		}
