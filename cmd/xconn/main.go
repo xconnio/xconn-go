@@ -88,6 +88,10 @@ func Run(args []string) error {
 			return fmt.Errorf("unable to decode config file: %w", err)
 		}
 
+		if err := config.Validate(); err != nil {
+			return fmt.Errorf("invalid config: %w", err)
+		}
+
 		router := xconn.NewRouter()
 
 		for _, realm := range config.Realms {

@@ -1,12 +1,5 @@
 package main
 
-type Config struct {
-	Version        string         `yaml:"version"`
-	Realms         []Realm        `yaml:"realms"`
-	Transports     []Transport    `yaml:"transports"`
-	Authenticators Authenticators `yaml:"authenticators"`
-}
-
 type Realm struct {
 	Name string `yaml:"name"`
 }
