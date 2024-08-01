@@ -56,7 +56,7 @@ func (r *Realm) DetachClient(base BaseSession) error {
 func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 	switch msg.Type() {
 	case messages.MessageTypeCall, messages.MessageTypeYield, messages.MessageTypeRegister,
-		messages.MessageTypeUnregister:
+		messages.MessageTypeUnregister, messages.MessageTypeError:
 		msgWithRecipient, err := r.dealer.ReceiveMessage(sessionID, msg)
 		if err != nil {
 			return err
