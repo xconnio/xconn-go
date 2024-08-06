@@ -99,7 +99,7 @@ func Run(args []string) error {
 		}
 
 		authenticator := NewAuthenticator(config.Authenticators)
-		server := xconn.NewServer(router, authenticator)
+		server := xconn.NewServer(router, authenticator, nil)
 
 		for _, transport := range config.Transports {
 			if slices.Contains(transport.Serializers, "protobuf") {
