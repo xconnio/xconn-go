@@ -10,6 +10,9 @@ transports:
       - json
       - cbor
       - protobuf
+    ratelimit:
+      rate: 100
+      interval: 1
 
 authenticators:
   cryptosign:

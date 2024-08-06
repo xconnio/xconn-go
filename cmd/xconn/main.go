@@ -7,12 +7,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"golang.org/x/exp/slices"
 	"gopkg.in/yaml.v3"
 
 	"github.com/xconnio/xconn-go"
+	"github.com/xconnio/xconn-go/internal"
 )
 
 var (
@@ -99,9 +101,13 @@ func Run(args []string) error {
 		}
 
 		authenticator := NewAuthenticator(config.Authenticators)
-		server := xconn.NewServer(router, authenticator, nil)
 
 		for _, transport := range config.Transports {
+			var throttle *internal.Throttle
+			if transport.RateLimit.Rate > 0 && transport.RateLimit.Interval > 0 {
+				throttle = internal.NewThrottle(transport.RateLimit.Rate, time.Duration(transport.RateLimit.Interval)*time.Second)
+			}
+			server := xconn.NewServer(router, authenticator, throttle)
 			if slices.Contains(transport.Serializers, "protobuf") {
 				if err := server.RegisterSpec(xconn.ProtobufSerializerSpec); err != nil {
 					return err
