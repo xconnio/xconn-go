@@ -6,15 +6,19 @@ import (
 	"net"
 	"os"
 
+	"github.com/projectdiscovery/ratelimit"
+
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/xconn-go/internal"
 )
 
 type Server struct {
 	router   *Router
 	acceptor *WebSocketAcceptor
+	throttle *internal.Throttle
 }
 
-func NewServer(router *Router, authenticator auth.ServerAuthenticator) *Server {
+func NewServer(router *Router, authenticator auth.ServerAuthenticator, throttle *internal.Throttle) *Server {
 	acceptor := &WebSocketAcceptor{
 		Authenticator: authenticator,
 	}
@@ -22,6 +26,7 @@ func NewServer(router *Router, authenticator auth.ServerAuthenticator) *Server {
 	return &Server{
 		router:   router,
 		acceptor: acceptor,
+		throttle: throttle,
 	}
 }
 
@@ -60,11 +65,20 @@ func (s *Server) startConnectionLoop(ln net.Listener) error {
 				return
 			}
 
+			var limiter *ratelimit.Limiter
+			if s.throttle != nil {
+				limiter = s.throttle.Create()
+			}
+
 			for {
 				msg, err := base.ReadMessage()
 				if err != nil {
 					_ = s.router.DetachClient(base)
 					break
+				}
+
+				if limiter != nil {
+					limiter.Take()
 				}
 
 				if err = s.router.ReceiveMessage(base, msg); err != nil {

@@ -23,7 +23,7 @@ func main() {
 	r := xconn.NewRouter()
 	r.AddRealm(*realm)
 
-	server := xconn.NewServer(r, nil)
+	server := xconn.NewServer(r, nil, nil)
 	err := server.Start(*host, *port)
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
