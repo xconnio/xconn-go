@@ -5,9 +5,15 @@ type Realm struct {
 }
 
 type Transport struct {
-	Type        string   `yaml:"type"`
-	Port        int      `yaml:"port"`
-	Serializers []string `yaml:"serializers"`
+	Type        string    `yaml:"type"`
+	Port        int       `yaml:"port"`
+	Serializers []string  `yaml:"serializers"`
+	RateLimit   RateLimit `yaml:"ratelimit"`
+}
+
+type RateLimit struct {
+	Rate     uint `yaml:"rate"`
+	Interval int  `yaml:"interval"`
 }
 
 type CryptoSign struct {
