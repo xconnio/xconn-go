@@ -38,7 +38,8 @@ type Session struct {
 
 	goodbyeChan chan struct{}
 
-	onLeave func()
+	onLeave   func()
+	leaveChan chan struct{}
 }
 
 func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
@@ -58,6 +59,8 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 		publishRequests:     map[int64]chan *PublishResponse{},
 
 		goodbyeChan: make(chan struct{}, 1),
+
+		leaveChan: make(chan struct{}, 1),
 	}
 
 	go session.waitForRouterMessages()
@@ -247,6 +250,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		if s.onLeave != nil {
 			s.onLeave()
 		}
+		s.leaveChan <- struct{}{}
 	default:
 		return fmt.Errorf("SESSION: received unexpected message %T", msg)
 	}
@@ -463,4 +467,8 @@ func (s *Session) Leave() error {
 
 func (s *Session) SetOnLeaveListener(listener func()) {
 	s.onLeave = listener
+}
+
+func (s *Session) LeaveChan() <-chan struct{} {
+	return s.leaveChan
 }
