@@ -114,7 +114,7 @@ func Run(args []string) error {
 				}
 			}
 
-			if err := server.Start("0.0.0.0", transport.Port); err != nil {
+			if err := server.Start(transport.Host, transport.Port); err != nil {
 				return err
 			}
 		}

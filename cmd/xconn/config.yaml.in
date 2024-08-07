@@ -6,6 +6,7 @@ realms:
 transports:
   - type: websocket
     port: 8080
+    host: localhost
     serializers:
       - json
       - cbor
