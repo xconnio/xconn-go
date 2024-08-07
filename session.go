@@ -37,6 +37,8 @@ type Session struct {
 	publishRequests     map[int64]chan *PublishResponse
 
 	goodbyeChan chan struct{}
+
+	onLeave func()
 }
 
 func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
@@ -242,6 +244,9 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 	case messages.MessageTypeGoodbye:
 		s.goodbyeChan <- struct{}{}
+		if s.onLeave != nil {
+			s.onLeave()
+		}
 	default:
 		return fmt.Errorf("SESSION: received unexpected message %T", msg)
 	}
@@ -454,4 +459,8 @@ func (s *Session) Leave() error {
 	case <-time.After(time.Second * 10):
 		return errors.New("leave timeout")
 	}
+}
+
+func (s *Session) SetOnLeaveListener(listener func()) {
+	s.onLeave = listener
 }
