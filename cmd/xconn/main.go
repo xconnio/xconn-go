@@ -105,8 +105,12 @@ func Run(args []string) error {
 		for _, transport := range config.Transports {
 			var throttle *internal.Throttle
 			if transport.RateLimit.Rate > 0 && transport.RateLimit.Interval > 0 {
+				strategy := internal.Burst
+				if transport.RateLimit.Strategy == LeakyBucketStrategy {
+					strategy = internal.LeakyBucket
+				}
 				throttle = internal.NewThrottle(transport.RateLimit.Rate,
-					time.Duration(transport.RateLimit.Interval)*time.Second, internal.Burst)
+					time.Duration(transport.RateLimit.Interval)*time.Second, strategy)
 			}
 			server := xconn.NewServer(router, authenticator, throttle)
 			if slices.Contains(transport.Serializers, "protobuf") {

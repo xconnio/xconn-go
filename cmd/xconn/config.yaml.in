@@ -14,6 +14,7 @@ transports:
     ratelimit:
       rate: 100
       interval: 1
+      strategy: burst
 
 authenticators:
   cryptosign:
