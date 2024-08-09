@@ -19,3 +19,9 @@ run-docs:
 
 clean-docs:
 	rm -rf site/
+
+release-local:
+	 goreleaser release --snapshot --clean
+
+release:
+	goreleaser release
