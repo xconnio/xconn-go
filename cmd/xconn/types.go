@@ -6,6 +6,7 @@ type Realm struct {
 
 type Transport struct {
 	Type        string    `yaml:"type"`
+	Host        string    `yaml:"host"`
 	Port        int       `yaml:"port"`
 	Serializers []string  `yaml:"serializers"`
 	RateLimit   RateLimit `yaml:"ratelimit"`
