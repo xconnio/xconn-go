@@ -105,7 +105,8 @@ func Run(args []string) error {
 		for _, transport := range config.Transports {
 			var throttle *internal.Throttle
 			if transport.RateLimit.Rate > 0 && transport.RateLimit.Interval > 0 {
-				throttle = internal.NewThrottle(transport.RateLimit.Rate, time.Duration(transport.RateLimit.Interval)*time.Second)
+				throttle = internal.NewThrottle(transport.RateLimit.Rate,
+					time.Duration(transport.RateLimit.Interval)*time.Second, internal.Burst)
 			}
 			server := xconn.NewServer(router, authenticator, throttle)
 			if slices.Contains(transport.Serializers, "protobuf") {
