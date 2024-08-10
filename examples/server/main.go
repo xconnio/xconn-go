@@ -24,6 +24,7 @@ func main() {
 
 	r := xconn.NewRouter()
 	r.AddRealm(*realm)
+	defer r.Close()
 
 	server := xconn.NewServer(r, nil, nil)
 	closer, err := server.Start(*host, *port)

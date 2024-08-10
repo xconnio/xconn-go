@@ -56,3 +56,10 @@ func (r *Router) ReceiveMessage(base BaseSession, msg messages.Message) error {
 
 	return realm.ReceiveMessage(base.ID(), msg)
 }
+
+func (r *Router) Close() {
+	r.realms.Range(func(name string, realm *Realm) bool {
+		realm.Close()
+		return true
+	})
+}
