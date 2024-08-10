@@ -4,8 +4,10 @@ import (
 	"bytes"
 	_ "embed" // nolint:gci
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"time"
 
@@ -102,6 +104,7 @@ func Run(args []string) error {
 
 		authenticator := NewAuthenticator(config.Authenticators)
 
+		closers := make([]io.Closer, 0)
 		for _, transport := range config.Transports {
 			var throttle *internal.Throttle
 			if transport.RateLimit.Rate > 0 && transport.RateLimit.Interval > 0 {
@@ -114,11 +117,22 @@ func Run(args []string) error {
 				}
 			}
 
-			if err := server.Start(transport.Host, transport.Port); err != nil {
+			closer, err := server.Start(transport.Host, transport.Port)
+			if err != nil {
 				return err
 			}
+
+			closers = append(closers, closer)
 		}
 
+		// Close server if SIGINT (CTRL-c) received.
+		closeChan := make(chan os.Signal, 1)
+		signal.Notify(closeChan, os.Interrupt)
+		<-closeChan
+
+		for _, closer := range closers {
+			_ = closer.Close()
+		}
 	}
 
 	return nil
