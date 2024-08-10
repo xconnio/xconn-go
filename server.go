@@ -2,6 +2,7 @@ package xconn
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -34,24 +35,27 @@ func (s *Server) RegisterSpec(spec WSSerializerSpec) error {
 	return s.acceptor.RegisterSpec(spec)
 }
 
-func (s *Server) Start(host string, port int) error {
+func (s *Server) Start(host string, port int) (io.Closer, error) {
 	address := fmt.Sprintf("%s:%d", host, port)
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
-		return fmt.Errorf("failed to listen: %w", err)
+		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
 	actualPort := ln.Addr().(*net.TCPAddr).Port
 	fmt.Printf("listening on ws://%s:%d/ws\n", host, actualPort)
 
-	return s.startConnectionLoop(ln)
+	go s.startConnectionLoop(ln)
+
+	return ln, err
 }
 
-func (s *Server) startConnectionLoop(ln net.Listener) error {
+func (s *Server) startConnectionLoop(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			return err
+			_ = ln.Close()
+			return
 		}
 
 		go func() {
@@ -90,17 +94,19 @@ func (s *Server) startConnectionLoop(ln net.Listener) error {
 	}
 }
 
-func (s *Server) StartUnixServer(udsPath string) error {
+func (s *Server) StartUnixServer(udsPath string) (io.Closer, error) {
 	if err := os.RemoveAll(udsPath); err != nil {
-		return fmt.Errorf("failed to remove old UDS file: %w", err)
+		return nil, fmt.Errorf("failed to remove old UDS file: %w", err)
 	}
 
 	ln, err := net.Listen("unix", udsPath)
 	if err != nil {
-		return fmt.Errorf("failed to listen on UDS: %w", err)
+		return nil, fmt.Errorf("failed to listen on UDS: %w", err)
 	}
 
 	fmt.Printf("listening on unix://%s\n", udsPath)
 
-	return s.startConnectionLoop(ln)
+	go s.startConnectionLoop(ln)
+
+	return ln, err
 }

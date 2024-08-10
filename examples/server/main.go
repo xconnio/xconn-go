@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
+	"os/signal"
 
 	"github.com/xconnio/xconn-go"
 )
@@ -24,8 +26,14 @@ func main() {
 	r.AddRealm(*realm)
 
 	server := xconn.NewServer(r, nil, nil)
-	err := server.Start(*host, *port)
+	closer, err := server.Start(*host, *port)
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+	defer closer.Close()
+
+	// Close server if SIGINT (CTRL-c) received.
+	closeChan := make(chan os.Signal, 1)
+	signal.Notify(closeChan, os.Interrupt)
+	<-closeChan
 }
