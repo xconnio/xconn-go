@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -12,6 +14,9 @@ const (
 	CborSerializer     = "cbor"
 	MsgPackSerializer  = "msgpack"
 	ProtobufSerializer = "protobuf"
+
+	BurstStrategy       = "burst"
+	LeakyBucketStrategy = "leakybucket"
 )
 
 var URIRegex = regexp.MustCompile(`^([^\s.#]+\.)*([^\s.#]+)$`)
@@ -67,6 +72,12 @@ func validateTransport(transport Transport) error {
 
 	if err := validateSerializers(transport.Serializers); err != nil {
 		return err
+	}
+
+	allowedStrategies := []string{"", BurstStrategy, LeakyBucketStrategy}
+	if !slices.Contains(allowedStrategies, transport.RateLimit.Strategy) {
+		return fmt.Errorf("invalid rate limit strategy '%s', must be one of '%s' or '%s'",
+			transport.RateLimit.Strategy, BurstStrategy, LeakyBucketStrategy)
 	}
 
 	return nil

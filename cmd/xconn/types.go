@@ -13,8 +13,9 @@ type Transport struct {
 }
 
 type RateLimit struct {
-	Rate     uint `yaml:"rate"`
-	Interval int  `yaml:"interval"`
+	Rate     uint   `yaml:"rate"`
+	Interval int    `yaml:"interval"`
+	Strategy string `yaml:"strategy"`
 }
 
 type CryptoSign struct {
