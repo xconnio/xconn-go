@@ -50,6 +50,40 @@ func (s *Server) Start(host string, port int) (io.Closer, error) {
 	return ln, err
 }
 
+func (s *Server) HandleClient(conn net.Conn) {
+	base, err := s.acceptor.Accept(conn)
+	if err != nil {
+		return
+	}
+
+	if err = s.router.AttachClient(base); err != nil {
+		log.Println(err)
+		return
+	}
+
+	var limiter *ratelimit.Limiter
+	if s.throttle != nil {
+		limiter = s.throttle.Create()
+	}
+
+	for {
+		msg, err := base.ReadMessage()
+		if err != nil {
+			_ = s.router.DetachClient(base)
+			break
+		}
+
+		if limiter != nil {
+			limiter.Take()
+		}
+
+		if err = s.router.ReceiveMessage(base, msg); err != nil {
+			log.Println(err)
+			return
+		}
+	}
+}
+
 func (s *Server) startConnectionLoop(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
@@ -58,39 +92,7 @@ func (s *Server) startConnectionLoop(ln net.Listener) {
 			return
 		}
 
-		go func() {
-			base, err := s.acceptor.Accept(conn)
-			if err != nil {
-				return
-			}
-
-			if err = s.router.AttachClient(base); err != nil {
-				log.Println(err)
-				return
-			}
-
-			var limiter *ratelimit.Limiter
-			if s.throttle != nil {
-				limiter = s.throttle.Create()
-			}
-
-			for {
-				msg, err := base.ReadMessage()
-				if err != nil {
-					_ = s.router.DetachClient(base)
-					break
-				}
-
-				if limiter != nil {
-					limiter.Take()
-				}
-
-				if err = s.router.ReceiveMessage(base, msg); err != nil {
-					log.Println(err)
-					return
-				}
-			}
-		}()
+		go s.HandleClient(conn)
 	}
 }
 
