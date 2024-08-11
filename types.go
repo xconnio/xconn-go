@@ -1,6 +1,7 @@
 package xconn
 
 import (
+	"context"
 	"io"
 	"net"
 	"time"
@@ -57,6 +58,7 @@ type Peer interface {
 type WSDialerConfig struct {
 	SubProtocol string
 	DialTimeout time.Duration
+	NetDial     func(ctx context.Context, network, addr string) (net.Conn, error)
 }
 
 type WebSocketServerConfig struct {

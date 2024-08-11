@@ -17,6 +17,7 @@ import (
 type WebSocketJoiner struct {
 	SerializerSpec WSSerializerSpec
 	Authenticator  auth.ClientAuthenticator
+	NetDial        func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	DialTimeout time.Duration
 }
@@ -42,6 +43,7 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string) (BaseSess
 	dialConfig := WSDialerConfig{
 		SubProtocol: w.SerializerSpec.SubProtocol(),
 		DialTimeout: w.DialTimeout,
+		NetDial:     w.NetDial,
 	}
 
 	peer, err := DialWebSocket(ctx, parsedURL, dialConfig)
@@ -63,12 +65,16 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config WSDialerConfig) 
 		wsDialer.Timeout = config.DialTimeout
 	}
 
-	if url.Scheme == "unix" {
-		// Custom dial function for Unix Domain Socket
-		wsDialer.NetDial = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return net.Dial("unix", url.Path)
+	if config.NetDial == nil {
+		if url.Scheme == "unix" {
+			// Custom dial function for Unix Domain Socket
+			wsDialer.NetDial = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return net.Dial("unix", url.Path)
+			}
+			url.Scheme = "ws"
 		}
-		url.Scheme = "ws"
+	} else {
+		wsDialer.NetDial = config.NetDial
 	}
 
 	conn, _, _, err := wsDialer.Dial(ctx, url.String())
