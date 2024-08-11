@@ -2,6 +2,7 @@ package xconn
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/xconnio/wampproto-go/auth"
@@ -10,6 +11,7 @@ import (
 type Client struct {
 	Authenticator  auth.ClientAuthenticator
 	SerializerSpec WSSerializerSpec
+	NetDial        func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	DialTimeout time.Duration
 }
