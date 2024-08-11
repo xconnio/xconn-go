@@ -25,6 +25,7 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 		Authenticator:  c.Authenticator,
 		SerializerSpec: c.SerializerSpec,
 		DialTimeout:    c.DialTimeout,
+		NetDial:        c.NetDial,
 	}
 
 	base, err := joiner.Join(ctx, url, realm)
