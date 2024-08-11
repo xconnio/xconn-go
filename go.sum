@@ -41,8 +41,8 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
-github.com/xconnio/wampproto-go v0.0.0-20240706131442-1870c92694cb h1:rx17JGZAm5T58akMwh6UI9XsQv6i2gA6NsSkv+8iTaU=
-github.com/xconnio/wampproto-go v0.0.0-20240706131442-1870c92694cb/go.mod h1:/b7EyR1X9EkOHPQBJGz1KvdjClo1GsalBGIzjQU5+i4=
+github.com/xconnio/wampproto-go v0.0.0-20240801143427-b722ee9231d0 h1:IU8Sn5EkI0vO/r8C36lEWM3wiSMi7NpxNmpUmt2fUyg=
+github.com/xconnio/wampproto-go v0.0.0-20240801143427-b722ee9231d0/go.mod h1:/b7EyR1X9EkOHPQBJGz1KvdjClo1GsalBGIzjQU5+i4=
 github.com/xconnio/wampproto-protobuf/go v0.0.0-20240706133816-0ca5f0268ce9 h1:N0W6uTElFFj/nl88fAtCwUw0y0pdHbtn3QPQri/iGsw=
 github.com/xconnio/wampproto-protobuf/go v0.0.0-20240706133816-0ca5f0268ce9/go.mod h1:k3t5aYBC+1ujppNAaIgu+Kn7oryRSwsP3o362HkAAho=
 github.com/xhit/go-str2duration/v2 v2.1.0 h1:lxklc02Drh6ynqX+DdPyp5pCKLUQpRT8bp8Ydu2Bstc=
