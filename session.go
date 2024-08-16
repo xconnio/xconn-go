@@ -31,10 +31,10 @@ type Session struct {
 	callRequests       sync.Map
 
 	// publish subscribe data structures
-	subscribeRequests   map[int64]chan *SubscribeResponse
-	unsubscribeRequests map[int64]chan *UnsubscribeResponse
-	subscriptions       map[int64]EventHandler
-	publishRequests     map[int64]chan *PublishResponse
+	subscribeRequests   sync.Map
+	unsubscribeRequests sync.Map
+	subscriptions       sync.Map
+	publishRequests     sync.Map
 
 	goodbyeChan chan struct{}
 
@@ -53,10 +53,10 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 		registrations:      sync.Map{},
 		callRequests:       sync.Map{},
 
-		subscribeRequests:   map[int64]chan *SubscribeResponse{},
-		unsubscribeRequests: map[int64]chan *UnsubscribeResponse{},
-		subscriptions:       map[int64]EventHandler{},
-		publishRequests:     map[int64]chan *PublishResponse{},
+		subscribeRequests:   sync.Map{},
+		unsubscribeRequests: sync.Map{},
+		subscriptions:       sync.Map{},
+		publishRequests:     sync.Map{},
 
 		goodbyeChan: make(chan struct{}, 1),
 
@@ -153,31 +153,34 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 	case messages.MessageTypeSubscribed:
 		subscribed := msg.(*messages.Subscribed)
-		request, exists := s.subscribeRequests[subscribed.RequestID()]
+		request, exists := s.subscribeRequests.Load(subscribed.RequestID())
 		if !exists {
 			return fmt.Errorf("received SUBSCRIBED for unknown request")
 		}
 
-		request <- &SubscribeResponse{msg: subscribed}
+		req := request.(chan *SubscribeResponse)
+		req <- &SubscribeResponse{msg: subscribed}
 	case messages.MessageTypeUnsubscribed:
 		unsubscribed := msg.(*messages.Unsubscribed)
-		request, exists := s.unsubscribeRequests[unsubscribed.RequestID()]
+		request, exists := s.unsubscribeRequests.Load(unsubscribed.RequestID())
 		if !exists {
 			return fmt.Errorf("received UNSUBSCRIBED for unknown request")
 		}
 
-		request <- &UnsubscribeResponse{msg: unsubscribed}
+		req := request.(chan *UnsubscribeResponse)
+		req <- &UnsubscribeResponse{msg: unsubscribed}
 	case messages.MessageTypePublished:
 		published := msg.(*messages.Published)
-		request, exists := s.publishRequests[published.RequestID()]
+		request, exists := s.publishRequests.Load(published.RequestID())
 		if !exists {
 			return fmt.Errorf("received PUBLISHED for unknown request")
 		}
 
-		request <- &PublishResponse{msg: published}
+		req := request.(chan *PublishResponse)
+		req <- &PublishResponse{msg: published}
 	case messages.MessageTypeEvent:
 		event := msg.(*messages.Event)
-		handler, exists := s.subscriptions[event.SubscriptionID()]
+		handler, exists := s.subscriptions.Load(event.SubscriptionID())
 		if !exists {
 			return fmt.Errorf("received EVENT for unknown subscription")
 		}
@@ -187,7 +190,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			KwArgs:  event.KwArgs(),
 			Details: event.Details(),
 		}
-		go handler(evt)
+		eventHandler := handler.(EventHandler)
+		go eventHandler(evt)
 	case messages.MessageTypeError:
 		errorMsg := msg.(*messages.Error)
 		switch errorMsg.MessageType() {
@@ -219,28 +223,28 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 
 			return nil
 		case messages.MessageTypeSubscribe:
-			_, exists := s.subscribeRequests[errorMsg.RequestID()]
+			_, exists := s.subscribeRequests.Load(errorMsg.RequestID())
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid subscribe request")
 			}
 
-			delete(s.subscribeRequests, errorMsg.RequestID())
+			s.subscribeRequests.Delete(errorMsg.RequestID())
 			return nil
 		case messages.MessageTypeUnsubscribe:
-			_, exists := s.unsubscribeRequests[errorMsg.RequestID()]
+			_, exists := s.unsubscribeRequests.Load(errorMsg.RequestID())
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid unsubscribe request")
 			}
 
-			delete(s.unsubscribeRequests, errorMsg.RequestID())
+			s.unsubscribeRequests.Delete(errorMsg.RequestID())
 			return nil
 		case messages.MessageTypePublish:
-			_, exists := s.publishRequests[errorMsg.RequestID()]
+			_, exists := s.publishRequests.Load(errorMsg.RequestID())
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid publish request")
 			}
 
-			delete(s.publishRequests, errorMsg.RequestID())
+			s.publishRequests.Delete(errorMsg.RequestID())
 			return nil
 		default:
 			return fmt.Errorf("unknown error message type %T", msg)
@@ -360,8 +364,8 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 	}
 
 	channel := make(chan *SubscribeResponse, 1)
-	s.subscribeRequests[subscribe.RequestID()] = channel
-	defer delete(s.subscribeRequests, subscribe.RequestID())
+	s.subscribeRequests.Store(subscribe.RequestID(), channel)
+	defer s.subscribeRequests.Delete(subscribe.RequestID())
 	if err = s.base.Write(toSend); err != nil {
 		return nil, err
 	}
@@ -372,7 +376,7 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 			return nil, response.error
 		}
 
-		s.subscriptions[response.msg.SubscriptionID()] = handler
+		s.subscriptions.Store(response.msg.SubscriptionID(), handler)
 		sub := &Subscription{
 			ID: response.msg.SubscriptionID(),
 		}
@@ -390,8 +394,8 @@ func (s *Session) Unsubscribe(subscription *Subscription) error {
 	}
 
 	channel := make(chan *UnsubscribeResponse, 1)
-	s.unsubscribeRequests[unsubscribe.RequestID()] = channel
-	defer delete(s.unsubscribeRequests, unsubscribe.RequestID())
+	s.unsubscribeRequests.Store(unsubscribe.RequestID(), channel)
+	defer s.unsubscribeRequests.Delete(unsubscribe.RequestID())
 	if err = s.base.Write(toSend); err != nil {
 		return err
 	}
@@ -402,7 +406,7 @@ func (s *Session) Unsubscribe(subscription *Subscription) error {
 			return response.error
 		}
 
-		delete(s.subscriptions, subscription.ID)
+		s.subscriptions.Delete(subscription.ID)
 		return nil
 	case <-time.After(10 * time.Second):
 		return fmt.Errorf("unsubscribe request timed")
@@ -428,8 +432,8 @@ func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 	}
 
 	channel := make(chan *PublishResponse, 1)
-	s.publishRequests[publish.RequestID()] = channel
-	defer delete(s.publishRequests, publish.RequestID())
+	s.publishRequests.Store(publish.RequestID(), channel)
+	defer s.publishRequests.Delete(publish.RequestID())
 	if err = s.base.Write(toSend); err != nil {
 		return err
 	}
