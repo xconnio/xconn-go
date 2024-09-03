@@ -128,19 +128,20 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		endpoint := end.(InvocationHandler)
 
 		inv := &Invocation{
-			Args:    invocation.Args(),
-			KwArgs:  invocation.KwArgs(),
-			Details: invocation.Details(),
+			Arguments:   invocation.Args(),
+			KwArguments: invocation.KwArgs(),
+			Details:     invocation.Details(),
 		}
 
 		var msgToSend messages.Message
 		res, invErr := endpoint(context.Background(), inv)
 		if invErr != nil {
 			msgToSend = messages.NewError(
-				int64(invocation.Type()), invocation.RequestID(), map[string]any{}, invErr.URI, invErr.Args, invErr.KwArgs,
+				int64(invocation.Type()), invocation.RequestID(), map[string]any{}, invErr.URI, invErr.Arguments,
+				invErr.KwArguments,
 			)
 		} else {
-			msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Args, res.KwArgs)
+			msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Arguments, res.KwArguments)
 		}
 
 		payload, err := s.proto.SendMessage(msgToSend)
@@ -186,9 +187,9 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 
 		evt := &Event{
-			Args:    event.Args(),
-			KwArgs:  event.KwArgs(),
-			Details: event.Details(),
+			Arguments:   event.Args(),
+			KwArguments: event.KwArgs(),
+			Details:     event.Details(),
 		}
 		eventHandler := handler.(EventHandler)
 		go eventHandler(evt)
@@ -201,7 +202,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return fmt.Errorf("received ERROR for invalid call request")
 			}
 
-			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), KwArgs: errorMsg.KwArgs()}
+			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
 			responseChan := response.(chan *CallResponse)
 			responseChan <- &CallResponse{error: err}
 			return nil
@@ -211,7 +212,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return fmt.Errorf("received ERROR for invalid register request")
 			}
 
-			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), KwArgs: errorMsg.KwArgs()}
+			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
 			requestChan := request.(chan *RegisterResponse)
 			requestChan <- &RegisterResponse{error: err}
 			return nil
@@ -346,9 +347,9 @@ func (s *Session) Call(ctx context.Context, procedure string, args []any, kwArgs
 		}
 
 		result := &Result{
-			Args:    response.msg.Args(),
-			KwArgs:  response.msg.KwArgs(),
-			Details: response.msg.Details(),
+			Arguments:   response.msg.Args(),
+			KwArguments: response.msg.KwArgs(),
+			Details:     response.msg.Details(),
 		}
 		return result, nil
 	case <-ctx.Done():
