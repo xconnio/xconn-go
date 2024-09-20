@@ -95,3 +95,43 @@ func TestPublishSubscribe(t *testing.T) {
 		log.Println(event)
 	})
 }
+
+func TestProgressiveCallResults(t *testing.T) {
+	session := connect(t)
+
+	reg, err := session.Register(
+		"foo.bar.progress",
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+			// Send progress
+			for i := 1; i <= 3; i++ {
+				err := invocation.SendProgress([]any{i}, nil)
+				require.NoError(t, err)
+			}
+
+			// Return final result
+			return &xconn.Result{Arguments: []any{"done"}}
+		},
+		nil,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, reg)
+
+	t.Run("ProgressiveCall", func(t *testing.T) {
+		// Store received progress updates
+		progressUpdates := make([]int, 0)
+
+		result, err := session.CallProgress(context.Background(), "foo.bar.progress", nil, nil, nil,
+			func(progressiveResult *xconn.Result) {
+				progress := int(progressiveResult.Arguments[0].(float64))
+				// Collect received progress
+				progressUpdates = append(progressUpdates, progress)
+			})
+		require.NoError(t, err)
+
+		// Verify progressive updates received correctly
+		require.Equal(t, []int{1, 2, 3}, progressUpdates)
+
+		// Verify the final result
+		require.Equal(t, "done", result.Arguments[0])
+	})
+}

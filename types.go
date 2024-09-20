@@ -115,11 +115,15 @@ type Event struct {
 	Details     map[string]any
 }
 
+type SendProgress func(arguments []any, kwArguments map[string]any) error
+
 type Invocation struct {
 	Procedure   string
 	Arguments   []any
 	KwArguments map[string]any
 	Details     map[string]any
+
+	SendProgress SendProgress
 }
 
 type Result struct {
