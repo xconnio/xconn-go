@@ -111,3 +111,17 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 		return fmt.Errorf("unknown message type: %v", msg.Type())
 	}
 }
+
+func (r *Realm) Close() {
+	goodbye := messages.NewGoodBye("wamp.close.goodbye_and_out", nil)
+
+	r.clients.Range(func(id int64, client BaseSession) bool {
+		_ = client.WriteMessage(goodbye)
+
+		_ = client.Close()
+
+		_ = r.DetachClient(client)
+
+		return true
+	})
+}

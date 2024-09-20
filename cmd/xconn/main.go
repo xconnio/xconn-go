@@ -97,6 +97,7 @@ func Run(args []string) error {
 		}
 
 		router := xconn.NewRouter()
+		defer router.Close()
 
 		for _, realm := range config.Realms {
 			router.AddRealm(realm.Name)
