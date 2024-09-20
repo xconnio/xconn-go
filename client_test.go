@@ -46,8 +46,8 @@ func TestRegisterCall(t *testing.T) {
 	session := connect(t)
 	reg, err := session.Register(
 		"foo.bar",
-		func(ctx context.Context, invocation *xconn.Invocation) (*xconn.Result, *xconn.Error) {
-			return &xconn.Result{Arguments: []any{"hello"}}, nil
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+			return &xconn.Result{Arguments: []any{"hello"}}
 		},
 		nil,
 	)
