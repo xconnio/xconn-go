@@ -14,7 +14,7 @@ import (
 	"github.com/xconnio/wampproto-go/serializers"
 )
 
-type InvocationHandler func(ctx context.Context, invocation *Invocation) (*Result, *Error)
+type InvocationHandler func(ctx context.Context, invocation *Invocation) *Result
 type EventHandler func(event *Event)
 
 type Session struct {
@@ -134,11 +134,10 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 
 		var msgToSend messages.Message
-		res, invErr := endpoint(context.Background(), inv)
-		if invErr != nil {
+		res := endpoint(context.Background(), inv)
+		if res.Err != "" {
 			msgToSend = messages.NewError(
-				int64(invocation.Type()), invocation.RequestID(), map[string]any{}, invErr.URI, invErr.Arguments,
-				invErr.KwArguments,
+				int64(invocation.Type()), invocation.RequestID(), map[string]any{}, res.Err, res.Arguments, res.KwArguments,
 			)
 		} else {
 			msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Arguments, res.KwArguments)

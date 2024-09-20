@@ -126,6 +126,7 @@ type Result struct {
 	Arguments   []any
 	KwArguments map[string]any
 	Details     map[string]any
+	Err         string
 }
 
 type Error struct {
