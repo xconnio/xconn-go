@@ -109,29 +109,29 @@ type Subscription struct {
 }
 
 type Event struct {
-	Topic   string
-	Args    []any
-	KwArgs  map[string]any
-	Details map[string]any
+	Topic       string
+	Arguments   []any
+	KwArguments map[string]any
+	Details     map[string]any
 }
 
 type Invocation struct {
-	Procedure string
-	Args      []any
-	KwArgs    map[string]any
-	Details   map[string]any
+	Procedure   string
+	Arguments   []any
+	KwArguments map[string]any
+	Details     map[string]any
 }
 
 type Result struct {
-	Args    []any
-	KwArgs  map[string]any
-	Details map[string]any
+	Arguments   []any
+	KwArguments map[string]any
+	Details     map[string]any
 }
 
 type Error struct {
-	URI    string
-	Args   []any
-	KwArgs map[string]any
+	URI         string
+	Arguments   []any
+	KwArguments map[string]any
 }
 
 func (e *Error) Error() string {

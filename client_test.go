@@ -47,7 +47,7 @@ func TestRegisterCall(t *testing.T) {
 	reg, err := session.Register(
 		"foo.bar",
 		func(ctx context.Context, invocation *xconn.Invocation) (*xconn.Result, *xconn.Error) {
-			return &xconn.Result{Args: []any{"hello"}}, nil
+			return &xconn.Result{Arguments: []any{"hello"}}, nil
 		},
 		nil,
 	)
@@ -62,7 +62,7 @@ func TestRegisterCall(t *testing.T) {
 				result, err := session.Call(context.Background(), "foo.bar", nil, nil, nil)
 				require.NoError(t, err)
 				require.NotNil(t, result)
-				require.Equal(t, "hello", result.Args[0])
+				require.Equal(t, "hello", result.Arguments[0])
 			})
 		}
 

@@ -16,15 +16,15 @@ const testProcedureSum = "io.xconn.sum"
 
 // Function to handle received Invocation for "io.xconn.sum"
 func sumHandler(_ context.Context, inv *xconn.Invocation) (*xconn.Result, *xconn.Error) {
-	log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Args, inv.KwArgs, inv.Details)
+	log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Arguments, inv.KwArguments, inv.Details)
 	sum := int64(0)
-	for _, i := range inv.Args {
+	for _, i := range inv.Arguments {
 		arg, ok := messages.AsInt64(i)
 		if ok {
 			sum = sum + arg
 		}
 	}
-	return &xconn.Result{Args: []any{sum}}, nil
+	return &xconn.Result{Arguments: []any{sum}}, nil
 }
 
 func main() {
@@ -38,9 +38,9 @@ func main() {
 
 	// Define function to handle received Invocation for "io.xconn.echo"
 	echoHandler := func(_ context.Context, inv *xconn.Invocation) (*xconn.Result, *xconn.Error) {
-		log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Args, inv.KwArgs, inv.Details)
+		log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Arguments, inv.KwArguments, inv.Details)
 
-		return &xconn.Result{Args: inv.Args, KwArgs: inv.KwArgs, Details: inv.Details}, nil
+		return &xconn.Result{Arguments: inv.Arguments, KwArguments: inv.KwArguments, Details: inv.Details}, nil
 	}
 
 	// Register procedure "io.xconn.echo"
