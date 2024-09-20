@@ -35,3 +35,13 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 
 	return NewSession(base, c.SerializerSpec.Serializer()), nil // nolint: contextcheck
 }
+
+func Connect(ctx context.Context, url string, realm string) (*Session, error) {
+	joiner := &WebSocketJoiner{}
+	base, err := joiner.Join(ctx, url, realm)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSession(base, JSONSerializerSpec.Serializer()), nil // nolint: contextcheck
+}
