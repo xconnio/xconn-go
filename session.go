@@ -306,6 +306,10 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 	return nil
 }
 
+func (s *Session) ID() int64 {
+	return s.base.ID()
+}
+
 func (s *Session) Register(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
 
