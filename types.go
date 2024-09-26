@@ -133,6 +133,13 @@ type Result struct {
 	Err         string
 }
 
+type Progress struct {
+	Arguments   []any
+	KwArguments map[string]any
+	Options     map[string]any
+	Err         error
+}
+
 type Error struct {
 	URI         string
 	Arguments   []any
