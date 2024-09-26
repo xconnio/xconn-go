@@ -380,21 +380,7 @@ func (s *Session) call(ctx context.Context, call *messages.Call) (*Result, error
 		return nil, err
 	}
 
-	select {
-	case response := <-channel:
-		if response.error != nil {
-			return nil, response.error
-		}
-
-		result := &Result{
-			Arguments:   response.msg.Args(),
-			KwArguments: response.msg.KwArgs(),
-			Details:     response.msg.Details(),
-		}
-		return result, nil
-	case <-ctx.Done():
-		return nil, fmt.Errorf("call request timed out")
-	}
+	return waitForCallResult(ctx, channel)
 }
 
 func (s *Session) Call(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
@@ -458,6 +444,62 @@ func (s *Session) CallProgressive(ctx context.Context, procedure string,
 		}
 	}()
 
+	return waitForCallResult(ctx, channel)
+}
+
+func (s *Session) CallProgressiveProgress(ctx context.Context, procedure string,
+	progressFunc SendProgressive, progressHandler ProgressHandler) (*Result, error) {
+
+	if progressHandler == nil {
+		progressHandler = func(result *Result) {}
+	}
+
+	progress := progressFunc(ctx)
+	if progress.Err != nil {
+		return nil, progress.Err
+	}
+	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Arguments, progress.KwArguments)
+	s.progressHandlers.Store(call.RequestID(), progressHandler)
+	call.Options()[wampproto.OptionReceiveProgress] = true
+
+	toSend, err := s.proto.SendMessage(call)
+	if err != nil {
+		return nil, err
+	}
+
+	channel := make(chan *CallResponse, 1)
+	s.callRequests.Store(call.RequestID(), channel)
+	defer s.callRequests.Delete(call.RequestID())
+	if err = s.base.Write(toSend); err != nil {
+		return nil, err
+	}
+
+	callInProgress, _ := progress.Options[wampproto.OptionProgress].(bool)
+	go func() {
+		for callInProgress {
+			prog := progressFunc(ctx)
+			if prog.Err != nil {
+				// TODO: implement call canceling
+				return
+			}
+			prog.Options[wampproto.OptionReceiveProgress] = true
+			call := messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Arguments, prog.KwArguments)
+			toSend, err = s.proto.SendMessage(call)
+			if err != nil {
+				return
+			}
+			if err = s.base.Write(toSend); err != nil {
+				return
+			}
+
+			callInProgress, _ = prog.Options[wampproto.OptionProgress].(bool)
+		}
+	}()
+
+	return waitForCallResult(ctx, channel)
+}
+
+func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result, error) {
 	select {
 	case response := <-channel:
 		if response.error != nil {
