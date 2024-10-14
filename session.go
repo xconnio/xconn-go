@@ -514,7 +514,7 @@ func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 }
 
 func (s *Session) Leave() error {
-	goodbye := messages.NewGoodBye("wamp.close.close_realm", map[string]any{})
+	goodbye := messages.NewGoodBye(CloseCloseRealm, map[string]any{})
 	toSend, err := s.proto.SendMessage(goodbye)
 	if err != nil {
 		return err
