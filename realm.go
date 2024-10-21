@@ -100,7 +100,7 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 			return fmt.Errorf("goodbye: client does not exist")
 		}
 
-		goodbye := messages.NewGoodBye("wamp.close.goodbye_and_out", nil)
+		goodbye := messages.NewGoodBye(CloseGoodByeAndOut, nil)
 		if err := client.WriteMessage(goodbye); err != nil {
 			return err
 		}
@@ -113,7 +113,7 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 }
 
 func (r *Realm) Close() {
-	goodbye := messages.NewGoodBye("wamp.close.goodbye_and_out", nil)
+	goodbye := messages.NewGoodBye(CloseGoodByeAndOut, nil)
 
 	r.clients.Range(func(id int64, client BaseSession) bool {
 		_ = client.WriteMessage(goodbye)

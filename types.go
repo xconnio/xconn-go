@@ -172,3 +172,8 @@ type PublishResponse struct {
 	msg   *messages.Published
 	error *Error
 }
+
+type GoodBye struct {
+	Details map[string]any
+	Reason  string
+}

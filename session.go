@@ -39,6 +39,7 @@ type Session struct {
 	publishRequests     sync.Map
 
 	goodbyeChan chan struct{}
+	goodBye     *GoodBye
 
 	onLeave   func()
 	leaveChan chan struct{}
@@ -289,6 +290,12 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("unknown error message type %T", msg)
 		}
 	case messages.MessageTypeGoodbye:
+		goodByeMessage := msg.(*messages.GoodBye)
+		s.goodBye = &GoodBye{
+			Details: goodByeMessage.Details(),
+			Reason:  goodByeMessage.Reason(),
+		}
+
 		s.goodbyeChan <- struct{}{}
 		if s.onLeave != nil {
 			s.onLeave()
@@ -507,7 +514,7 @@ func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 }
 
 func (s *Session) Leave() error {
-	goodbye := messages.NewGoodBye("wamp.close.close_realm", map[string]any{})
+	goodbye := messages.NewGoodBye(CloseCloseRealm, map[string]any{})
 	toSend, err := s.proto.SendMessage(goodbye)
 	if err != nil {
 		return err
@@ -531,4 +538,8 @@ func (s *Session) SetOnLeaveListener(listener func()) {
 
 func (s *Session) LeaveChan() <-chan struct{} {
 	return s.leaveChan
+}
+
+func (s *Session) GoodBye() *GoodBye {
+	return s.goodBye
 }
