@@ -336,6 +336,10 @@ func (s *Session) Connected() bool {
 	return s.goodBye == nil
 }
 
+func (s *Session) ID() int64 {
+	return s.base.ID()
+}
+
 func (s *Session) Register(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
 	if !s.Connected() {
