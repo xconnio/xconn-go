@@ -6,6 +6,7 @@ const (
 	CborWebsocketProtocol    = "wamp.2.cbor"
 	ProtobufSubProtocol      = "wamp.2.protobuf"
 
-	CloseGoodByeAndOut = "wamp.close.goodbye_and_out"
-	CloseCloseRealm    = "wamp.close.close_realm"
+	CloseGoodByeAndOut  = "wamp.close.goodbye_and_out"
+	CloseCloseRealm     = "wamp.close.close_realm"
+	CloseSystemShutdown = "wamp.close.system_shutdown"
 )

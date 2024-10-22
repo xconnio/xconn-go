@@ -113,7 +113,7 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 }
 
 func (r *Realm) Close() {
-	goodbye := messages.NewGoodBye(CloseGoodByeAndOut, nil)
+	goodbye := messages.NewGoodBye(CloseSystemShutdown, nil)
 
 	r.clients.Range(func(id int64, client BaseSession) bool {
 		_ = client.WriteMessage(goodbye)
