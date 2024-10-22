@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"testing"
+	"time"
 
 	"github.com/gammazero/workerpool"
 	"github.com/stretchr/testify/require"
 
+	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -130,6 +132,57 @@ func TestProgressiveCallResults(t *testing.T) {
 
 		// Verify progressive updates received correctly
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
+
+		// Verify the final result
+		require.Equal(t, "done", result.Arguments[0])
+	})
+}
+
+func TestProgressiveCallInvocation(t *testing.T) {
+	session := connect(t)
+
+	// Store progress updates
+	progressUpdates := make([]int, 0)
+	reg, err := session.Register("foo.bar.progress",
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+			progress := int(invocation.Arguments[0].(float64))
+			progressUpdates = append(progressUpdates, progress)
+
+			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
+			if isProgress {
+				return &xconn.Result{Err: xconn.ErrNoResult}
+			}
+
+			return &xconn.Result{Arguments: []any{"done"}}
+		}, nil)
+	require.NoError(t, err)
+	require.NotNil(t, reg)
+
+	t.Run("ProgressiveCall", func(t *testing.T) {
+		totalChunks := 6
+		chunkIndex := 1
+
+		result, err := session.CallProgressive(context.Background(), "foo.bar.progress",
+			func(ctx context.Context) *xconn.Progress {
+				options := map[string]any{}
+
+				// Mark the last chunk as non-progressive
+				if chunkIndex == totalChunks-1 {
+					options[wampproto.OptionProgress] = false
+				} else {
+					options[wampproto.OptionProgress] = true
+				}
+
+				args := []any{chunkIndex}
+				chunkIndex++
+
+				time.Sleep(10 * time.Millisecond)
+				return &xconn.Progress{Arguments: args, Options: options}
+			})
+		require.NoError(t, err)
+
+		// Verify progressive updates received correctly
+		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
 
 		// Verify the final result
 		require.Equal(t, "done", result.Arguments[0])
