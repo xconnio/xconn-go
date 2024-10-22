@@ -188,3 +188,63 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		require.Equal(t, "done", result.Arguments[0])
 	})
 }
+
+func TestCallProgressiveProgress(t *testing.T) {
+	session := connect(t)
+
+	// Store progress updates
+	progressUpdates := make([]int, 0)
+	reg, err := session.Register("foo.bar.progress",
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+			progress := int(invocation.Arguments[0].(float64))
+			progressUpdates = append(progressUpdates, progress)
+
+			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
+			if isProgress {
+				err := invocation.SendProgress([]any{progress}, nil)
+				require.NoError(t, err)
+				return &xconn.Result{Err: xconn.ErrNoResult}
+			}
+
+			return &xconn.Result{Arguments: []any{progress}}
+		}, nil)
+	require.NoError(t, err)
+	require.NotNil(t, reg)
+
+	t.Run("ProgressiveCall", func(t *testing.T) {
+		receivedProgressBack := make([]int, 0)
+		totalChunks := 6
+		chunkIndex := 1
+
+		result, err := session.CallProgressiveProgress(context.Background(), "foo.bar.progress",
+			func(ctx context.Context) *xconn.Progress {
+				options := map[string]any{}
+
+				// Mark the last chunk as non-progressive
+				if chunkIndex == totalChunks-1 {
+					options[wampproto.OptionProgress] = false
+				} else {
+					options[wampproto.OptionProgress] = true
+				}
+
+				args := []any{chunkIndex}
+				chunkIndex++
+
+				time.Sleep(10 * time.Millisecond)
+				return &xconn.Progress{Arguments: args, Options: options}
+			}, func(result *xconn.Result) {
+				progress := int(result.Arguments[0].(float64))
+				receivedProgressBack = append(receivedProgressBack, progress)
+			})
+		require.NoError(t, err)
+
+		finalResult := int(result.Arguments[0].(float64))
+		receivedProgressBack = append(receivedProgressBack, finalResult)
+
+		// Verify progressive updates received correctly
+		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
+
+		// Verify progressive updates mirrored correctly
+		require.Equal(t, progressUpdates, receivedProgressBack)
+	})
+}
