@@ -9,7 +9,7 @@ require (
 	github.com/gobwas/ws v1.4.0
 	github.com/projectdiscovery/ratelimit v0.0.50
 	github.com/stretchr/testify v1.9.0
-	github.com/xconnio/wampproto-go v0.0.0-20240920091217-fd8f83f21c54
+	github.com/xconnio/wampproto-go v0.0.0-20241021144224-de559a3b2e29
 	github.com/xconnio/wampproto-protobuf/go v0.0.0-20240706133816-0ca5f0268ce9
 	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 	gopkg.in/yaml.v3 v3.0.1
