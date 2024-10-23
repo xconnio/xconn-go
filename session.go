@@ -308,8 +308,15 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 	return nil
 }
 
+func (s *Session) Connected() bool {
+	return s.goodBye == nil
+}
+
 func (s *Session) Register(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
+	if !s.Connected() {
+		return nil, fmt.Errorf("cannot register procedure: session not established")
+	}
 
 	register := messages.NewRegister(s.idGen.NextID(), options, procedure)
 	toSend, err := s.proto.SendMessage(register)
@@ -342,6 +349,10 @@ func (s *Session) Register(procedure string, handler InvocationHandler,
 }
 
 func (s *Session) Unregister(registrationID int64) error {
+	if !s.Connected() {
+		return fmt.Errorf("cannot unregister procedure: session not established")
+	}
+
 	unregister := messages.NewUnregister(s.idGen.NextID(), registrationID)
 	toSend, err := s.proto.SendMessage(unregister)
 	if err != nil {
@@ -370,6 +381,10 @@ func (s *Session) Unregister(registrationID int64) error {
 }
 
 func (s *Session) call(ctx context.Context, call *messages.Call) (*Result, error) {
+	if !s.Connected() {
+		return nil, fmt.Errorf("cannot call procedure: session not established")
+	}
+
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
 		return nil, err
@@ -421,6 +436,10 @@ func (s *Session) CallProgress(ctx context.Context, procedure string, args []any
 
 func (s *Session) Subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
+	if !s.Connected() {
+		return nil, fmt.Errorf("cannot subscribe to topic: session not established")
+	}
+
 	toSend, err := s.proto.SendMessage(subscribe)
 	if err != nil {
 		return nil, err
@@ -450,6 +469,10 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 }
 
 func (s *Session) Unsubscribe(subscription *Subscription) error {
+	if !s.Connected() {
+		return fmt.Errorf("cannot unsubscribe topic: session not established")
+	}
+
 	unsubscribe := messages.NewUnsubscribe(s.idGen.NextID(), subscription.ID)
 	toSend, err := s.proto.SendMessage(unsubscribe)
 	if err != nil {
@@ -478,6 +501,9 @@ func (s *Session) Unsubscribe(subscription *Subscription) error {
 
 func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 	options map[string]any) error {
+	if !s.Connected() {
+		return fmt.Errorf("cannot publish to topic: session not established")
+	}
 
 	publish := messages.NewPublish(s.idGen.NextID(), options, topic, args, kwArgs)
 	toSend, err := s.proto.SendMessage(publish)
@@ -514,6 +540,10 @@ func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 }
 
 func (s *Session) Leave() error {
+	if !s.Connected() {
+		return fmt.Errorf("cannot leave: session not established")
+	}
+
 	goodbye := messages.NewGoodBye(CloseCloseRealm, map[string]any{})
 	toSend, err := s.proto.SendMessage(goodbye)
 	if err != nil {
