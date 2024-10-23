@@ -36,7 +36,8 @@ func main() {
 	}
 
 	// Publish event with args and kwargs
-	err = publisher.Publish(testTopic, []any{"Hello", "World"}, map[string]any{"Hello World!": "I love WAMP"}, map[string]any{})
+	err = publisher.Publish(testTopic, []any{"Hello", "World"}, map[string]any{"Hello World!": "I love WAMP"},
+		map[string]any{})
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
