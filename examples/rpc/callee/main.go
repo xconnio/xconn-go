@@ -7,14 +7,13 @@ import (
 	"os/signal"
 
 	"github.com/xconnio/wampproto-go/messages"
-
 	"github.com/xconnio/xconn-go"
 )
 
 const testProcedureEcho = "io.xconn.echo"
 const testProcedureSum = "io.xconn.sum"
 
-// Function to handle received Invocation for "io.xconn.sum"
+// Function to handle received Invocation for "io.xconn.sum".
 func sumHandler(_ context.Context, inv *xconn.Invocation) *xconn.Result {
 	log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Arguments, inv.KwArguments, inv.Details)
 	sum := int64(0)
