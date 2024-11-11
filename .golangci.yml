@@ -105,7 +105,6 @@ linters:
     - decorder
     - durationcheck
     - errorlint
-    - execinquery
     - exportloopref
     - gci
     - gochecknoglobals

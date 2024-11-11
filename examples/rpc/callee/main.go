@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/xconnio/wampproto-go/messages"
+	"github.com/xconnio/wampproto-go/util"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -18,7 +18,7 @@ func sumHandler(_ context.Context, inv *xconn.Invocation) *xconn.Result {
 	log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Arguments, inv.KwArguments, inv.Details)
 	sum := int64(0)
 	for _, i := range inv.Arguments {
-		arg, ok := messages.AsInt64(i)
+		arg, ok := util.AsInt64(i)
 		if ok {
 			sum = sum + arg
 		}
