@@ -2,8 +2,10 @@ package xconn
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/xconnio/wampproto-go/messages"
@@ -147,7 +149,24 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	return e.URI
+	errStr := e.URI
+	if e.Arguments != nil {
+		args := make([]string, len(e.Arguments))
+		for i, arg := range e.Arguments {
+			args[i] = fmt.Sprintf("%v", arg)
+		}
+		errStr += ": " + strings.Join(args, ", ")
+	}
+
+	if e.KwArguments != nil {
+		kwargs := make([]string, len(e.KwArguments))
+		for key, value := range e.KwArguments {
+			kwargs = append(kwargs, fmt.Sprintf("%s=%v", key, value))
+		}
+		errStr += ": " + strings.Join(kwargs, ", ")
+	}
+
+	return errStr
 }
 
 type RegisterResponse struct {
