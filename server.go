@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/projectdiscovery/ratelimit"
 
@@ -14,21 +15,30 @@ import (
 )
 
 type Server struct {
-	router   *Router
-	acceptor *WebSocketAcceptor
-	throttle *internal.Throttle
+	router            *Router
+	acceptor          *WebSocketAcceptor
+	throttle          *internal.Throttle
+	keepAliveInterval time.Duration
+	keepAliveTimeout  time.Duration
 }
 
-func NewServer(router *Router, authenticator auth.ServerAuthenticator, throttle *internal.Throttle) *Server {
+func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *ServerConfig) *Server {
 	acceptor := &WebSocketAcceptor{
 		Authenticator: authenticator,
 	}
 
-	return &Server{
+	server := &Server{
 		router:   router,
 		acceptor: acceptor,
-		throttle: throttle,
 	}
+
+	if config != nil {
+		server.throttle = config.Throttle
+		server.keepAliveInterval = config.KeepAliveInterval
+		server.keepAliveTimeout = config.KeepAliveTimeout
+	}
+
+	return server
 }
 
 func (s *Server) RegisterSpec(spec WSSerializerSpec) error {
@@ -51,7 +61,10 @@ func (s *Server) Start(host string, port int) (io.Closer, error) {
 }
 
 func (s *Server) HandleClient(conn net.Conn) {
-	base, err := s.acceptor.Accept(conn)
+	config := DefaultWebSocketServerConfig()
+	config.KeepAliveInterval = s.keepAliveInterval
+	config.KeepAliveTimeout = s.keepAliveTimeout
+	base, err := s.acceptor.Accept(conn, config)
 	if err != nil {
 		return
 	}

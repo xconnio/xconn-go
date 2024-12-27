@@ -25,7 +25,7 @@ func TestAccept(t *testing.T) {
 		require.NotNil(t, conn)
 
 		acceptor := xconn.WebSocketAcceptor{}
-		session, err := acceptor.Accept(conn)
+		session, err := acceptor.Accept(conn, nil)
 		require.NoError(t, err)
 		require.NotNil(t, session)
 

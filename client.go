@@ -13,7 +13,9 @@ type Client struct {
 	SerializerSpec WSSerializerSpec
 	NetDial        func(ctx context.Context, network, addr string) (net.Conn, error)
 
-	DialTimeout time.Duration
+	DialTimeout       time.Duration
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
 }
 
 func (c *Client) Connect(ctx context.Context, url string, realm string) (*Session, error) {
@@ -24,11 +26,17 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 	joiner := &WebSocketJoiner{
 		Authenticator:  c.Authenticator,
 		SerializerSpec: c.SerializerSpec,
-		DialTimeout:    c.DialTimeout,
-		NetDial:        c.NetDial,
 	}
 
-	base, err := joiner.Join(ctx, url, realm)
+	dialerConfig := &WSDialerConfig{
+		SubProtocol:       c.SerializerSpec.SubProtocol(),
+		DialTimeout:       c.DialTimeout,
+		NetDial:           c.NetDial,
+		KeepAliveInterval: c.KeepAliveInterval,
+		KeepAliveTimeout:  c.KeepAliveTimeout,
+	}
+
+	base, err := joiner.Join(ctx, url, realm, dialerConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +46,10 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 
 func Connect(ctx context.Context, url string, realm string) (*Session, error) {
 	joiner := &WebSocketJoiner{}
-	base, err := joiner.Join(ctx, url, realm)
+	dialerConfig := &WSDialerConfig{
+		SubProtocol: JsonWebsocketProtocol,
+	}
+	base, err := joiner.Join(ctx, url, realm, dialerConfig)
 	if err != nil {
 		return nil, err
 	}

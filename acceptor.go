@@ -69,8 +69,10 @@ func (w *WebSocketAcceptor) Spec(subProtocol string) (serializers.Serializer, er
 	return serializer, nil
 }
 
-func (w *WebSocketAcceptor) Accept(conn net.Conn) (BaseSession, error) {
-	config := DefaultWebSocketServerConfig()
+func (w *WebSocketAcceptor) Accept(conn net.Conn, config *WebSocketServerConfig) (BaseSession, error) {
+	if config == nil {
+		config = DefaultWebSocketServerConfig()
+	}
 	config.SubProtocols = w.protocols()
 	peer, err := UpgradeWebSocket(conn, config)
 	if err != nil {
@@ -161,7 +163,15 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 	}
 
 	isBinary := hs.Protocol != JsonWebsocketProtocol
-	peer, err := NewWebSocketPeer(conn, hs.Protocol, isBinary, true)
+
+	peerConfig := WSPeerConfig{
+		Protocol:          hs.Protocol,
+		Binary:            isBinary,
+		Server:            true,
+		KeepAliveInterval: config.KeepAliveInterval,
+		KeepAliveTimeout:  config.KeepAliveTimeout,
+	}
+	peer, err := NewWebSocketPeer(conn, peerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
 	}
