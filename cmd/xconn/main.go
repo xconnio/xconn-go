@@ -116,7 +116,7 @@ func Run(args []string) error {
 				throttle = internal.NewThrottle(transport.RateLimit.Rate,
 					time.Duration(transport.RateLimit.Interval)*time.Second, strategy)
 			}
-			server := xconn.NewServer(router, authenticator, throttle)
+			server := xconn.NewServer(router, authenticator, &xconn.ServerConfig{Throttle: throttle})
 			if slices.Contains(transport.Serializers, "protobuf") {
 				if err := server.RegisterSpec(xconn.ProtobufSerializerSpec); err != nil {
 					return err

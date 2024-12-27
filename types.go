@@ -11,6 +11,7 @@ import (
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
+	"github.com/xconnio/xconn-go/internal"
 )
 
 type (
@@ -58,13 +59,31 @@ type Peer interface {
 }
 
 type WSDialerConfig struct {
-	SubProtocol string
-	DialTimeout time.Duration
-	NetDial     func(ctx context.Context, network, addr string) (net.Conn, error)
+	SubProtocol       string
+	DialTimeout       time.Duration
+	NetDial           func(ctx context.Context, network, addr string) (net.Conn, error)
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
 }
 
 type WebSocketServerConfig struct {
-	SubProtocols []string
+	SubProtocols      []string
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+}
+
+type WSPeerConfig struct {
+	Protocol          string
+	Binary            bool
+	Server            bool
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+}
+
+type ServerConfig struct {
+	Throttle          *internal.Throttle
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
 }
 
 func DefaultWebSocketServerConfig() *WebSocketServerConfig {

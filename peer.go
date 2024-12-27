@@ -1,8 +1,16 @@
 package xconn
 
 import (
+	"errors"
+	"fmt"
+	"io"
+	"log"
 	"net"
 	"sync"
+	"time"
+
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
@@ -88,48 +96,115 @@ func (b *baseSession) Close() error {
 	return b.client.NetConn().Close()
 }
 
-func NewWebSocketPeer(conn net.Conn, protocol string, binary, server bool) (Peer, error) {
-	var wsReader ReaderFunc
-	var wsWriter WriterFunc
-	var err error
-	if server {
-		wsReader, wsWriter, err = ServerSideWSReaderWriter(binary)
-	} else {
-		wsReader, wsWriter, err = ClientSideWSReaderWriter(binary)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &WebSocketPeer{
+func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
+	peer := &WebSocketPeer{
 		transportType: TransportWebSocket,
-		protocol:      protocol,
+		protocol:      peerConfig.Protocol,
 		conn:          conn,
-		wsReader:      wsReader,
-		wsWriter:      wsWriter,
-	}, nil
+		pingCh:        make(chan struct{}, 1),
+		binary:        peerConfig.Binary,
+		server:        peerConfig.Server,
+	}
+
+	if peerConfig.KeepAliveInterval != 0 {
+		// Start ping-pong handling
+		go peer.startPinger(peerConfig.KeepAliveInterval, peerConfig.KeepAliveTimeout)
+	}
+
+	return peer, nil
 }
 
 type WebSocketPeer struct {
 	transportType TransportType
 	protocol      string
 	conn          net.Conn
-	wsReader      ReaderFunc
-	wsWriter      WriterFunc
 
-	wm sync.Mutex
+	pingCh chan struct{}
+	binary bool
+	server bool
+
+	sync.Mutex
+}
+
+func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTimeout time.Duration) {
+	ticker := time.NewTicker(keepaliveInterval)
+	defer ticker.Stop()
+
+	if keepaliveTimeout == 0 {
+		keepaliveTimeout = 10 * time.Second
+	}
+	for {
+		<-ticker.C
+		// Send a ping
+		err := c.writeOpFunc(c.conn, ws.OpPing, []byte("ping"))
+		if err != nil {
+			log.Printf("failed to send ping: %v\n", err)
+			_ = c.conn.Close()
+			return
+		}
+
+		select {
+		case <-c.pingCh:
+		case <-time.After(keepaliveTimeout):
+			log.Println("ping timeout, closing connection")
+			_ = c.conn.Close()
+			return
+		}
+	}
+}
+
+func (c *WebSocketPeer) peerState() ws.State {
+	if c.server {
+		return ws.StateServerSide
+	}
+	return ws.StateClientSide
+}
+
+func (c *WebSocketPeer) writeOpFunc(w io.Writer, op ws.OpCode, p []byte) error {
+	if c.server {
+		return wsutil.WriteServerMessage(w, op, p)
+	}
+
+	return wsutil.WriteClientMessage(w, op, p)
 }
 
 func (c *WebSocketPeer) Read() ([]byte, error) {
-	return c.wsReader(c.conn)
+	header, reader, err := wsutil.NextReader(c.conn, c.peerState())
+	if err != nil {
+		return nil, err
+	}
+
+	payload := make([]byte, header.Length)
+	_, err = reader.Read(payload)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
+	}
+
+	switch header.OpCode {
+	case ws.OpText, ws.OpBinary:
+		return payload, nil
+	case ws.OpPing:
+		if err = c.writeOpFunc(c.conn, ws.OpPong, payload); err != nil {
+			return nil, fmt.Errorf("failed to send pong: %w", err)
+		}
+	case ws.OpPong:
+		c.pingCh <- struct{}{}
+	case ws.OpClose:
+		_ = c.conn.Close()
+		return nil, fmt.Errorf("connection closed")
+	}
+
+	return c.Read()
 }
 
 func (c *WebSocketPeer) Write(bytes []byte) error {
-	c.wm.Lock()
-	defer c.wm.Unlock()
+	c.Lock()
+	defer c.Unlock()
+	if c.binary {
+		return c.writeOpFunc(c.conn, ws.OpBinary, bytes)
+	}
 
-	return c.wsWriter(c.conn, bytes)
+	return c.writeOpFunc(c.conn, ws.OpText, bytes)
 }
 
 func (c *WebSocketPeer) Type() TransportType {

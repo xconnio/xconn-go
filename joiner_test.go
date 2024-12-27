@@ -37,7 +37,9 @@ func TestJoin(t *testing.T) {
 	address := fmt.Sprintf("ws://%s/ws", listener.Addr().String())
 
 	var joiner xconn.WebSocketJoiner
-	base, err := joiner.Join(context.Background(), address, "realm1")
+	base, err := joiner.Join(context.Background(), address, "realm1", &xconn.WSDialerConfig{
+		SubProtocol: xconn.JsonWebsocketProtocol,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, base)
 

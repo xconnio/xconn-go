@@ -3,27 +3,9 @@ package xconn
 import (
 	"fmt"
 
-	"github.com/gobwas/ws/wsutil"
-
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 )
-
-func ClientSideWSReaderWriter(binary bool) (ReaderFunc, WriterFunc, error) {
-	if !binary {
-		return wsutil.ReadServerText, wsutil.WriteClientText, nil
-	}
-
-	return wsutil.ReadServerBinary, wsutil.WriteClientBinary, nil
-}
-
-func ServerSideWSReaderWriter(binary bool) (ReaderFunc, WriterFunc, error) {
-	if !binary {
-		return wsutil.ReadClientText, wsutil.WriteServerText, nil
-	}
-
-	return wsutil.ReadClientBinary, wsutil.WriteServerBinary, nil
-}
 
 func ReadMessage(peer Peer, serializer serializers.Serializer) (messages.Message, error) {
 	payload, err := peer.Read()

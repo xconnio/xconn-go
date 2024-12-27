@@ -17,12 +17,9 @@ import (
 type WebSocketJoiner struct {
 	SerializerSpec WSSerializerSpec
 	Authenticator  auth.ClientAuthenticator
-	NetDial        func(ctx context.Context, network, addr string) (net.Conn, error)
-
-	DialTimeout time.Duration
 }
 
-func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string) (BaseSession, error) {
+func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *WSDialerConfig) (BaseSession, error) {
 	parsedURL, err := netURL.Parse(url)
 	if err != nil {
 		return nil, err
@@ -36,17 +33,11 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string) (BaseSess
 		w.Authenticator = auth.NewAnonymousAuthenticator("", nil)
 	}
 
-	if w.DialTimeout == 0 {
-		w.DialTimeout = time.Second * 10
+	if config.DialTimeout == 0 {
+		config.DialTimeout = time.Second * 10
 	}
 
-	dialConfig := WSDialerConfig{
-		SubProtocol: w.SerializerSpec.SubProtocol(),
-		DialTimeout: w.DialTimeout,
-		NetDial:     w.NetDial,
-	}
-
-	peer, err := DialWebSocket(ctx, parsedURL, dialConfig)
+	peer, err := DialWebSocket(ctx, parsedURL, config)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +45,7 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string) (BaseSess
 	return Join(peer, realm, w.SerializerSpec.Serializer(), w.Authenticator)
 }
 
-func DialWebSocket(ctx context.Context, url *netURL.URL, config WSDialerConfig) (Peer, error) {
+func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig) (Peer, error) {
 	wsDialer := ws.Dialer{
 		Protocols: []string{config.SubProtocol},
 	}
@@ -83,7 +74,15 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config WSDialerConfig) 
 	}
 
 	isBinary := config.SubProtocol != JsonWebsocketProtocol
-	return NewWebSocketPeer(conn, config.SubProtocol, isBinary, false)
+
+	peerConfig := WSPeerConfig{
+		Protocol:          config.SubProtocol,
+		Binary:            isBinary,
+		Server:            false,
+		KeepAliveInterval: config.KeepAliveInterval,
+		KeepAliveTimeout:  config.KeepAliveTimeout,
+	}
+	return NewWebSocketPeer(conn, peerConfig)
 }
 
 func Join(cl Peer, realm string, serializer serializers.Serializer,
