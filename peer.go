@@ -1,6 +1,7 @@
 package xconn
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -136,8 +137,12 @@ func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTi
 	for {
 		<-ticker.C
 		// Send a ping
-		err := c.writeOpFunc(c.conn, ws.OpPing, []byte("ping"))
+		randomBytes := make([]byte, 4)
+		_, err := rand.Read(randomBytes)
 		if err != nil {
+			fmt.Println("failed to generate random bytes:", err)
+		}
+		if err := c.writeOpFunc(c.conn, ws.OpPing, randomBytes); err != nil {
 			log.Printf("failed to send ping: %v\n", err)
 			_ = c.conn.Close()
 			return

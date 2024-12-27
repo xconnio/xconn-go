@@ -33,10 +33,6 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *W
 		w.Authenticator = auth.NewAnonymousAuthenticator("", nil)
 	}
 
-	if config.DialTimeout == 0 {
-		config.DialTimeout = time.Second * 10
-	}
-
 	peer, err := DialWebSocket(ctx, parsedURL, config)
 	if err != nil {
 		return nil, err
@@ -46,6 +42,9 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *W
 }
 
 func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig) (Peer, error) {
+	if config == nil {
+		config = &WSDialerConfig{SubProtocol: JsonWebsocketProtocol}
+	}
 	wsDialer := ws.Dialer{
 		Protocols: []string{config.SubProtocol},
 	}

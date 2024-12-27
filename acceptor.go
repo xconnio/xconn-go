@@ -70,6 +70,9 @@ func (w *WebSocketAcceptor) Spec(subProtocol string) (serializers.Serializer, er
 }
 
 func (w *WebSocketAcceptor) Accept(conn net.Conn, config *WebSocketServerConfig) (BaseSession, error) {
+	if config == nil {
+		config = DefaultWebSocketServerConfig()
+	}
 	config.SubProtocols = w.protocols()
 	peer, err := UpgradeWebSocket(conn, config)
 	if err != nil {
