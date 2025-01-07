@@ -103,8 +103,8 @@ func exampleRegister(session *xconn.Session) {
     log.Printf("Registered procedure io.xconn.example: %v", registration)
 }
 
-func invocationHandler(ctx context.Context, inv *xconn.Invocation) (*xconn.Result, error) {
-    return &xconn.Result{Args: inv.Args, KwArgs: inv.KwArgs, Details: inv.Details}, nil
+func invocationHandler(ctx context.Context, inv *xconn.Invocation) *xconn.Result {
+    return &xconn.Result{Args: inv.Args, KwArgs: inv.KwArgs, Details: inv.Details}
 }
 ```
 
