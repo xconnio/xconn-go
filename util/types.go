@@ -1,4 +1,4 @@
-package main
+package util
 
 type Realm struct {
 	Name string `yaml:"name"`
