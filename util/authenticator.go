@@ -45,7 +45,11 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 
 	case auth.MethodCRA:
 		for _, wampcra := range a.authenticator.WAMPCRA {
-			if wampcra.Realm == request.Realm() {
+			if wampcra.Realm == request.Realm() && request.AuthID() == wampcra.AuthID {
+				if wampcra.Salt != "" {
+					return auth.NewCRAResponseSalted(request.AuthID(), request.AuthRole(), wampcra.Secret, wampcra.Salt,
+						wampcra.Iterations, wampcra.KeyLen, 0), nil
+				}
 				return auth.NewCRAResponse(request.AuthID(), request.AuthRole(), wampcra.Secret, 0), nil
 			}
 		}
