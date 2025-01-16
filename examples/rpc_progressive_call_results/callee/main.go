@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to register method: %s", err)
 	}
-	defer func() { _ = callee.Unregister(registration.ID) }()
+	defer func() { _ = registration.Unregister() }()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)

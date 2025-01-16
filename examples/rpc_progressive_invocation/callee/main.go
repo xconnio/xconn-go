@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to register procedure: %s", err)
 	}
-	defer func() { _ = callee.Unregister(registration.ID) }()
+	defer func() { _ = registration.Unregister() }()
 
 	// Wait for interrupt signal to gracefully shut down
 	sigChan := make(chan os.Signal, 1)

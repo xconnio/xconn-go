@@ -368,43 +368,12 @@ func (s *Session) Register(procedure string, handler InvocationHandler,
 
 		s.registrations.Store(response.msg.RegistrationID(), handler)
 		registration := &Registration{
-			ID: response.msg.RegistrationID(),
+			id:      response.msg.RegistrationID(),
+			session: s,
 		}
 		return registration, nil
 	case <-time.After(10 * time.Second):
 		return nil, fmt.Errorf("register request timed out")
-	}
-}
-
-func (s *Session) Unregister(registrationID int64) error {
-	if !s.Connected() {
-		return fmt.Errorf("cannot unregister procedure: session not established")
-	}
-
-	unregister := messages.NewUnregister(s.idGen.NextID(), registrationID)
-	toSend, err := s.proto.SendMessage(unregister)
-	if err != nil {
-		return err
-	}
-
-	channel := make(chan *UnregisterResponse, 1)
-	s.unregisterRequests.Store(unregister.RequestID(), channel)
-	defer s.unregisterRequests.Delete(unregister.RequestID())
-
-	if err = s.base.Write(toSend); err != nil {
-		return err
-	}
-
-	select {
-	case response := <-channel:
-		if response.error != nil {
-			return response.error
-		}
-
-		s.registrations.Delete(registrationID)
-		return nil
-	case <-time.After(10 * time.Second):
-		return fmt.Errorf("unregister request timed")
 	}
 }
 
