@@ -570,42 +570,12 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 
 		s.subscriptions.Store(response.msg.SubscriptionID(), handler)
 		sub := &Subscription{
-			ID: response.msg.SubscriptionID(),
+			id:      response.msg.SubscriptionID(),
+			session: s,
 		}
 		return sub, nil
 	case <-time.After(10 * time.Second):
 		return nil, fmt.Errorf("subscribe request timed")
-	}
-}
-
-func (s *Session) Unsubscribe(subscription *Subscription) error {
-	if !s.Connected() {
-		return fmt.Errorf("cannot unsubscribe topic: session not established")
-	}
-
-	unsubscribe := messages.NewUnsubscribe(s.idGen.NextID(), subscription.ID)
-	toSend, err := s.proto.SendMessage(unsubscribe)
-	if err != nil {
-		return err
-	}
-
-	channel := make(chan *UnsubscribeResponse, 1)
-	s.unsubscribeRequests.Store(unsubscribe.RequestID(), channel)
-	defer s.unsubscribeRequests.Delete(unsubscribe.RequestID())
-	if err = s.base.Write(toSend); err != nil {
-		return err
-	}
-
-	select {
-	case response := <-channel:
-		if response.error != nil {
-			return response.error
-		}
-
-		s.subscriptions.Delete(subscription.ID)
-		return nil
-	case <-time.After(10 * time.Second):
-		return fmt.Errorf("unsubscribe request timed")
 	}
 }
 
