@@ -1,13 +1,18 @@
 package xconn
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
@@ -699,4 +704,26 @@ func (s *Session) LeaveChan() <-chan struct{} {
 
 func (s *Session) GoodBye() *GoodBye {
 	return s.goodBye
+}
+
+func (s *Session) Ping() error {
+	randomBytes := make([]byte, 4)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+
+	if err := wsutil.WriteClientMessage(s.base.NetConn(), ws.OpPing, randomBytes); err != nil {
+		return fmt.Errorf("failed to send ping: %w", err)
+	}
+
+	select {
+	case pongPayload := <-s.base.PongReceived():
+		if !bytes.Equal(pongPayload, randomBytes) {
+			return fmt.Errorf("received unexpected pong payload: %x", pongPayload)
+		}
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("ping timed out")
+	}
+
+	return nil
 }
