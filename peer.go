@@ -2,7 +2,6 @@ package xconn
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -179,9 +178,8 @@ func (c *WebSocketPeer) Read() ([]byte, error) {
 		return nil, err
 	}
 
-	payload := make([]byte, header.Length)
-	_, err = reader.Read(payload)
-	if err != nil && !errors.Is(err, io.EOF) {
+	payload, err := io.ReadAll(reader)
+	if err != nil {
 		return nil, err
 	}
 
