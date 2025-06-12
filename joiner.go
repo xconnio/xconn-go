@@ -62,6 +62,7 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 				return net.Dial("unix", url.Path)
 			}
 			url.Scheme = "ws"
+			url.Host = "unix"
 		}
 	} else {
 		wsDialer.NetDial = config.NetDial
