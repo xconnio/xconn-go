@@ -96,12 +96,16 @@ func (b *baseSession) Close() error {
 	return b.client.NetConn().Close()
 }
 
+func (b *baseSession) PongReceived() <-chan []byte {
+	return b.client.PongReceived()
+}
+
 func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 	peer := &WebSocketPeer{
 		transportType: TransportWebSocket,
 		protocol:      peerConfig.Protocol,
 		conn:          conn,
-		pingCh:        make(chan struct{}, 1),
+		pingCh:        make(chan []byte, 1),
 		binary:        peerConfig.Binary,
 		server:        peerConfig.Server,
 	}
@@ -119,7 +123,7 @@ type WebSocketPeer struct {
 	protocol      string
 	conn          net.Conn
 
-	pingCh chan struct{}
+	pingCh chan []byte
 	binary bool
 	server bool
 
@@ -191,7 +195,7 @@ func (c *WebSocketPeer) Read() ([]byte, error) {
 			return nil, fmt.Errorf("failed to send pong: %w", err)
 		}
 	case ws.OpPong:
-		c.pingCh <- struct{}{}
+		c.pingCh <- payload
 	case ws.OpClose:
 		_ = c.conn.Close()
 		return nil, fmt.Errorf("connection closed")
@@ -220,4 +224,8 @@ func (c *WebSocketPeer) Protocol() string {
 
 func (c *WebSocketPeer) NetConn() net.Conn {
 	return c.conn
+}
+
+func (c *WebSocketPeer) PongReceived() <-chan []byte {
+	return c.pingCh
 }

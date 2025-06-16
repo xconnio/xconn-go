@@ -49,6 +49,7 @@ type BaseSession interface {
 	ReadMessage() (messages.Message, error)
 	WriteMessage(messages.Message) error
 	Close() error
+	PongReceived() <-chan []byte
 }
 
 type Peer interface {
@@ -56,6 +57,8 @@ type Peer interface {
 	NetConn() net.Conn
 	Read() ([]byte, error)
 	Write([]byte) error
+
+	PongReceived() <-chan []byte
 }
 
 type WSDialerConfig struct {
