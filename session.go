@@ -543,6 +543,10 @@ func (s *Session) CallProgressiveProgress(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
+func (s *Session) CallV2(ctx context.Context, request CallRequest) (*Result, error) {
+	return s.Call(ctx, request.Procedure(), request.Args(), request.KWArgs(), request.Options())
+}
+
 func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result, error) {
 	select {
 	case response := <-channel:
