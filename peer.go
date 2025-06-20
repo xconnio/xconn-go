@@ -14,6 +14,7 @@ import (
 
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/transports"
 )
 
 func NewBaseSession(id int64, realm, authID, authRole string, cl Peer, serializer serializers.Serializer) BaseSession {
@@ -220,4 +221,79 @@ func (c *WebSocketPeer) Protocol() string {
 
 func (c *WebSocketPeer) NetConn() net.Conn {
 	return c.conn
+}
+
+func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
+	return &RawSocketPeer{
+		transportType: TransportRawSocket,
+		conn:          conn,
+		serializer:    peerConfig.Serializer,
+	}
+}
+
+type RawSocketPeer struct {
+	transportType TransportType
+	conn          net.Conn
+	serializer    transports.Serializer
+}
+
+func (r *RawSocketPeer) Type() TransportType {
+	return r.transportType
+}
+
+func (r *RawSocketPeer) NetConn() net.Conn {
+	return r.conn
+}
+
+func (r *RawSocketPeer) Read() ([]byte, error) {
+	headerRaw := make([]byte, 4)
+	_, err := r.conn.Read(headerRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	header, err := transports.ReceiveMessageHeader(headerRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := make([]byte, header.Length())
+	_, err = r.conn.Read(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	if header.Kind() == transports.MessageWamp {
+		return payload, nil
+	} else if header.Kind() == transports.MessagePing {
+		if err = r.write(transports.MessagePong, payload); err != nil {
+			return nil, err
+		}
+
+		return r.Read()
+	} else if header.Kind() == transports.MessagePong {
+		// FIXME: implement a timer that gets reset on successful arrival of pong
+		return r.Read()
+	} else {
+		return nil, fmt.Errorf("unknown message type: %v", header.Kind())
+	}
+}
+
+func (r *RawSocketPeer) write(kind transports.Message, bytes []byte) error {
+	header := transports.NewMessageHeader(kind, len(bytes))
+	_, err := r.conn.Write(transports.SendMessageHeader(header))
+	if err != nil {
+		return err
+	}
+
+	_, err = r.conn.Write(bytes)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *RawSocketPeer) Write(bytes []byte) error {
+	return r.write(transports.MessageWamp, bytes)
 }

@@ -14,19 +14,19 @@ func connect(url, realm string, authenticator auth.ClientAuthenticator, serializ
 }
 
 func connectTicket(url, realm, authid, ticket string, serializerSpec xconn.WSSerializerSpec) (*xconn.Session, error) {
-	ticketAuthenticator := auth.NewTicketAuthenticator(authid, map[string]any{}, ticket)
+	ticketAuthenticator := auth.NewTicketAuthenticator(authid, ticket, map[string]any{})
 
 	return connect(url, realm, ticketAuthenticator, serializerSpec)
 }
 
 func connectCRA(url, realm, authid, secret string, serializerSpec xconn.WSSerializerSpec) (*xconn.Session, error) {
-	ticketAuthenticator := auth.NewCRAAuthenticator(authid, map[string]any{}, secret)
+	ticketAuthenticator := auth.NewCRAAuthenticator(authid, secret, map[string]any{})
 
 	return connect(url, realm, ticketAuthenticator, serializerSpec)
 }
 
 func connectCryptosign(url, realm, authid, privateKey string, serializerSpec xconn.WSSerializerSpec) (*xconn.Session, error) { // nolint:lll
-	ticketAuthenticator, err := auth.NewCryptoSignAuthenticator(authid, map[string]any{}, privateKey)
+	ticketAuthenticator, err := auth.NewCryptoSignAuthenticator(authid, privateKey, map[string]any{})
 	if err != nil {
 		return nil, err
 	}

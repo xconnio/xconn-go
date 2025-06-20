@@ -12,11 +12,16 @@ import (
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/transports"
 )
 
 type WebSocketJoiner struct {
 	SerializerSpec WSSerializerSpec
 	Authenticator  auth.ClientAuthenticator
+}
+
+type RawSocketJoiner struct {
+	Authenticator auth.ClientAuthenticator
 }
 
 func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *WSDialerConfig) (BaseSession, error) {
@@ -83,6 +88,58 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 		KeepAliveTimeout:  config.KeepAliveTimeout,
 	}
 	return NewWebSocketPeer(conn, peerConfig)
+}
+
+func (r *RawSocketJoiner) Join(ctx context.Context, url, realm string,
+	config *RawSocketDialerConfig) (BaseSession, error) {
+	parsedURL, err := netURL.Parse(url)
+	if err != nil {
+		return nil, err
+	}
+
+	if r.Authenticator == nil {
+		r.Authenticator = auth.NewAnonymousAuthenticator("", nil)
+	}
+
+	peer, err := DialRawSocket(ctx, parsedURL, config)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &serializers.CBORSerializer{}
+	return Join(peer, realm, s, r.Authenticator)
+}
+
+func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialerConfig) (Peer, error) {
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, "tcp", url.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	header := transports.NewHandshake(transports.SerializerCbor, transports.DefaultMaxMsgSize)
+	headerRaw, err := transports.SendHandshake(header)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Write(headerRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	responseHeader := make([]byte, 4)
+	_, err = conn.Read(responseHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = transports.ReceiveHandshake(responseHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewRawSocketPeer(conn, RawSocketPeerConfig{Serializer: transports.SerializerCbor}), nil
 }
 
 func Join(cl Peer, realm string, serializer serializers.Serializer,
