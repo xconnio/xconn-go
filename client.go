@@ -2,7 +2,9 @@ package xconn
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/xconnio/wampproto-go/auth"
@@ -45,14 +47,27 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 }
 
 func Connect(ctx context.Context, url string, realm string) (*Session, error) {
-	joiner := &WebSocketJoiner{}
-	dialerConfig := &WSDialerConfig{
-		SubProtocol: JsonWebsocketProtocol,
-	}
-	base, err := joiner.Join(ctx, url, realm, dialerConfig)
-	if err != nil {
-		return nil, err
-	}
+	if strings.HasPrefix(url, "ws") {
+		joiner := &WebSocketJoiner{}
+		dialerConfig := &WSDialerConfig{
+			SubProtocol: JsonWebsocketProtocol,
+		}
+		base, err := joiner.Join(ctx, url, realm, dialerConfig)
+		if err != nil {
+			return nil, err
+		}
 
-	return NewSession(base, JSONSerializerSpec.Serializer()), nil // nolint: contextcheck
+		return NewSession(base, JSONSerializerSpec.Serializer()), nil // nolint: contextcheck
+	} else if strings.HasPrefix(url, "rs") || strings.HasPrefix(url, "tcp") {
+		joiner := &RawSocketJoiner{}
+		dialerConfig := &RawSocketDialerConfig{}
+		base, err := joiner.Join(ctx, url, realm, dialerConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewSession(base, CBORSerializerSpec.Serializer()), nil // nolint: contextcheck
+	} else {
+		return nil, fmt.Errorf("unsupported protocol: %s", url)
+	}
 }

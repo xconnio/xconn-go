@@ -9,7 +9,7 @@ require (
 	github.com/gobwas/ws v1.4.0
 	github.com/projectdiscovery/ratelimit v0.0.50
 	github.com/stretchr/testify v1.9.0
-	github.com/xconnio/wampproto-go v0.0.0-20241111134208-d01416f5abc7
+	github.com/xconnio/wampproto-go v0.0.0-20250619081817-4647a406d615
 	github.com/xconnio/wampproto-protobuf/go v0.0.0-20240706133816-0ca5f0268ce9
 	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 	gopkg.in/yaml.v3 v3.0.1
@@ -23,6 +23,8 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
+	github.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/projectdiscovery/utils v0.2.3 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect

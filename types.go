@@ -11,6 +11,7 @@ import (
 
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/transports"
 	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
 	"github.com/xconnio/xconn-go/internal"
 )
@@ -24,6 +25,7 @@ type (
 const (
 	TransportNone TransportType = iota
 	TransportWebSocket
+	TransportRawSocket
 )
 
 var (
@@ -79,6 +81,17 @@ type WSPeerConfig struct {
 	Server            bool
 	KeepAliveInterval time.Duration
 	KeepAliveTimeout  time.Duration
+}
+
+type RawSocketDialerConfig struct {
+	Serializer        transports.Serializer
+	DialTimeout       time.Duration
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+}
+
+type RawSocketPeerConfig struct {
+	Serializer transports.Serializer
 }
 
 type ServerConfig struct {
