@@ -18,8 +18,8 @@ const ErrNoResult = "io.xconn.no_result"
 
 type InvocationHandler func(ctx context.Context, invocation *Invocation) *Result
 type EventHandler func(event *Event)
-type ProgressHandler func(result *Result)
-type SendProgressive func(ctx context.Context) *Progress
+type ProgressReceiver func(result *Result)
+type ProgressSender func(ctx context.Context) *Progress
 
 type Session struct {
 	base  BaseSession
@@ -133,7 +133,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		if progress {
 			progressHandler, exists := s.progressHandlers.Load(result.RequestID())
 			if exists {
-				progHandler := progressHandler.(ProgressHandler)
+				progHandler := progressHandler.(ProgressReceiver)
 				progHandler(&Result{
 					Arguments:   result.Args(),
 					KwArguments: result.KwArgs(),
@@ -428,7 +428,7 @@ func (s *Session) call(ctx context.Context, call *messages.Call) (*Result, error
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) Call(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
+func (s *Session) CallRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
 	options map[string]any) (*Result, error) {
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
@@ -436,7 +436,7 @@ func (s *Session) Call(ctx context.Context, procedure string, args []any, kwArgs
 }
 
 func (s *Session) CallProgress(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
-	options map[string]any, progressHandler ProgressHandler) (*Result, error) {
+	options map[string]any, progressHandler ProgressReceiver) (*Result, error) {
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
 	if progressHandler == nil {
@@ -449,7 +449,7 @@ func (s *Session) CallProgress(ctx context.Context, procedure string, args []any
 }
 
 func (s *Session) CallProgressive(ctx context.Context, procedure string,
-	progressFunc SendProgressive) (*Result, error) {
+	progressFunc ProgressSender) (*Result, error) {
 	progress := progressFunc(ctx)
 	if progress.Err != nil {
 		return nil, progress.Err
@@ -493,7 +493,7 @@ func (s *Session) CallProgressive(ctx context.Context, procedure string,
 }
 
 func (s *Session) CallProgressiveProgress(ctx context.Context, procedure string,
-	progressFunc SendProgressive, progressHandler ProgressHandler) (*Result, error) {
+	progressFunc ProgressSender, progressHandler ProgressReceiver) (*Result, error) {
 
 	if progressHandler == nil {
 		progressHandler = func(result *Result) {}
@@ -543,8 +543,8 @@ func (s *Session) CallProgressiveProgress(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) CallV2(ctx context.Context, request CallRequest) (*Result, error) {
-	return s.Call(ctx, request.Procedure(), request.Args(), request.KWArgs(), request.Options())
+func (s *Session) Call(ctx context.Context, request CallRequest) (*Result, error) {
+	return s.CallRaw(ctx, request.Procedure(), request.Args(), request.KWArgs(), request.Options())
 }
 
 func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result, error) {
