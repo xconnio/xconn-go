@@ -230,8 +230,8 @@ type CallRequest struct {
 	kwArgs    map[string]any
 	options   map[string]any
 
-	progressReceiver ProgressHandler
-	progressSender   SendProgressive
+	progressReceiver ProgressReceiver
+	progressSender   ProgressSender
 }
 
 func NewCallRequest(procedure string) CallRequest {
@@ -271,12 +271,12 @@ func (c CallRequest) WithKWArgs(kwArgs map[string]any) CallRequest {
 	return c
 }
 
-func (c CallRequest) WithProgressReceiver(handler ProgressHandler) CallRequest {
+func (c CallRequest) WithProgressReceiver(handler ProgressReceiver) CallRequest {
 	c.progressReceiver = handler
 	return c
 }
 
-func (c CallRequest) WithProgressSender(handler SendProgressive) CallRequest {
+func (c CallRequest) WithProgressSender(handler ProgressSender) CallRequest {
 	c.progressSender = handler
 	return c
 }
@@ -297,11 +297,11 @@ func (c CallRequest) Procedure() string {
 	return c.procedure
 }
 
-func (c CallRequest) ProgressReceiver() ProgressHandler {
+func (c CallRequest) ProgressReceiver() ProgressReceiver {
 	return c.progressReceiver
 }
 
-func (c CallRequest) ProgressSender() SendProgressive {
+func (c CallRequest) ProgressSender() ProgressSender {
 	return c.progressSender
 }
 

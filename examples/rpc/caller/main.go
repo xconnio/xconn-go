@@ -20,7 +20,7 @@ func main() {
 	}
 
 	// Call procedure "io.xconn.echo"
-	echoResult, err := caller.Call(ctx, testProcedureEcho, []any{}, map[string]any{}, map[string]any{})
+	echoResult, err := caller.CallRaw(ctx, testProcedureEcho, []any{}, map[string]any{}, map[string]any{})
 	if err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureEcho, err)
 	}
@@ -28,7 +28,7 @@ func main() {
 		echoResult.KwArguments, echoResult.Details)
 
 	// Call procedure "io.xconn.sum"
-	sumResult, err := caller.Call(ctx, testProcedureSum, []any{}, map[string]any{}, map[string]any{})
+	sumResult, err := caller.CallRaw(ctx, testProcedureSum, []any{}, map[string]any{}, map[string]any{})
 	if err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureSum, err)
 	}

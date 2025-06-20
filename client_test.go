@@ -34,7 +34,7 @@ func connect(t *testing.T) *xconn.Session {
 func TestCall(t *testing.T) {
 	session := connect(t)
 	t.Run("CallNoProc", func(t *testing.T) {
-		result, err := session.Call(context.Background(), "foo.bar", nil, nil, nil)
+		result, err := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
 		require.Error(t, err)
 		require.Nil(t, result)
 
@@ -57,11 +57,11 @@ func TestRegisterCall(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
-	t.Run("Call", func(t *testing.T) {
+	t.Run("CallRaw", func(t *testing.T) {
 		wp := workerpool.New(10)
 		for i := 0; i < 100; i++ {
 			wp.Submit(func() {
-				result, err := session.Call(context.Background(), "foo.bar", nil, nil, nil)
+				result, err := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
 				require.NoError(t, err)
 				require.NotNil(t, result)
 				require.Equal(t, "hello", result.Arguments[0])

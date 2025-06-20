@@ -25,7 +25,7 @@ func main() {
 		fmt.Printf("Download progress: %v%%\n", progress)
 	})
 	if err != nil {
-		log.Fatalf("Call failed: %s", err)
+		log.Fatalf("CallRaw failed: %s", err)
 	}
 
 	fmt.Println(result.Arguments[0])
