@@ -630,7 +630,7 @@ func (s *Session) Unsubscribe(subscription *Subscription) error {
 	}
 }
 
-func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
+func (s *Session) PublishRaw(topic string, args []any, kwArgs map[string]any,
 	options map[string]any) error {
 	if !s.Connected() {
 		return fmt.Errorf("cannot publish to topic: session not established")
@@ -668,6 +668,10 @@ func (s *Session) Publish(topic string, args []any, kwArgs map[string]any,
 	case <-time.After(10 * time.Second):
 		return fmt.Errorf("publish request timed")
 	}
+}
+
+func (s *Session) Publish(request PublishRequest) error {
+	return s.PublishRaw(request.topic, request.args, request.kwArgs, request.options)
 }
 
 func (s *Session) Leave() error {

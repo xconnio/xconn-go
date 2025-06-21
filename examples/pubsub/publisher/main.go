@@ -18,26 +18,31 @@ func main() {
 	}
 
 	// Publish event to topic
-	err = publisher.Publish(testTopic, []any{}, map[string]any{}, map[string]any{})
+	publishRequest := xconn.NewPublishRequest(testTopic)
+	err = publisher.Publish(publishRequest)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
 	// Publish event with args
-	err = publisher.Publish(testTopic, []any{"Hello", "World"}, map[string]any{}, map[string]any{})
+	publishRequestWithArgs := xconn.NewPublishRequest(testTopic).WithArgs("Hello", "World")
+	err = publisher.Publish(publishRequestWithArgs)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
 	// Publish event with kwargs
-	err = publisher.Publish(testTopic, []any{}, map[string]any{"Hello World!": "I love WAMP"}, map[string]any{})
+	publishRequestWithKwArgs := xconn.NewPublishRequest(testTopic).WithKWArg("Hello World!", "I love WAMP")
+	err = publisher.Publish(publishRequestWithKwArgs)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
 	// Publish event with args and kwargs
-	err = publisher.Publish(testTopic, []any{"Hello", "World"}, map[string]any{"Hello World!": "I love WAMP"},
-		map[string]any{})
+	publishRequestWithArgsKwArgs := xconn.NewPublishRequest(testTopic).
+		WithArgs("Hello", "World").
+		WithKWArg("Hello World!", "I love WAMP")
+	err = publisher.Publish(publishRequestWithArgsKwArgs)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}

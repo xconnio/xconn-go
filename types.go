@@ -325,3 +325,71 @@ func (c CallRequest) Validate() error {
 
 	return nil
 }
+
+type PublishRequest struct {
+	topic   string
+	args    []any
+	kwArgs  map[string]any
+	options map[string]any
+}
+
+func NewPublishRequest(topic string) PublishRequest {
+	return PublishRequest{topic: topic}
+}
+
+func (p PublishRequest) WithOption(key string, value any) PublishRequest {
+	if p.options == nil {
+		p.options = make(map[string]any)
+	}
+
+	p.options[key] = value
+	return p
+}
+
+func (p PublishRequest) WithOptions(options map[string]any) PublishRequest {
+	p.options = options
+	return p
+}
+
+func (p PublishRequest) WithArgs(args ...any) PublishRequest {
+	p.args = args
+	return p
+}
+
+func (p PublishRequest) WithKWArg(key string, value any) PublishRequest {
+	if p.kwArgs == nil {
+		p.kwArgs = make(map[string]any)
+	}
+
+	p.kwArgs[key] = value
+	return p
+}
+
+func (p PublishRequest) WithKWArgs(kwArgs map[string]any) PublishRequest {
+	p.kwArgs = kwArgs
+	return p
+}
+
+func (p PublishRequest) Options() map[string]any {
+	return p.options
+}
+
+func (p PublishRequest) KWArgs() map[string]any {
+	return p.kwArgs
+}
+
+func (p PublishRequest) Args() []any {
+	return p.args
+}
+
+func (p PublishRequest) Topic() string {
+	return p.topic
+}
+
+func (p PublishRequest) Validate() error {
+	if p.topic == "" {
+		return errors.New("topic is required")
+	}
+
+	return nil
+}
