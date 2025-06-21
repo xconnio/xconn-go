@@ -90,7 +90,7 @@ func TestPublishSubscribe(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
-		err := session.Publish("foo.bar", nil, nil, opt)
+		err := session.PublishRaw("foo.bar", nil, nil, opt)
 		require.NoError(t, err)
 
 		event := <-event1
