@@ -435,7 +435,7 @@ func (s *Session) CallRaw(ctx context.Context, procedure string, args []any, kwA
 	return s.call(ctx, call)
 }
 
-func (s *Session) CallProgress(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
+func (s *Session) callProgress(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
 	options map[string]any, progressHandler ProgressReceiver) (*Result, error) {
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
@@ -448,7 +448,7 @@ func (s *Session) CallProgress(ctx context.Context, procedure string, args []any
 	return s.call(ctx, call)
 }
 
-func (s *Session) CallProgressive(ctx context.Context, procedure string,
+func (s *Session) callProgressive(ctx context.Context, procedure string,
 	progressFunc ProgressSender) (*Result, error) {
 	progress := progressFunc(ctx)
 	if progress.Err != nil {
@@ -492,7 +492,7 @@ func (s *Session) CallProgressive(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) CallProgressiveProgress(ctx context.Context, procedure string,
+func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	progressFunc ProgressSender, progressHandler ProgressReceiver) (*Result, error) {
 
 	if progressHandler == nil {
@@ -544,7 +544,17 @@ func (s *Session) CallProgressiveProgress(ctx context.Context, procedure string,
 }
 
 func (s *Session) Call(ctx context.Context, request CallRequest) (*Result, error) {
-	return s.CallRaw(ctx, request.Procedure(), request.Args(), request.KWArgs(), request.Options())
+	switch {
+	case request.progressSender == nil && request.progressReceiver == nil:
+		return s.CallRaw(ctx, request.Procedure(), request.Args(), request.KWArgs(), request.Options())
+	case request.progressSender != nil && request.progressReceiver == nil:
+		return s.callProgressive(ctx, request.procedure, request.progressSender)
+	case request.progressSender == nil && request.progressReceiver != nil:
+		return s.callProgress(ctx, request.procedure, request.args, request.kwArgs, request.Options(),
+			request.progressReceiver)
+	default:
+		return s.callProgressiveProgress(ctx, request.procedure, request.progressSender, request.progressReceiver)
+	}
 }
 
 func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result, error) {
