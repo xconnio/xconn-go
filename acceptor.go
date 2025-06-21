@@ -74,6 +74,7 @@ func (w *WebSocketAcceptor) Accept(conn net.Conn, config *WebSocketServerConfig)
 	if config == nil {
 		config = DefaultWebSocketServerConfig()
 	}
+
 	config.SubProtocols = w.protocols()
 	peer, err := UpgradeWebSocket(conn, config)
 	if err != nil {
