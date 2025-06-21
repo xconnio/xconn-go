@@ -13,6 +13,7 @@ import (
 	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/transports"
 )
 
 var compiledWSProtocols = [][]byte{ //nolint:gochecknoglobals
@@ -177,4 +178,55 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 	}
 
 	return peer, nil
+}
+
+type RawSocketAcceptor struct {
+	Authenticator auth.ServerAuthenticator
+}
+
+func (w *RawSocketAcceptor) Accept(conn net.Conn) (BaseSession, error) {
+	peer, err := UpgradeRawSocket(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
+	}
+
+	serializer := &serializers.CBORSerializer{}
+	hello, err := ReadHello(peer, serializer)
+	if err != nil {
+		return nil, fmt.Errorf("")
+	}
+
+	return Accept(peer, hello, serializer, w.Authenticator)
+}
+
+func UpgradeRawSocket(conn net.Conn) (Peer, error) {
+	maxMessageSize := transports.ProtocolMaxMsgSize
+
+	handshakeRequestRaw := make([]byte, 4)
+	_, err := conn.Read(handshakeRequestRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	handshakeRequest, err := transports.ReceiveHandshake(handshakeRequestRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	handshakeResponse := transports.NewHandshake(handshakeRequest.Serializer(), maxMessageSize)
+	handshakeResponseRaw, err := transports.SendHandshake(handshakeResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Write(handshakeResponseRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	peerConfig := RawSocketPeerConfig{
+		Serializer: handshakeResponse.Serializer(),
+	}
+
+	return NewRawSocketPeer(conn, peerConfig), nil
 }

@@ -10,8 +10,7 @@ import (
 )
 
 func main() {
-	host := flag.String("host", "127.0.0.1", "host to listen on")
-	port := flag.Int("port", 8080, "port to listen on")
+	path := flag.String("path", "xconn.sock", "path to listen on")
 	realm := flag.String("realm", "realm1", "realm to use")
 	help := flag.Bool("help", false, "print help")
 
@@ -27,7 +26,7 @@ func main() {
 	defer r.Close()
 
 	server := xconn.NewServer(r, nil, nil)
-	closer, err := server.Start(*host, *port)
+	closer, err := server.StartUnixSocket(*path)
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
