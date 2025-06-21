@@ -27,7 +27,7 @@ func main() {
 	defer r.Close()
 
 	server := xconn.NewServer(r, nil, nil)
-	closer, err := server.Start(*host, *port)
+	closer, err := server.StartWebSocket(*host, *port)
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}

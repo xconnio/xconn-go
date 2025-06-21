@@ -59,7 +59,7 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 			}
 		}
 
-		closer, err := server.Start(transport.Host, transport.Port)
+		closer, err := server.StartWebSocket(transport.Host, transport.Port)
 		if err != nil {
 			return nil, err
 		}

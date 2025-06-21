@@ -14,22 +14,37 @@ import (
 	"github.com/xconnio/xconn-go/internal"
 )
 
+type Listener int
+
+const (
+	ListenerWebSocket Listener = iota
+	ListenerRawSocket
+	ListenerUnixSocket
+	ListenerUniversalTCP
+)
+
 type Server struct {
 	router            *Router
-	acceptor          *WebSocketAcceptor
+	wsAcceptor        *WebSocketAcceptor
+	rsAcceptor        *RawSocketAcceptor
 	throttle          *internal.Throttle
 	keepAliveInterval time.Duration
 	keepAliveTimeout  time.Duration
 }
 
 func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *ServerConfig) *Server {
-	acceptor := &WebSocketAcceptor{
+	wsAcceptor := &WebSocketAcceptor{
+		Authenticator: authenticator,
+	}
+
+	rsAcceptor := &RawSocketAcceptor{
 		Authenticator: authenticator,
 	}
 
 	server := &Server{
-		router:   router,
-		acceptor: acceptor,
+		router:     router,
+		wsAcceptor: wsAcceptor,
+		rsAcceptor: rsAcceptor,
 	}
 
 	if config != nil {
@@ -42,10 +57,10 @@ func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *S
 }
 
 func (s *Server) RegisterSpec(spec WSSerializerSpec) error {
-	return s.acceptor.RegisterSpec(spec)
+	return s.wsAcceptor.RegisterSpec(spec)
 }
 
-func (s *Server) Start(host string, port int) (io.Closer, error) {
+func (s *Server) StartWebSocket(host string, port int) (io.Closer, error) {
 	address := fmt.Sprintf("%s:%d", host, port)
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
@@ -55,17 +70,33 @@ func (s *Server) Start(host string, port int) (io.Closer, error) {
 	actualPort := ln.Addr().(*net.TCPAddr).Port
 	fmt.Printf("listening on ws://%s:%d/ws\n", host, actualPort)
 
-	go s.startConnectionLoop(ln)
+	go s.startConnectionLoop(ln, ListenerWebSocket)
 
 	return ln, err
 }
 
-func (s *Server) HandleClient(conn net.Conn) {
-	config := DefaultWebSocketServerConfig()
-	config.KeepAliveInterval = s.keepAliveInterval
-	config.KeepAliveTimeout = s.keepAliveTimeout
-	base, err := s.acceptor.Accept(conn, config)
-	if err != nil {
+func (s *Server) HandleClient(conn net.Conn, listener Listener) {
+	var base BaseSession
+	var err error
+
+	switch listener {
+	case ListenerUniversalTCP:
+		// read first byte from conn and check if its rawsocket magic, otherwise do websocket.
+		return
+	case ListenerWebSocket:
+		config := DefaultWebSocketServerConfig()
+		config.KeepAliveInterval = s.keepAliveInterval
+		config.KeepAliveTimeout = s.keepAliveTimeout
+		base, err = s.wsAcceptor.Accept(conn, config)
+		if err != nil {
+			return
+		}
+	case ListenerRawSocket, ListenerUnixSocket:
+		base, err = s.rsAcceptor.Accept(conn)
+		if err != nil {
+			return
+		}
+	default:
 		return
 	}
 
@@ -97,7 +128,7 @@ func (s *Server) HandleClient(conn net.Conn) {
 	}
 }
 
-func (s *Server) startConnectionLoop(ln net.Listener) {
+func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -105,11 +136,11 @@ func (s *Server) startConnectionLoop(ln net.Listener) {
 			return
 		}
 
-		go s.HandleClient(conn)
+		go s.HandleClient(conn, listener)
 	}
 }
 
-func (s *Server) StartUnixServer(udsPath string) (io.Closer, error) {
+func (s *Server) StartUnixSocket(udsPath string) (io.Closer, error) {
 	if err := os.RemoveAll(udsPath); err != nil {
 		return nil, fmt.Errorf("failed to remove old UDS file: %w", err)
 	}
@@ -121,7 +152,38 @@ func (s *Server) StartUnixServer(udsPath string) (io.Closer, error) {
 
 	fmt.Printf("listening on unix://%s\n", udsPath)
 
-	go s.startConnectionLoop(ln)
+	go s.startConnectionLoop(ln, ListenerUnixSocket)
+
+	return ln, err
+}
+
+func (s *Server) StartRawSocket(host string, port int) (io.Closer, error) {
+	address := fmt.Sprintf("%s:%d", host, port)
+	ln, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %w", err)
+	}
+
+	actualPort := ln.Addr().(*net.TCPAddr).Port
+	fmt.Printf("listening on rs://%s:%d/", host, actualPort)
+
+	go s.startConnectionLoop(ln, ListenerRawSocket)
+
+	return ln, err
+}
+
+func (s *Server) StartUniversalTCP(host string, port int) (io.Closer, error) {
+	address := fmt.Sprintf("%s:%d", host, port)
+	ln, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %w", err)
+	}
+
+	actualPort := ln.Addr().(*net.TCPAddr).Port
+	fmt.Printf("listening on rs://%s:%d/", host, actualPort)
+	fmt.Printf("listening on ws://%s:%d/ws", host, actualPort)
+
+	go s.startConnectionLoop(ln, ListenerUniversalTCP)
 
 	return ln, err
 }
