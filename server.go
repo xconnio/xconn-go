@@ -1,6 +1,7 @@
 package xconn
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"github.com/projectdiscovery/ratelimit"
 
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/wampproto-go/transports"
 	"github.com/xconnio/xconn-go/internal"
 )
 
@@ -75,14 +77,47 @@ func (s *Server) StartWebSocket(host string, port int) (io.Closer, error) {
 	return ln, err
 }
 
+type connWithPrependedReader struct {
+	io.Reader // to override Read()
+	net.Conn  // for all other methods
+}
+
+func (c connWithPrependedReader) Read(p []byte) (int, error) {
+	return c.Reader.Read(p)
+}
+
 func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 	var base BaseSession
 	var err error
 
 	switch listener {
 	case ListenerUniversalTCP:
-		// read first byte from conn and check if its rawsocket magic, otherwise do websocket.
-		return
+		reader := bufio.NewReader(conn)
+		magicArray, err := reader.Peek(1)
+		if err != nil {
+			fmt.Printf("failed to peek header from client: %v\n", err)
+			return
+		}
+
+		wrapped := connWithPrependedReader{
+			Reader: io.MultiReader(reader, conn),
+			Conn:   conn,
+		}
+
+		if magicArray[0] == transports.MAGIC {
+			base, err = s.rsAcceptor.Accept(wrapped)
+			if err != nil {
+				return
+			}
+		} else {
+			config := DefaultWebSocketServerConfig()
+			config.KeepAliveInterval = s.keepAliveInterval
+			config.KeepAliveTimeout = s.keepAliveTimeout
+			base, err = s.wsAcceptor.Accept(wrapped, config)
+			if err != nil {
+				return
+			}
+		}
 	case ListenerWebSocket:
 		config := DefaultWebSocketServerConfig()
 		config.KeepAliveInterval = s.keepAliveInterval
@@ -180,8 +215,8 @@ func (s *Server) StartUniversalTCP(host string, port int) (io.Closer, error) {
 	}
 
 	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening on rs://%s:%d/", host, actualPort)
-	fmt.Printf("listening on ws://%s:%d/ws", host, actualPort)
+	fmt.Printf("listening on rs://%s:%d/\n", host, actualPort)
+	fmt.Printf("listening on ws://%s:%d/ws\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerUniversalTCP)
 
