@@ -42,7 +42,7 @@ func main() {
 	}
 
 	// Unsubscribe from topic
-	err = subscriber.Unsubscribe(subscription)
+	err = subscription.Unsubscribe()
 	if err != nil {
 		log.Fatalf("Failed to unsubscribe: %s", err)
 	}
