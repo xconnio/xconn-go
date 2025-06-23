@@ -70,7 +70,7 @@ func (w *WebSocketAcceptor) Spec(subProtocol string) (serializers.Serializer, er
 	return serializer, nil
 }
 
-func (w *WebSocketAcceptor) Accept(conn net.Conn, config *WebSocketServerConfig) (BaseSession, error) {
+func (w *WebSocketAcceptor) Accept(conn net.Conn, router *Router, config *WebSocketServerConfig) (BaseSession, error) {
 	if config == nil {
 		config = DefaultWebSocketServerConfig()
 	}
@@ -90,6 +90,19 @@ func (w *WebSocketAcceptor) Accept(conn net.Conn, config *WebSocketServerConfig)
 	hello, err := ReadHello(peer, serializer)
 	if err != nil {
 		return nil, fmt.Errorf("")
+	}
+
+	if !router.HasRealm(hello.Realm()) {
+		abortMessage := messages.NewAbort(map[string]any{}, wampproto.ErrNoSuchRealm, nil, nil)
+		serializedAbort, err := serializer.Serialize(abortMessage)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize abort: %w", err)
+		}
+		if err = peer.Write(serializedAbort); err != nil {
+			return nil, fmt.Errorf("failed to send abort: %w", err)
+		}
+
+		return nil, fmt.Errorf(wampproto.ErrNoSuchRealm)
 	}
 
 	return Accept(peer, hello, serializer, w.Authenticator)

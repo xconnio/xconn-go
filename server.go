@@ -113,7 +113,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 			config := DefaultWebSocketServerConfig()
 			config.KeepAliveInterval = s.keepAliveInterval
 			config.KeepAliveTimeout = s.keepAliveTimeout
-			base, err = s.wsAcceptor.Accept(wrapped, config)
+			base, err = s.wsAcceptor.Accept(wrapped, s.router, config)
 			if err != nil {
 				return
 			}
@@ -122,7 +122,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 		config := DefaultWebSocketServerConfig()
 		config.KeepAliveInterval = s.keepAliveInterval
 		config.KeepAliveTimeout = s.keepAliveTimeout
-		base, err = s.wsAcceptor.Accept(conn, config)
+		base, err = s.wsAcceptor.Accept(conn, s.router, config)
 		if err != nil {
 			return
 		}
