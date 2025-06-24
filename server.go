@@ -3,6 +3,7 @@ package xconn
 import (
 	"bufio"
 	"fmt"
+	"github.com/xconnio/xconn-go/internal"
 	"io"
 	"log"
 	"net"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/wampproto-go/transports"
-	"github.com/xconnio/xconn-go/internal"
 )
 
 type Listener int

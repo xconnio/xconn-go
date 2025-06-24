@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/xconnio/xconn-go/internal"
 	"io"
 	"net"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
 	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
-	"github.com/xconnio/xconn-go/internal"
 )
 
 type (
