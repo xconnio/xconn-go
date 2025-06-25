@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/projectdiscovery/ratelimit"
+
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
 	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
-	"github.com/xconnio/xconn-go/internal"
 )
 
 type (
@@ -95,7 +96,7 @@ type RawSocketPeerConfig struct {
 }
 
 type ServerConfig struct {
-	Throttle          *internal.Throttle
+	Throttle          *Throttle
 	KeepAliveInterval time.Duration
 	KeepAliveTimeout  time.Duration
 }
@@ -392,4 +393,32 @@ func (p PublishRequest) Validate() error {
 	}
 
 	return nil
+}
+
+type Strategy int
+
+const (
+	Burst Strategy = iota // Process all requests instantly up to the limit
+	LeakyBucket
+)
+
+type Throttle struct {
+	rate     uint          // max messages in duration
+	duration time.Duration // duration for the rate
+	strategy Strategy      // strategy for handling throttle
+}
+
+func NewThrottle(rate uint, duration time.Duration, strategy Strategy) *Throttle {
+	return &Throttle{
+		rate:     rate,
+		duration: duration,
+		strategy: strategy,
+	}
+}
+
+func (t *Throttle) Create() *ratelimit.Limiter {
+	if t.strategy == LeakyBucket {
+		return ratelimit.NewLeakyBucket(context.Background(), t.rate, t.duration)
+	}
+	return ratelimit.New(context.Background(), t.rate, t.duration)
 }
