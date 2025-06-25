@@ -3,7 +3,6 @@ package xconn
 import (
 	"bufio"
 	"fmt"
-	"github.com/xconnio/xconn-go/internal"
 	"io"
 	"log"
 	"net"
@@ -29,7 +28,7 @@ type Server struct {
 	router            *Router
 	wsAcceptor        *WebSocketAcceptor
 	rsAcceptor        *RawSocketAcceptor
-	throttle          *internal.Throttle
+	throttle          *Throttle
 	keepAliveInterval time.Duration
 	keepAliveTimeout  time.Duration
 }
