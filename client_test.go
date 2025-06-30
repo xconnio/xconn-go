@@ -122,12 +122,12 @@ func TestProgressiveCallResults(t *testing.T) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		result, err := session.CallProgress(context.Background(), "foo.bar.progress", nil, nil, nil,
-			func(progressiveResult *xconn.Result) {
-				progress := int(progressiveResult.Arguments[0].(float64))
-				// Collect received progress
-				progressUpdates = append(progressUpdates, progress)
-			})
+		callRequest := xconn.NewCallRequest("foo.bar.progress").WithProgressReceiver(func(progressiveResult *xconn.Result) {
+			progress := int(progressiveResult.Arguments[0].(float64))
+			// Collect received progress
+			progressUpdates = append(progressUpdates, progress)
+		})
+		result, err := session.Call(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		// Verify progressive updates received correctly
@@ -162,8 +162,8 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		result, err := session.CallProgressive(context.Background(), "foo.bar.progress",
-			func(ctx context.Context) *xconn.Progress {
+		callRequest := xconn.NewCallRequest("foo.bar.progress").
+			WithProgressSender(func(ctx context.Context) *xconn.Progress {
 				options := map[string]any{}
 
 				// Mark the last chunk as non-progressive
@@ -179,6 +179,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
 			})
+		result, err := session.Call(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		// Verify progressive updates received correctly
@@ -216,8 +217,8 @@ func TestCallProgressiveProgress(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		result, err := session.CallProgressiveProgress(context.Background(), "foo.bar.progress",
-			func(ctx context.Context) *xconn.Progress {
+		callRequest := xconn.NewCallRequest("foo.bar.progress").
+			WithProgressSender(func(ctx context.Context) *xconn.Progress {
 				options := map[string]any{}
 
 				// Mark the last chunk as non-progressive
@@ -232,10 +233,13 @@ func TestCallProgressiveProgress(t *testing.T) {
 
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
-			}, func(result *xconn.Result) {
+			}).
+			WithProgressReceiver(func(result *xconn.Result) {
 				progress := int(result.Arguments[0].(float64))
 				receivedProgressBack = append(receivedProgressBack, progress)
 			})
+
+		result, err := session.Call(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		finalResult := int(result.Arguments[0].(float64))
