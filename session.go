@@ -244,7 +244,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		req <- &PublishResponse{msg: published}
 	case messages.MessageTypeEvent:
 		event := msg.(*messages.Event)
-		handler, exists := s.subscriptions.Load(event.SubscriptionID())
+		subscriptions, exists := s.subscriptions.Load(event.SubscriptionID())
 		if !exists {
 			return fmt.Errorf("received EVENT for unknown subscription")
 		}
@@ -254,8 +254,10 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			KwArguments: event.KwArgs(),
 			Details:     event.Details(),
 		}
-		eventHandler := handler.(EventHandler)
-		go eventHandler(evt)
+		subs := subscriptions.(map[*Subscription]*Subscription)
+		for _, sub := range subs {
+			go sub.eventHandler(evt)
+		}
 	case messages.MessageTypeError:
 		errorMsg := msg.(*messages.Error)
 		switch errorMsg.MessageType() {
@@ -568,10 +570,19 @@ func (s *Session) Subscribe(topic string, handler EventHandler, options map[stri
 			return nil, response.error
 		}
 
-		s.subscriptions.Store(response.msg.SubscriptionID(), handler)
 		sub := &Subscription{
-			id:      response.msg.SubscriptionID(),
-			session: s,
+			id:           response.msg.SubscriptionID(),
+			session:      s,
+			eventHandler: handler,
+		}
+
+		subscriptions, exists := s.subscriptions.Load(response.msg.SubscriptionID())
+		if !exists {
+			s.subscriptions.Store(response.msg.SubscriptionID(), map[*Subscription]*Subscription{sub: sub})
+		} else {
+			subs := subscriptions.(map[*Subscription]*Subscription)
+			subs[sub] = sub
+			s.subscriptions.Store(response.msg.SubscriptionID(), subs)
 		}
 		return sub, nil
 	case <-time.After(10 * time.Second):
