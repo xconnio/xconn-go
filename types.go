@@ -137,11 +137,76 @@ func NewWSSerializerSpec(subProtocol string, serializer serializers.Serializer) 
 }
 
 type Registration struct {
-	ID int64
+	id      int64
+	session *Session
+}
+
+func (r *Registration) Unregister() error {
+	if !r.session.Connected() {
+		return fmt.Errorf("cannot unregister procedure: session not established")
+	}
+
+	unregister := messages.NewUnregister(r.session.idGen.NextID(), r.id)
+	toSend, err := r.session.proto.SendMessage(unregister)
+	if err != nil {
+		return err
+	}
+
+	channel := make(chan *UnregisterResponse, 1)
+	r.session.unregisterRequests.Store(unregister.RequestID(), channel)
+	defer r.session.unregisterRequests.Delete(unregister.RequestID())
+
+	if err = r.session.base.Write(toSend); err != nil {
+		return err
+	}
+
+	select {
+	case response := <-channel:
+		if response.error != nil {
+			return response.error
+		}
+
+		r.session.registrations.Delete(r.id)
+		return nil
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("unregister request timed")
+	}
 }
 
 type Subscription struct {
-	ID int64
+	id      int64
+	session *Session
+}
+
+func (s *Subscription) Unsubscribe() error {
+	if !s.session.Connected() {
+		return fmt.Errorf("cannot unsubscribe topic: session not established")
+	}
+
+	unsubscribe := messages.NewUnsubscribe(s.session.idGen.NextID(), s.id)
+	toSend, err := s.session.proto.SendMessage(unsubscribe)
+	if err != nil {
+		return err
+	}
+
+	channel := make(chan *UnsubscribeResponse, 1)
+	s.session.unsubscribeRequests.Store(unsubscribe.RequestID(), channel)
+	defer s.session.unsubscribeRequests.Delete(unsubscribe.RequestID())
+	if err = s.session.base.Write(toSend); err != nil {
+		return err
+	}
+
+	select {
+	case response := <-channel:
+		if response.error != nil {
+			return response.error
+		}
+
+		s.session.subscriptions.Delete(s.id)
+		return nil
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("unsubscribe request timed")
+	}
 }
 
 type Event struct {

@@ -66,13 +66,13 @@ func main() {
 	}
 
 	// Unregister procedure "io.xconn.echo"
-	err = callee.Unregister(echoRegistration.ID)
+	err = echoRegistration.Unregister()
 	if err != nil {
 		log.Fatalf("Failed to unregister: %s", err)
 	}
 
 	// Unregister procedure "io.xconn.sum"
-	err = callee.Unregister(sumRegistration.ID)
+	err = sumRegistration.Unregister()
 	if err != nil {
 		log.Fatalf("Failed to unregister: %s", err)
 	}
