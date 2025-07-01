@@ -174,13 +174,24 @@ func (r *Registration) Unregister() error {
 }
 
 type Subscription struct {
-	id      int64
-	session *Session
+	id           int64
+	session      *Session
+	eventHandler EventHandler
 }
 
 func (s *Subscription) Unsubscribe() error {
 	if !s.session.Connected() {
 		return fmt.Errorf("cannot unsubscribe topic: session not established")
+	}
+
+	subscriptions, exists := s.session.subscriptions.Load(s.id)
+	if exists {
+		subs := subscriptions.(map[*Subscription]*Subscription)
+		delete(subs, s)
+		if len(subs) != 0 {
+			s.session.subscriptions.Store(s.id, subs)
+			return nil
+		}
 	}
 
 	unsubscribe := messages.NewUnsubscribe(s.session.idGen.NextID(), s.id)
