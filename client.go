@@ -91,3 +91,12 @@ func ConnectCRA(ctx context.Context, url, realm, authid, secret string) (*Sessio
 
 	return connect(ctx, url, realm, craAuthenticator)
 }
+
+func ConnectCryptosign(ctx context.Context, url, realm, authid, privateKey string) (*Session, error) {
+	cryptosignAuthentication, err := auth.NewCryptoSignAuthenticator(authid, privateKey, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect(ctx, url, realm, cryptosignAuthentication)
+}
