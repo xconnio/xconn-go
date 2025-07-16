@@ -79,3 +79,9 @@ func connect(ctx context.Context, url, realm string, authenticator auth.ClientAu
 func ConnectAnonymous(ctx context.Context, url, realm string) (*Session, error) {
 	return connect(ctx, url, realm, nil)
 }
+
+func ConnectTicket(ctx context.Context, url, realm, authid, ticket string) (*Session, error) {
+	ticketAuthenticator := auth.NewTicketAuthenticator(authid, ticket, nil)
+
+	return connect(ctx, url, realm, ticketAuthenticator)
+}
