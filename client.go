@@ -85,3 +85,9 @@ func ConnectTicket(ctx context.Context, url, realm, authid, ticket string) (*Ses
 
 	return connect(ctx, url, realm, ticketAuthenticator)
 }
+
+func ConnectCRA(ctx context.Context, url, realm, authid, secret string) (*Session, error) {
+	craAuthenticator := auth.NewCRAAuthenticator(authid, secret, nil)
+
+	return connect(ctx, url, realm, craAuthenticator)
+}
