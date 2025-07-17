@@ -35,7 +35,8 @@ func main() {
 		return &xconn.Result{Arguments: []any{"Download complete!"}}
 	}
 
-	registration, err := callee.Register(procedureProgressDownload, invocationHandler, nil)
+	request := xconn.NewRegisterRequest(procedureProgressDownload, invocationHandler)
+	registration, err := callee.Register(request)
 	if err != nil {
 		log.Fatalf("Failed to register method: %s", err)
 	}

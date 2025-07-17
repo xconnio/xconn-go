@@ -342,7 +342,11 @@ func (s *Session) ID() int64 {
 	return s.base.ID()
 }
 
-func (s *Session) Register(procedure string, handler InvocationHandler,
+func (s *Session) Register(request RegisterRequest) (*Registration, error) {
+	return s.RegisterRaw(request.procedure, request.handler, request.options)
+}
+
+func (s *Session) RegisterRaw(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
 	if !s.Connected() {
 		return nil, fmt.Errorf("cannot register procedure: session not established")
@@ -546,7 +550,11 @@ func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result
 	}
 }
 
-func (s *Session) Subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
+func (s *Session) Subscribe(request SubscribeRequest) (*Subscription, error) {
+	return s.SubscribeRaw(request.topic, request.handler, request.options)
+}
+
+func (s *Session) SubscribeRaw(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	if !s.Connected() {
 		return nil, fmt.Errorf("cannot subscribe to topic: session not established")

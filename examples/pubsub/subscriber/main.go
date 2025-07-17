@@ -26,7 +26,8 @@ func main() {
 	}
 
 	// Subscribe to topic
-	subscription, err := subscriber.Subscribe(testTopic, eventHandler, map[string]any{})
+	request := xconn.NewSubscribeRequest(testTopic, eventHandler)
+	subscription, err := subscriber.Subscribe(request)
 	if err != nil {
 		log.Fatalf("Failed to subscribe: %s", err)
 	}
