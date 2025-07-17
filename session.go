@@ -517,11 +517,11 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 func (s *Session) Call(ctx context.Context, request CallRequest) (*Result, error) {
 	switch {
 	case request.progressSender == nil && request.progressReceiver == nil:
-		return s.CallRaw(ctx, request.Procedure(), request.Args(), request.KWArgs(), request.Options())
+		return s.CallRaw(ctx, request.procedure, request.args, request.kwArgs, request.options)
 	case request.progressSender != nil && request.progressReceiver == nil:
 		return s.callProgressive(ctx, request.procedure, request.progressSender)
 	case request.progressSender == nil && request.progressReceiver != nil:
-		return s.callProgress(ctx, request.procedure, request.args, request.kwArgs, request.Options(),
+		return s.callProgress(ctx, request.procedure, request.args, request.kwArgs, request.options,
 			request.progressReceiver)
 	default:
 		return s.callProgressiveProgress(ctx, request.procedure, request.progressSender, request.progressReceiver)
