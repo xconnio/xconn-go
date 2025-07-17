@@ -28,7 +28,7 @@ func main() {
 	fmt.Println("Starting file upload...")
 
 	callRequest := xconn.NewCallRequest(procedureProgressUpload).
-		WithProgressSender(func(ctx context.Context) *xconn.Progress {
+		ProgressSender(func(ctx context.Context) *xconn.Progress {
 			options := map[string]any{}
 
 			// Mark the last chunk as non-progressive

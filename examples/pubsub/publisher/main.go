@@ -25,14 +25,14 @@ func main() {
 	}
 
 	// Publish event with args
-	publishRequestWithArgs := xconn.NewPublishRequest(testTopic).WithArgs("Hello", "World")
+	publishRequestWithArgs := xconn.NewPublishRequest(testTopic).Args("Hello", "World")
 	err = publisher.Publish(publishRequestWithArgs)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
 	// Publish event with kwargs
-	publishRequestWithKwArgs := xconn.NewPublishRequest(testTopic).WithKWArg("Hello World!", "I love WAMP")
+	publishRequestWithKwArgs := xconn.NewPublishRequest(testTopic).KWArg("Hello World!", "I love WAMP")
 	err = publisher.Publish(publishRequestWithKwArgs)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
@@ -40,8 +40,8 @@ func main() {
 
 	// Publish event with args and kwargs
 	publishRequestWithArgsKwArgs := xconn.NewPublishRequest(testTopic).
-		WithArgs("Hello", "World").
-		WithKWArg("Hello World!", "I love WAMP")
+		Args("Hello", "World").
+		KWArg("Hello World!", "I love WAMP")
 	err = publisher.Publish(publishRequestWithArgsKwArgs)
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)

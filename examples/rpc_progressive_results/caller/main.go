@@ -27,7 +27,7 @@ func main() {
 	fmt.Println("Starting file upload...")
 
 	callRequest := xconn.NewCallRequest(procedureProgressUpload).
-		WithProgressSender(func(ctx context.Context) *xconn.Progress {
+		ProgressSender(func(ctx context.Context) *xconn.Progress {
 			options := map[string]any{}
 
 			// Mark the last chunk as non-progressive
@@ -46,7 +46,7 @@ func main() {
 			time.Sleep(500 * time.Millisecond)
 
 			return &xconn.Progress{Arguments: args, Options: options}
-		}).WithProgressReceiver(func(result *xconn.Result) {
+		}).ProgressReceiver(func(result *xconn.Result) {
 		// Handle progress updates mirrored by the callee
 		chunkProgress := result.Arguments[0].(float64)
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)
