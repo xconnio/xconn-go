@@ -46,9 +46,11 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 	return NewSession(base, c.SerializerSpec.Serializer()), nil // nolint: contextcheck
 }
 
-func Connect(ctx context.Context, url string, realm string) (*Session, error) {
+func connect(ctx context.Context, url, realm string, authenticator auth.ClientAuthenticator) (*Session, error) {
 	if strings.HasPrefix(url, "ws") {
-		joiner := &WebSocketJoiner{}
+		joiner := &WebSocketJoiner{
+			Authenticator: authenticator,
+		}
 		dialerConfig := &WSDialerConfig{
 			SubProtocol: JsonWebsocketProtocol,
 		}
@@ -59,7 +61,9 @@ func Connect(ctx context.Context, url string, realm string) (*Session, error) {
 
 		return NewSession(base, JSONSerializerSpec.Serializer()), nil // nolint: contextcheck
 	} else if strings.HasPrefix(url, "rs") || strings.HasPrefix(url, "tcp") {
-		joiner := &RawSocketJoiner{}
+		joiner := &RawSocketJoiner{
+			Authenticator: authenticator,
+		}
 		dialerConfig := &RawSocketDialerConfig{}
 		base, err := joiner.Join(ctx, url, realm, dialerConfig)
 		if err != nil {
@@ -70,4 +74,29 @@ func Connect(ctx context.Context, url string, realm string) (*Session, error) {
 	} else {
 		return nil, fmt.Errorf("unsupported protocol: %s", url)
 	}
+}
+
+func ConnectAnonymous(ctx context.Context, url, realm string) (*Session, error) {
+	return connect(ctx, url, realm, nil)
+}
+
+func ConnectTicket(ctx context.Context, url, realm, authid, ticket string) (*Session, error) {
+	ticketAuthenticator := auth.NewTicketAuthenticator(authid, ticket, nil)
+
+	return connect(ctx, url, realm, ticketAuthenticator)
+}
+
+func ConnectCRA(ctx context.Context, url, realm, authid, secret string) (*Session, error) {
+	craAuthenticator := auth.NewCRAAuthenticator(authid, secret, nil)
+
+	return connect(ctx, url, realm, craAuthenticator)
+}
+
+func ConnectCryptosign(ctx context.Context, url, realm, authid, privateKey string) (*Session, error) {
+	cryptosignAuthentication, err := auth.NewCryptoSignAuthenticator(authid, privateKey, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect(ctx, url, realm, cryptosignAuthentication)
 }
