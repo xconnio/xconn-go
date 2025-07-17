@@ -314,6 +314,37 @@ type GoodBye struct {
 	Reason  string
 }
 
+type RegisterRequest struct {
+	procedure string
+	handler   InvocationHandler
+	options   map[string]any
+}
+
+func NewRegisterRequest(procedure string, handler InvocationHandler) RegisterRequest {
+	return RegisterRequest{
+		procedure: procedure,
+		handler:   handler,
+	}
+}
+
+func (r RegisterRequest) Option(key string, value any) RegisterRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options[key] = value
+	return r
+}
+
+func (r RegisterRequest) Options(options map[string]any) RegisterRequest {
+	r.options = options
+	return r
+}
+
+func (r RegisterRequest) ToRegister(requestID int64) *messages.Register {
+	return messages.NewRegister(requestID, r.options, r.procedure)
+}
+
 type CallRequest struct {
 	procedure string
 	args      []any

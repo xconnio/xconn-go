@@ -342,7 +342,11 @@ func (s *Session) ID() int64 {
 	return s.base.ID()
 }
 
-func (s *Session) Register(procedure string, handler InvocationHandler,
+func (s *Session) Register(request RegisterRequest) (*Registration, error) {
+	return s.RegisterRaw(request.procedure, request.handler, request.options)
+}
+
+func (s *Session) RegisterRaw(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
 	if !s.Connected() {
 		return nil, fmt.Errorf("cannot register procedure: session not established")
