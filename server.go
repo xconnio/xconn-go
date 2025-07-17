@@ -69,7 +69,7 @@ func (s *Server) StartWebSocket(host string, port int) (io.Closer, error) {
 	}
 
 	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening on ws://%s:%d/ws\n", host, actualPort)
+	fmt.Printf("listening websocket on ws://%s:%d\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerWebSocket)
 
@@ -184,7 +184,7 @@ func (s *Server) StartUnixSocket(udsPath string) (io.Closer, error) {
 		return nil, fmt.Errorf("failed to listen on UDS: %w", err)
 	}
 
-	fmt.Printf("listening on unix://%s\n", udsPath)
+	fmt.Printf("listening unixsocket on unix://%s\n", udsPath)
 
 	go s.startConnectionLoop(ln, ListenerUnixSocket)
 
@@ -199,7 +199,7 @@ func (s *Server) StartRawSocket(host string, port int) (io.Closer, error) {
 	}
 
 	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening on rs://%s:%d/", host, actualPort)
+	fmt.Printf("listening rawsocket on rs://%s:%d\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerRawSocket)
 
@@ -214,8 +214,8 @@ func (s *Server) StartUniversalTCP(host string, port int) (io.Closer, error) {
 	}
 
 	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening on rs://%s:%d/\n", host, actualPort)
-	fmt.Printf("listening on ws://%s:%d/ws\n", host, actualPort)
+	fmt.Printf("listening rawsocket on rs://%s:%d\n", host, actualPort)
+	fmt.Printf("listening websocket on ws://%s:%d\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerUniversalTCP)
 
