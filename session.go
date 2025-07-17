@@ -550,7 +550,11 @@ func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result
 	}
 }
 
-func (s *Session) Subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
+func (s *Session) Subscribe(request SubscribeRequest) (*Subscription, error) {
+	return s.SubscribeRaw(request.topic, request.handler, request.options)
+}
+
+func (s *Session) SubscribeRaw(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	if !s.Connected() {
 		return nil, fmt.Errorf("cannot subscribe to topic: session not established")

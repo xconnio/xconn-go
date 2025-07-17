@@ -434,6 +434,37 @@ func (c CallRequest) Validate() error {
 	return nil
 }
 
+type SubscribeRequest struct {
+	topic   string
+	handler EventHandler
+	options map[string]any
+}
+
+func NewSubscribeRequest(topic string, handler EventHandler) SubscribeRequest {
+	return SubscribeRequest{
+		topic:   topic,
+		handler: handler,
+	}
+}
+
+func (r SubscribeRequest) Option(key string, value any) SubscribeRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options[key] = value
+	return r
+}
+
+func (r SubscribeRequest) Options(options map[string]any) SubscribeRequest {
+	r.options = options
+	return r
+}
+
+func (r SubscribeRequest) ToSubscribe(requestID int64) *messages.Subscribe {
+	return messages.NewSubscribe(requestID, r.options, r.topic)
+}
+
 type PublishRequest struct {
 	topic   string
 	args    []any

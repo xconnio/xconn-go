@@ -72,13 +72,11 @@ func TestRegisterCall(t *testing.T) {
 func TestPublishSubscribe(t *testing.T) {
 	session := connect(t)
 	event1 := make(chan *xconn.Event, 1)
-	reg, err := session.Subscribe(
-		"foo.bar",
+	request := xconn.NewSubscribeRequest("foo.bar",
 		func(event *xconn.Event) {
 			event1 <- event
-		},
-		nil,
-	)
+		})
+	reg, err := session.Subscribe(request)
 
 	require.NoError(t, err)
 	require.NotNil(t, reg)
