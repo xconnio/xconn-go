@@ -175,8 +175,22 @@ func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
 }
 
 func (s *Server) StartUnixSocket(udsPath string) (io.Closer, error) {
-	if err := os.RemoveAll(udsPath); err != nil {
-		return nil, fmt.Errorf("failed to remove old UDS file: %w", err)
+	conn, err := net.DialTimeout("unix", udsPath, time.Second)
+	if err == nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("socket at %s is already in use", udsPath)
+	}
+
+	fileInfo, err := os.Lstat(udsPath)
+	if err == nil {
+		if fileInfo.Mode()&os.ModeSocket == 0 {
+			return nil, fmt.Errorf("file at %s exists and is not a UDS file", udsPath)
+		}
+		if err := os.Remove(udsPath); err != nil {
+			return nil, fmt.Errorf("failed to remove old UDS file: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("error checking UDS path: %w", err)
 	}
 
 	ln, err := net.Listen("unix", udsPath)
