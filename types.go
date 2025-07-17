@@ -394,7 +394,7 @@ func NewPublishRequest(topic string) PublishRequest {
 	return PublishRequest{topic: topic}
 }
 
-func (p PublishRequest) WithOption(key string, value any) PublishRequest {
+func (p PublishRequest) Option(key string, value any) PublishRequest {
 	if p.options == nil {
 		p.options = make(map[string]any)
 	}
@@ -403,17 +403,17 @@ func (p PublishRequest) WithOption(key string, value any) PublishRequest {
 	return p
 }
 
-func (p PublishRequest) WithOptions(options map[string]any) PublishRequest {
+func (p PublishRequest) Options(options map[string]any) PublishRequest {
 	p.options = options
 	return p
 }
 
-func (p PublishRequest) WithArgs(args ...any) PublishRequest {
+func (p PublishRequest) Args(args ...any) PublishRequest {
 	p.args = args
 	return p
 }
 
-func (p PublishRequest) WithKWArg(key string, value any) PublishRequest {
+func (p PublishRequest) KWArg(key string, value any) PublishRequest {
 	if p.kwArgs == nil {
 		p.kwArgs = make(map[string]any)
 	}
@@ -422,25 +422,13 @@ func (p PublishRequest) WithKWArg(key string, value any) PublishRequest {
 	return p
 }
 
-func (p PublishRequest) WithKWArgs(kwArgs map[string]any) PublishRequest {
+func (p PublishRequest) KWArgs(kwArgs map[string]any) PublishRequest {
 	p.kwArgs = kwArgs
 	return p
 }
 
-func (p PublishRequest) Options() map[string]any {
-	return p.options
-}
-
-func (p PublishRequest) KWArgs() map[string]any {
-	return p.kwArgs
-}
-
-func (p PublishRequest) Args() []any {
-	return p.args
-}
-
-func (p PublishRequest) Topic() string {
-	return p.topic
+func (p PublishRequest) ToPublish(requestID int64) *messages.Publish {
+	return messages.NewPublish(requestID, p.options, p.topic, p.args, p.kwArgs)
 }
 
 func (p PublishRequest) Validate() error {
