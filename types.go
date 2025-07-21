@@ -30,14 +30,14 @@ const (
 )
 
 var (
-	JSONSerializerSpec = NewWSSerializerSpec( //nolint:gochecknoglobals
-		JsonWebsocketProtocol, &serializers.JSONSerializer{})
-	CBORSerializerSpec = NewWSSerializerSpec( //nolint:gochecknoglobals
-		CborWebsocketProtocol, &serializers.CBORSerializer{})
-	MsgPackSerializerSpec = NewWSSerializerSpec( //nolint:gochecknoglobals
-		MsgpackWebsocketProtocol, &serializers.MsgPackSerializer{})
-	ProtobufSerializerSpec = NewWSSerializerSpec( //nolint:gochecknoglobals
-		ProtobufSubProtocol, &wampprotobuf.ProtobufSerializer{})
+	JSONSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
+		JsonWebsocketProtocol, &serializers.JSONSerializer{}, JsonSerializerID)
+	CBORSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
+		CborWebsocketProtocol, &serializers.CBORSerializer{}, CborSerializerID)
+	MsgPackSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
+		MsgpackWebsocketProtocol, &serializers.MsgPackSerializer{}, MsgPackSerializerID)
+	ProtobufSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
+		ProtobufSubProtocol, &wampprotobuf.ProtobufSerializer{}, ProtobufSerializerID)
 )
 
 type BaseSession interface {
@@ -111,28 +111,45 @@ func DefaultWebSocketServerConfig() *WebSocketServerConfig {
 	}
 }
 
-type WSSerializerSpec interface {
+type SerializerID transports.Serializer
+
+const (
+	JsonSerializerID     SerializerID = 1
+	MsgPackSerializerID  SerializerID = 2
+	CborSerializerID     SerializerID = 3
+	ProtobufSerializerID SerializerID = 15
+)
+
+type SerializerSpec interface {
 	SubProtocol() string
 	Serializer() serializers.Serializer
+	SerializerID() SerializerID
 }
 
-type wsSerializerSpec struct {
-	subProtocol string
-	serializer  serializers.Serializer
+type serializerSpec struct {
+	subProtocol  string
+	serializer   serializers.Serializer
+	serializerID SerializerID
 }
 
-func (w *wsSerializerSpec) SubProtocol() string {
+func (w *serializerSpec) SubProtocol() string {
 	return w.subProtocol
 }
 
-func (w *wsSerializerSpec) Serializer() serializers.Serializer {
+func (w *serializerSpec) Serializer() serializers.Serializer {
 	return w.serializer
 }
 
-func NewWSSerializerSpec(subProtocol string, serializer serializers.Serializer) WSSerializerSpec {
-	return &wsSerializerSpec{
-		subProtocol: subProtocol,
-		serializer:  serializer,
+func (w *serializerSpec) SerializerID() SerializerID {
+	return w.serializerID
+}
+
+func NewSerializerSpec(subProtocol string, serializer serializers.Serializer,
+	serializerID SerializerID) SerializerSpec {
+	return &serializerSpec{
+		subProtocol:  subProtocol,
+		serializer:   serializer,
+		serializerID: serializerID,
 	}
 }
 
