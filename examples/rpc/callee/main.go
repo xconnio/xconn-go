@@ -43,14 +43,16 @@ func main() {
 	}
 
 	// Register procedure "io.xconn.echo"
-	echoRegistration, err := callee.Register(testProcedureEcho, echoHandler, map[string]any{})
+	echoRegisterRequest := xconn.NewRegisterRequest(testProcedureEcho, echoHandler)
+	echoRegistration, err := callee.Register(echoRegisterRequest)
 	if err != nil {
 		log.Fatalf("Failed to register: %s", err)
 	}
 	log.Printf("Registered procedure: %s", testProcedureEcho)
 
 	// Register procedure "io.xconn.sum"
-	sumRegistration, err := callee.Register(testProcedureSum, sumHandler, map[string]any{})
+	sumRegisterRequest := xconn.NewRegisterRequest(testProcedureSum, sumHandler)
+	sumRegistration, err := callee.Register(sumRegisterRequest)
 	if err != nil {
 		log.Fatalf("Failed to register: %s", err)
 	}
