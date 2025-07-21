@@ -16,12 +16,13 @@ import (
 )
 
 type WebSocketJoiner struct {
-	SerializerSpec WSSerializerSpec
+	SerializerSpec SerializerSpec
 	Authenticator  auth.ClientAuthenticator
 }
 
 type RawSocketJoiner struct {
-	Authenticator auth.ClientAuthenticator
+	SerializerSpec SerializerSpec
+	Authenticator  auth.ClientAuthenticator
 }
 
 func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *WSDialerConfig) (BaseSession, error) {
@@ -106,8 +107,7 @@ func (r *RawSocketJoiner) Join(ctx context.Context, url, realm string,
 		return nil, err
 	}
 
-	s := &serializers.CBORSerializer{}
-	return Join(peer, realm, s, r.Authenticator)
+	return Join(peer, realm, r.SerializerSpec.Serializer(), r.Authenticator)
 }
 
 func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialerConfig) (Peer, error) {
@@ -117,7 +117,7 @@ func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialer
 		return nil, err
 	}
 
-	header := transports.NewHandshake(transports.SerializerCbor, transports.DefaultMaxMsgSize)
+	header := transports.NewHandshake(config.Serializer, transports.DefaultMaxMsgSize)
 	headerRaw, err := transports.SendHandshake(header)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialer
 		return nil, err
 	}
 
-	return NewRawSocketPeer(conn, RawSocketPeerConfig{Serializer: transports.SerializerCbor}), nil
+	return NewRawSocketPeer(conn, RawSocketPeerConfig{Serializer: config.Serializer}), nil
 }
 
 func Join(cl Peer, realm string, serializer serializers.Serializer,

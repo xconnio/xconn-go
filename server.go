@@ -57,7 +57,7 @@ func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *S
 	return server
 }
 
-func (s *Server) RegisterSpec(spec WSSerializerSpec) error {
+func (s *Server) RegisterSpec(spec SerializerSpec) error {
 	return s.wsAcceptor.RegisterSpec(spec)
 }
 

@@ -47,7 +47,7 @@ func (w *WebSocketAcceptor) protocols() []string {
 	return maps.Keys(w.specs)
 }
 
-func (w *WebSocketAcceptor) RegisterSpec(spec WSSerializerSpec) error {
+func (w *WebSocketAcceptor) RegisterSpec(spec SerializerSpec) error {
 	w.once.Do(w.init)
 
 	_, exists := w.specs[spec.SubProtocol()]
@@ -194,53 +194,95 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 	return peer, nil
 }
 
+var serializersBySerializerID = map[SerializerID]serializers.Serializer{ //nolint:gochecknoglobals
+	JsonSerializerID:    &serializers.JSONSerializer{},
+	MsgPackSerializerID: &serializers.MsgPackSerializer{},
+	CborSerializerID:    &serializers.CBORSerializer{},
+}
+
 type RawSocketAcceptor struct {
+	specs map[SerializerID]serializers.Serializer
+	once  sync.Once
+
 	Authenticator auth.ServerAuthenticator
 }
 
-func (w *RawSocketAcceptor) Accept(conn net.Conn) (BaseSession, error) {
-	peer, err := UpgradeRawSocket(conn)
+func (r *RawSocketAcceptor) init() {
+	if r.specs == nil {
+		r.specs = serializersBySerializerID
+	}
+}
+
+func (r *RawSocketAcceptor) RegisterSpec(spec SerializerSpec) error {
+	r.once.Do(r.init)
+
+	_, exists := r.specs[spec.SerializerID()]
+	if exists {
+		return fmt.Errorf("spec is already registered")
+	}
+
+	r.specs[spec.SerializerID()] = spec.Serializer()
+	return nil
+}
+
+func (r *RawSocketAcceptor) Spec(serializerID SerializerID) (serializers.Serializer, error) {
+	r.once.Do(r.init)
+
+	serializer, exists := r.specs[serializerID]
+	if !exists {
+		return nil, fmt.Errorf("spec for %v is not registered", serializerID)
+	}
+
+	return serializer, nil
+}
+
+func (r *RawSocketAcceptor) Accept(conn net.Conn) (BaseSession, error) {
+	peer, serializerID, err := UpgradeRawSocket(conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
 	}
 
-	serializer := &serializers.CBORSerializer{}
+	serializer, err := r.Spec(SerializerID(serializerID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
+	}
+
 	hello, err := ReadHello(peer, serializer)
 	if err != nil {
 		return nil, fmt.Errorf("")
 	}
 
-	return Accept(peer, hello, serializer, w.Authenticator)
+	return Accept(peer, hello, serializer, r.Authenticator)
 }
 
-func UpgradeRawSocket(conn net.Conn) (Peer, error) {
+func UpgradeRawSocket(conn net.Conn) (Peer, transports.Serializer, error) {
 	maxMessageSize := transports.ProtocolMaxMsgSize
 
 	handshakeRequestRaw := make([]byte, 4)
 	_, err := conn.Read(handshakeRequestRaw)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	handshakeRequest, err := transports.ReceiveHandshake(handshakeRequestRaw)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	handshakeResponse := transports.NewHandshake(handshakeRequest.Serializer(), maxMessageSize)
 	handshakeResponseRaw, err := transports.SendHandshake(handshakeResponse)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	_, err = conn.Write(handshakeResponseRaw)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	peerConfig := RawSocketPeerConfig{
 		Serializer: handshakeResponse.Serializer(),
 	}
 
-	return NewRawSocketPeer(conn, peerConfig), nil
+	return NewRawSocketPeer(conn, peerConfig), handshakeRequest.Serializer(), nil
 }
