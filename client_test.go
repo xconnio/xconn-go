@@ -122,7 +122,7 @@ func TestProgressiveCallResults(t *testing.T) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callRequest := xconn.NewCallRequest("foo.bar.progress").WithProgressReceiver(func(progressiveResult *xconn.Result) {
+		callRequest := xconn.NewCallRequest("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.Result) {
 			progress := int(progressiveResult.Arguments[0].(float64))
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
@@ -163,7 +163,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		chunkIndex := 1
 
 		callRequest := xconn.NewCallRequest("foo.bar.progress").
-			WithProgressSender(func(ctx context.Context) *xconn.Progress {
+			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				options := map[string]any{}
 
 				// Mark the last chunk as non-progressive
@@ -218,7 +218,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 		chunkIndex := 1
 
 		callRequest := xconn.NewCallRequest("foo.bar.progress").
-			WithProgressSender(func(ctx context.Context) *xconn.Progress {
+			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				options := map[string]any{}
 
 				// Mark the last chunk as non-progressive
@@ -234,7 +234,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
 			}).
-			WithProgressReceiver(func(result *xconn.Result) {
+			ProgressReceiver(func(result *xconn.Result) {
 				progress := int(result.Arguments[0].(float64))
 				receivedProgressBack = append(receivedProgressBack, progress)
 			})
