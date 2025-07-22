@@ -27,7 +27,7 @@ func main() {
 	// Simulate file data being uploaded in chunks
 	fmt.Println("Starting file upload...")
 
-	result, err := caller.Call(procedureProgressUpload).
+	callResponse := caller.Call(procedureProgressUpload).
 		ProgressSender(func(ctx context.Context) *xconn.Progress {
 			options := map[string]any{}
 
@@ -48,10 +48,9 @@ func main() {
 
 			return &xconn.Progress{Arguments: args, Options: options}
 		}).Do()
-
-	if err != nil {
-		log.Fatalf("Failed to upload data: %s", err)
+	if callResponse.Err != nil {
+		log.Fatalf("Failed to upload data: %s", callResponse.Err)
 	}
 
-	fmt.Println("Final result:", result.Arguments[0])
+	fmt.Println("Final result:", callResponse.Arguments[0])
 }

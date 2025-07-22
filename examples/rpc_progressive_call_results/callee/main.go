@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -22,17 +23,17 @@ func main() {
 	}
 	defer func() { _ = callee.Leave() }()
 
-	invocationHandler := func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+	invocationHandler := func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
 		fileSize := 100 // Simulate a file size of 100 units
 		for i := 0; i <= fileSize; i += 10 {
 			progress := i * 100 / fileSize
 			if err := invocation.SendProgress([]any{progress}, nil); err != nil {
-				return &xconn.Result{Err: "wamp.error.canceled", Arguments: []any{err.Error()}}
+				return xconn.CallResponse{Err: fmt.Errorf("wamp.error.canceled"), Arguments: []any{err.Error()}}
 			}
 			time.Sleep(500 * time.Millisecond) // Simulate time taken for download
 		}
 
-		return &xconn.Result{Arguments: []any{"Download complete!"}}
+		return xconn.CallResponse{Arguments: []any{"Download complete!"}}
 	}
 
 	registration, err := callee.Register(procedureProgressDownload, invocationHandler).Do()
