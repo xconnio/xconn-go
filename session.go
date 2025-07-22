@@ -14,11 +14,11 @@ import (
 	"github.com/xconnio/wampproto-go/serializers"
 )
 
-const ErrNoResult = "io.xconn.no_result"
+var ErrNoResult = errors.New("io.xconn.no_result")
 
-type InvocationHandler func(ctx context.Context, invocation *Invocation) *Result
+type InvocationHandler func(ctx context.Context, invocation *Invocation) CallResponse
 type EventHandler func(event *Event)
-type ProgressReceiver func(result *Result)
+type ProgressReceiver func(callResponse CallResponse)
 type ProgressSender func(ctx context.Context) *Progress
 
 type Session struct {
@@ -134,15 +134,15 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			progressHandler, exists := s.progressHandlers.Load(result.RequestID())
 			if exists {
 				progHandler := progressHandler.(ProgressReceiver)
-				progHandler(&Result{
+				progHandler(CallResponse{
 					Arguments:   result.Args(),
 					KwArguments: result.KwArgs(),
 					Details:     result.Details(),
 				})
 			}
 		} else {
-			req := request.(chan *CallResponse)
-			req <- &CallResponse{msg: result}
+			req := request.(chan *callResponse)
+			req <- &callResponse{msg: result}
 			s.progressHandlers.Delete(result.RequestID())
 		}
 
@@ -193,12 +193,11 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		go func() {
 			var msgToSend messages.Message
 			res := endpoint(context.Background(), inv)
-			if res.Err == ErrNoResult {
+			if errors.Is(res.Err, ErrNoResult) {
 				return
-			} else if res.Err != "" {
-				msgToSend = messages.NewError(
-					int64(invocation.Type()), invocation.RequestID(), map[string]any{}, res.Err, res.Arguments, res.KwArguments,
-				)
+			} else if res.Err != nil {
+				msgToSend = messages.NewError(int64(invocation.Type()), invocation.RequestID(), map[string]any{},
+					res.Err.Error(), res.Arguments, res.KwArguments)
 			} else {
 				msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Arguments, res.KwArguments)
 			}
@@ -268,8 +267,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			responseChan := response.(chan *CallResponse)
-			responseChan <- &CallResponse{error: err}
+			responseChan := response.(chan *callResponse)
+			responseChan <- &callResponse{error: err}
 			return nil
 		case messages.MessageTypeRegister:
 			request, exists := s.registerRequests.LoadAndDelete(errorMsg.RequestID())
@@ -383,39 +382,39 @@ func (s *Session) RegisterRaw(procedure string, handler InvocationHandler,
 	}
 }
 
-func (s *Session) call(ctx context.Context, call *messages.Call) (*Result, error) {
+func (s *Session) call(ctx context.Context, call *messages.Call) CallResponse {
 	if !s.Connected() {
-		return nil, fmt.Errorf("cannot call procedure: session not established")
+		return CallResponse{Err: fmt.Errorf("cannot call procedure: session not established")}
 	}
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
-		return nil, err
+		return CallResponse{Err: err}
 	}
 
-	channel := make(chan *CallResponse, 1)
+	channel := make(chan *callResponse, 1)
 	s.callRequests.Store(call.RequestID(), channel)
 	defer s.callRequests.Delete(call.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return CallResponse{Err: err}
 	}
 
 	return waitForCallResult(ctx, channel)
 }
 
 func (s *Session) CallRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
-	options map[string]any) (*Result, error) {
+	options map[string]any) CallResponse {
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
 	return s.call(ctx, call)
 }
 
 func (s *Session) callProgress(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
-	options map[string]any, progressHandler ProgressReceiver) (*Result, error) {
+	options map[string]any, progressHandler ProgressReceiver) CallResponse {
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
 	if progressHandler == nil {
-		progressHandler = func(result *Result) {}
+		progressHandler = func(result CallResponse) {}
 	}
 	s.progressHandlers.Store(call.RequestID(), progressHandler)
 	call.Options()[wampproto.OptionReceiveProgress] = true
@@ -424,23 +423,23 @@ func (s *Session) callProgress(ctx context.Context, procedure string, args []any
 }
 
 func (s *Session) callProgressive(ctx context.Context, procedure string,
-	progressFunc ProgressSender) (*Result, error) {
+	progressFunc ProgressSender) CallResponse {
 	progress := progressFunc(ctx)
 	if progress.Err != nil {
-		return nil, progress.Err
+		return CallResponse{Err: progress.Err}
 	}
 	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Arguments, progress.KwArguments)
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
-		return nil, err
+		return CallResponse{Err: err}
 	}
 
-	channel := make(chan *CallResponse, 1)
+	channel := make(chan *callResponse, 1)
 	s.callRequests.Store(call.RequestID(), channel)
 	defer s.callRequests.Delete(call.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return CallResponse{Err: err}
 	}
 
 	callInProgress, _ := progress.Options[wampproto.OptionProgress].(bool)
@@ -468,15 +467,15 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 }
 
 func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
-	progressFunc ProgressSender, progressHandler ProgressReceiver) (*Result, error) {
+	progressFunc ProgressSender, progressHandler ProgressReceiver) CallResponse {
 
 	if progressHandler == nil {
-		progressHandler = func(result *Result) {}
+		progressHandler = func(callResponse CallResponse) {}
 	}
 
 	progress := progressFunc(ctx)
 	if progress.Err != nil {
-		return nil, progress.Err
+		return CallResponse{Err: progress.Err}
 	}
 	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Arguments, progress.KwArguments)
 	s.progressHandlers.Store(call.RequestID(), progressHandler)
@@ -484,14 +483,14 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
-		return nil, err
+		return CallResponse{Err: err}
 	}
 
-	channel := make(chan *CallResponse, 1)
+	channel := make(chan *callResponse, 1)
 	s.callRequests.Store(call.RequestID(), channel)
 	defer s.callRequests.Delete(call.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return CallResponse{Err: err}
 	}
 
 	callInProgress, _ := progress.Options[wampproto.OptionProgress].(bool)
@@ -518,7 +517,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) Call(ctx context.Context, request CallRequest) (*Result, error) {
+func (s *Session) Call(ctx context.Context, request CallRequest) CallResponse {
 	switch {
 	case request.progressSender == nil && request.progressReceiver == nil:
 		return s.CallRaw(ctx, request.procedure, request.args, request.kwArgs, request.options)
@@ -532,21 +531,21 @@ func (s *Session) Call(ctx context.Context, request CallRequest) (*Result, error
 	}
 }
 
-func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result, error) {
+func waitForCallResult(ctx context.Context, channel chan *callResponse) CallResponse {
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return nil, response.error
+			return CallResponse{Err: response.error}
 		}
 
-		result := &Result{
+		r := CallResponse{
 			Arguments:   response.msg.Args(),
 			KwArguments: response.msg.KwArgs(),
 			Details:     response.msg.Details(),
 		}
-		return result, nil
+		return r
 	case <-ctx.Done():
-		return nil, fmt.Errorf("call request timed out")
+		return CallResponse{Err: fmt.Errorf("call request timed out")}
 	}
 }
 

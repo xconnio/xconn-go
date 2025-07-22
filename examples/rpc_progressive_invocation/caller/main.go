@@ -49,10 +49,10 @@ func main() {
 			return &xconn.Progress{Arguments: args, Options: options}
 		})
 
-	result, err := caller.Call(ctx, callRequest)
-	if err != nil {
+	callResponse := caller.Call(ctx, callRequest)
+	if callResponse.Err != nil {
 		log.Fatalf("Failed to upload data: %s", err)
 	}
 
-	fmt.Println("Final result:", result.Arguments[0])
+	fmt.Println("Final result:", callResponse.Arguments[0])
 }

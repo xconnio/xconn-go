@@ -255,13 +255,6 @@ type Invocation struct {
 	SendProgress SendProgress
 }
 
-type Result struct {
-	Arguments   []any
-	KwArguments map[string]any
-	Details     map[string]any
-	Err         string
-}
-
 type Progress struct {
 	Arguments   []any
 	KwArguments map[string]any
@@ -301,7 +294,7 @@ type RegisterResponse struct {
 	error *Error
 }
 
-type CallResponse struct {
+type callResponse struct {
 	msg   *messages.Result
 	error *Error
 }
@@ -516,6 +509,13 @@ func (p PublishRequest) Validate() error {
 	}
 
 	return nil
+}
+
+type CallResponse struct {
+	Arguments   []any
+	KwArguments map[string]any
+	Details     map[string]any
+	Err         error
 }
 
 type Strategy int

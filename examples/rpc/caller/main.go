@@ -20,19 +20,19 @@ func main() {
 	}
 
 	// Call procedure "io.xconn.echo"
-	echoResult, err := caller.CallRaw(ctx, testProcedureEcho, []any{}, map[string]any{}, map[string]any{})
-	if err != nil {
-		log.Fatalf("Failed to call %s: %s", testProcedureEcho, err)
+	echoResponse := caller.CallRaw(ctx, testProcedureEcho, []any{}, map[string]any{}, map[string]any{})
+	if echoResponse.Err != nil {
+		log.Fatalf("Failed to call %s: %s", testProcedureEcho, echoResponse.Err)
 	}
-	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResult.Arguments,
-		echoResult.KwArguments, echoResult.Details)
+	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResponse.Arguments,
+		echoResponse.KwArguments, echoResponse.Details)
 
 	// Call procedure "io.xconn.sum"
-	sumResult, err := caller.CallRaw(ctx, testProcedureSum, []any{}, map[string]any{}, map[string]any{})
-	if err != nil {
-		log.Fatalf("Failed to call %s: %s", testProcedureSum, err)
+	sumResponse := caller.CallRaw(ctx, testProcedureSum, []any{}, map[string]any{}, map[string]any{})
+	if sumResponse.Err != nil {
+		log.Fatalf("Failed to call %s: %s", testProcedureSum, sumResponse.Err)
 	}
-	log.Printf("Sum=%s", sumResult.Arguments[0])
+	log.Printf("Sum=%s", sumResponse.Arguments[0])
 
 	// Close connection to the server
 	err = caller.Leave()

@@ -34,21 +34,21 @@ func connect(t *testing.T) *xconn.Session {
 func TestCall(t *testing.T) {
 	session := connect(t)
 	t.Run("CallNoProc", func(t *testing.T) {
-		result, err := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
-		require.Error(t, err)
-		require.Nil(t, result)
+		callResponse := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
+		require.Error(t, callResponse.Err)
 
 		var er *xconn.Error
-		errors.As(err, &er)
+		errors.As(callResponse.Err, &er)
 		require.Equal(t, "wamp.error.no_such_procedure", er.URI)
 	})
 }
 
 func TestRegisterCall(t *testing.T) {
 	session := connect(t)
-	request := xconn.NewRegisterRequest("foo.bar", func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
-		return &xconn.Result{Arguments: []any{"hello"}}
-	})
+	request := xconn.NewRegisterRequest("foo.bar",
+		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
+			return xconn.CallResponse{Arguments: []any{"hello"}}
+		})
 	reg, err := session.Register(request)
 
 	require.NoError(t, err)
@@ -58,10 +58,10 @@ func TestRegisterCall(t *testing.T) {
 		wp := workerpool.New(10)
 		for i := 0; i < 100; i++ {
 			wp.Submit(func() {
-				result, err := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
+				callResponse := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
 				require.NoError(t, err)
-				require.NotNil(t, result)
-				require.Equal(t, "hello", result.Arguments[0])
+				require.NotNil(t, callResponse)
+				require.Equal(t, "hello", callResponse.Arguments[0])
 			})
 		}
 
@@ -97,7 +97,7 @@ func TestProgressiveCallResults(t *testing.T) {
 	session := connect(t)
 
 	request := xconn.NewRegisterRequest("foo.bar.progress",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
 			// Send progress
 			for i := 1; i <= 3; i++ {
 				err := invocation.SendProgress([]any{i}, nil)
@@ -105,7 +105,7 @@ func TestProgressiveCallResults(t *testing.T) {
 			}
 
 			// Return final result
-			return &xconn.Result{Arguments: []any{"done"}}
+			return xconn.CallResponse{Arguments: []any{"done"}}
 		})
 	reg, err := session.Register(request)
 	require.NoError(t, err)
@@ -115,19 +115,20 @@ func TestProgressiveCallResults(t *testing.T) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callRequest := xconn.NewCallRequest("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.Result) {
-			progress := int(progressiveResult.Arguments[0].(float64))
-			// Collect received progress
-			progressUpdates = append(progressUpdates, progress)
-		})
-		result, err := session.Call(context.Background(), callRequest)
-		require.NoError(t, err)
+		callRequest := xconn.NewCallRequest("foo.bar.progress").
+			ProgressReceiver(func(progressiveResult xconn.CallResponse) {
+				progress := int(progressiveResult.Arguments[0].(float64))
+				// Collect received progress
+				progressUpdates = append(progressUpdates, progress)
+			})
+		callResponse := session.Call(context.Background(), callRequest)
+		require.NoError(t, callResponse.Err)
 
 		// Verify progressive updates received correctly
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", result.Arguments[0])
+		require.Equal(t, "done", callResponse.Arguments[0])
 	})
 }
 
@@ -137,16 +138,16 @@ func TestProgressiveCallInvocation(t *testing.T) {
 	// Store progress updates
 	progressUpdates := make([]int, 0)
 	request := xconn.NewRegisterRequest("foo.bar.progress",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
 			progress := int(invocation.Arguments[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
 
 			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
 			if isProgress {
-				return &xconn.Result{Err: xconn.ErrNoResult}
+				return xconn.CallResponse{Err: xconn.ErrNoResult}
 			}
 
-			return &xconn.Result{Arguments: []any{"done"}}
+			return xconn.CallResponse{Arguments: []any{"done"}}
 		})
 	reg, err := session.Register(request)
 	require.NoError(t, err)
@@ -173,14 +174,14 @@ func TestProgressiveCallInvocation(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
 			})
-		result, err := session.Call(context.Background(), callRequest)
-		require.NoError(t, err)
+		callResponse := session.Call(context.Background(), callRequest)
+		require.NoError(t, callResponse.Err)
 
 		// Verify progressive updates received correctly
 		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", result.Arguments[0])
+		require.Equal(t, "done", callResponse.Arguments[0])
 	})
 }
 
@@ -190,7 +191,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 	// Store progress updates
 	progressUpdates := make([]int, 0)
 	request := xconn.NewRegisterRequest("foo.bar.progress",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
 			progress := int(invocation.Arguments[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
 
@@ -198,10 +199,10 @@ func TestCallProgressiveProgress(t *testing.T) {
 			if isProgress {
 				err := invocation.SendProgress([]any{progress}, nil)
 				require.NoError(t, err)
-				return &xconn.Result{Err: xconn.ErrNoResult}
+				return xconn.CallResponse{Err: xconn.ErrNoResult}
 			}
 
-			return &xconn.Result{Arguments: []any{progress}}
+			return xconn.CallResponse{Arguments: []any{progress}}
 		})
 	reg, err := session.Register(request)
 	require.NoError(t, err)
@@ -229,15 +230,15 @@ func TestCallProgressiveProgress(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
 			}).
-			ProgressReceiver(func(result *xconn.Result) {
+			ProgressReceiver(func(result xconn.CallResponse) {
 				progress := int(result.Arguments[0].(float64))
 				receivedProgressBack = append(receivedProgressBack, progress)
 			})
 
-		result, err := session.Call(context.Background(), callRequest)
-		require.NoError(t, err)
+		callResponse := session.Call(context.Background(), callRequest)
+		require.NoError(t, callResponse.Err)
 
-		finalResult := int(result.Arguments[0].(float64))
+		finalResult := int(callResponse.Arguments[0].(float64))
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly
