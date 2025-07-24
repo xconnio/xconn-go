@@ -289,12 +289,14 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 
 			return nil
 		case messages.MessageTypeSubscribe:
-			_, exists := s.subscribeRequests.Load(errorMsg.RequestID())
+			response, exists := s.subscribeRequests.LoadAndDelete(errorMsg.RequestID())
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid subscribe request")
 			}
 
-			s.subscribeRequests.Delete(errorMsg.RequestID())
+			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
+			responseChan := response.(chan *SubscribeResponse)
+			responseChan <- &SubscribeResponse{error: err}
 			return nil
 		case messages.MessageTypeUnsubscribe:
 			_, exists := s.unsubscribeRequests.Load(errorMsg.RequestID())
@@ -305,12 +307,14 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			s.unsubscribeRequests.Delete(errorMsg.RequestID())
 			return nil
 		case messages.MessageTypePublish:
-			_, exists := s.publishRequests.Load(errorMsg.RequestID())
+			response, exists := s.publishRequests.LoadAndDelete(errorMsg.RequestID())
 			if !exists {
 				return fmt.Errorf("received ERROR for invalid publish request")
 			}
 
-			s.publishRequests.Delete(errorMsg.RequestID())
+			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
+			responseChan := response.(chan *PublishResponse)
+			responseChan <- &PublishResponse{error: err}
 			return nil
 		default:
 			return fmt.Errorf("unknown error message type %T", msg)
