@@ -11,14 +11,14 @@ import (
 type Realm struct {
 	broker  *wampproto.Broker
 	dealer  *wampproto.Dealer
-	clients internal.Map[int64, BaseSession]
+	clients internal.Map[uint64, BaseSession]
 }
 
 func NewRealm() *Realm {
 	return &Realm{
 		broker:  wampproto.NewBroker(),
 		dealer:  wampproto.NewDealer(),
-		clients: internal.Map[int64, BaseSession]{},
+		clients: internal.Map[uint64, BaseSession]{},
 	}
 }
 
@@ -53,7 +53,7 @@ func (r *Realm) DetachClient(base BaseSession) error {
 	return nil
 }
 
-func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
+func (r *Realm) ReceiveMessage(sessionID uint64, msg messages.Message) error {
 	switch msg.Type() {
 	case messages.MessageTypeCall, messages.MessageTypeYield, messages.MessageTypeRegister,
 		messages.MessageTypeUnregister, messages.MessageTypeError:
@@ -115,7 +115,7 @@ func (r *Realm) ReceiveMessage(sessionID int64, msg messages.Message) error {
 func (r *Realm) Close() {
 	goodbye := messages.NewGoodBye(CloseSystemShutdown, nil)
 
-	r.clients.Range(func(id int64, client BaseSession) bool {
+	r.clients.Range(func(id uint64, client BaseSession) bool {
 		_ = client.WriteMessage(goodbye)
 
 		_ = client.Close()
