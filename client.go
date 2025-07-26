@@ -107,7 +107,7 @@ func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRo
 
 	clientPeer, routerPeer := NewInMemoryPeerPair()
 	routerSession := NewBaseSession(
-		int64(sessionID),
+		sessionID,
 		realm,
 		authID,
 		authRole,
@@ -120,7 +120,7 @@ func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRo
 	}
 
 	clientSession := NewBaseSession(
-		int64(sessionID),
+		sessionID,
 		realm,
 		authID,
 		authRole,

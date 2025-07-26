@@ -12,6 +12,7 @@ import (
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/util"
 )
 
 const ErrNoResult = "io.xconn.no_result"
@@ -196,8 +197,9 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			if res.Err == ErrNoResult {
 				return
 			} else if res.Err != "" {
+				msgType, _ := util.AsUInt64(invocation.Type())
 				msgToSend = messages.NewError(
-					int64(invocation.Type()), invocation.RequestID(), map[string]any{}, res.Err, res.Arguments, res.KwArguments,
+					msgType, invocation.RequestID(), map[string]any{}, res.Err, res.Arguments, res.KwArguments,
 				)
 			} else {
 				msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Arguments, res.KwArguments)
@@ -342,7 +344,7 @@ func (s *Session) Connected() bool {
 	return s.goodBye == nil
 }
 
-func (s *Session) ID() int64 {
+func (s *Session) ID() uint64 {
 	return s.base.ID()
 }
 

@@ -38,7 +38,7 @@ func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer x
 	result, err := session.Call(context.Background(), callRequest)
 	require.NoError(t, err)
 
-	sumResult, ok := util.AsInt64(result.Arguments[0])
+	sumResult, ok := util.AsUInt64(result.Arguments[0])
 	require.True(t, ok)
 	require.Equal(t, 4, int(sumResult))
 }

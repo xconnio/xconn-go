@@ -17,7 +17,7 @@ import (
 	"github.com/xconnio/wampproto-go/transports"
 )
 
-func NewBaseSession(id int64, realm, authID, authRole string, cl Peer, serializer serializers.Serializer) BaseSession {
+func NewBaseSession(id uint64, realm, authID, authRole string, cl Peer, serializer serializers.Serializer) BaseSession {
 	return &baseSession{
 		id:         id,
 		realm:      realm,
@@ -29,7 +29,7 @@ func NewBaseSession(id int64, realm, authID, authRole string, cl Peer, serialize
 }
 
 type baseSession struct {
-	id       int64
+	id       uint64
 	realm    string
 	authID   string
 	authRole string
@@ -65,7 +65,7 @@ func (b *baseSession) WriteMessage(message messages.Message) error {
 	return b.Write(payload)
 }
 
-func (b *baseSession) ID() int64 {
+func (b *baseSession) ID() uint64 {
 	return b.id
 }
 
