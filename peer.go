@@ -297,3 +297,64 @@ func (r *RawSocketPeer) write(kind transports.Message, bytes []byte) error {
 func (r *RawSocketPeer) Write(bytes []byte) error {
 	return r.write(transports.MessageWamp, bytes)
 }
+
+type fakeConn struct{}
+
+func (f *fakeConn) Read(b []byte) (int, error)         { return 0, io.EOF }
+func (f *fakeConn) Write(b []byte) (int, error)        { return 0, nil }
+func (f *fakeConn) Close() error                       { return nil }
+func (f *fakeConn) LocalAddr() net.Addr                { return nil }
+func (f *fakeConn) RemoteAddr() net.Addr               { return nil }
+func (f *fakeConn) SetDeadline(t time.Time) error      { return nil }
+func (f *fakeConn) SetReadDeadline(t time.Time) error  { return nil }
+func (f *fakeConn) SetWriteDeadline(t time.Time) error { return nil }
+
+type inMemoryPeer struct {
+	transportType TransportType
+	incoming      chan []byte
+	outgoing      chan []byte
+	netConn       net.Conn
+}
+
+func (i *inMemoryPeer) Type() TransportType {
+	return i.transportType
+}
+
+func (i *inMemoryPeer) NetConn() net.Conn {
+	return i.netConn
+}
+
+func (i *inMemoryPeer) Read() ([]byte, error) {
+	msg, ok := <-i.incoming
+	if !ok {
+		return nil, io.EOF
+	}
+
+	return msg, nil
+}
+
+func (i *inMemoryPeer) Write(bytes []byte) error {
+	i.outgoing <- bytes
+	return nil
+}
+
+func NewInMemoryPeerPair() (Peer, Peer) {
+	aToB := make(chan []byte, 16)
+	bToA := make(chan []byte, 16)
+
+	a := &inMemoryPeer{
+		transportType: TransportInMemory,
+		incoming:      bToA,
+		outgoing:      aToB,
+		netConn:       &fakeConn{},
+	}
+
+	b := &inMemoryPeer{
+		transportType: TransportInMemory,
+		incoming:      aToB,
+		outgoing:      bToA,
+		netConn:       &fakeConn{},
+	}
+
+	return a, b
+}

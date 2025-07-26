@@ -21,12 +21,15 @@ type (
 	ReaderFunc    func(rw io.ReadWriter) ([]byte, error)
 	WriterFunc    func(w io.Writer, p []byte) error
 	TransportType int
+
+	Serializer serializers.Serializer
 )
 
 const (
 	TransportNone TransportType = iota
 	TransportWebSocket
 	TransportRawSocket
+	TransportInMemory
 )
 
 var (

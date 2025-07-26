@@ -101,3 +101,43 @@ func ConnectCryptosign(ctx context.Context, url, realm, authid, privateKey strin
 
 	return connect(ctx, url, realm, cryptosignAuthentication)
 }
+
+func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRole string,
+	serializer Serializer) (BaseSession, error) {
+
+	clientPeer, routerPeer := NewInMemoryPeerPair()
+	routerSession := NewBaseSession(
+		int64(sessionID),
+		realm,
+		authID,
+		authRole,
+		routerPeer,
+		serializer,
+	)
+
+	if err := router.AttachClient(routerSession); err != nil {
+		return nil, fmt.Errorf("unable to start local session with ID %v: %w", sessionID, err)
+	}
+
+	clientSession := NewBaseSession(
+		int64(sessionID),
+		realm,
+		authID,
+		authRole,
+		clientPeer,
+		serializer,
+	)
+
+	return clientSession, nil
+}
+
+func ConnectInMemory(router *Router, sessionID uint64, realm, authID, authRole string,
+	serializer Serializer) (*Session, error) {
+
+	base, err := ConnectInMemoryBase(router, sessionID, realm, authID, authRole, serializer)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSession(base, serializer), nil
+}
