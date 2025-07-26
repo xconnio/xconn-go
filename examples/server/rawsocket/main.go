@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -27,7 +28,7 @@ func main() {
 	defer r.Close()
 
 	server := xconn.NewServer(r, nil, nil)
-	closer, err := server.StartRawSocket(*host, *port)
+	closer, err := server.ListenRawSocket(xconn.NetworkTCP, fmt.Sprintf("%s:%d", *host, *port))
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}

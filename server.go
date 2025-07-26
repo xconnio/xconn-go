@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
@@ -22,6 +21,13 @@ const (
 	ListenerRawSocket
 	ListenerUnixSocket
 	ListenerUniversalTCP
+)
+
+type Network string
+
+const (
+	NetworkUnix Network = "unix"
+	NetworkTCP  Network = "tcp"
 )
 
 type Server struct {
@@ -61,15 +67,11 @@ func (s *Server) RegisterSpec(spec SerializerSpec) error {
 	return s.wsAcceptor.RegisterSpec(spec)
 }
 
-func (s *Server) StartWebSocket(host string, port int) (io.Closer, error) {
-	address := fmt.Sprintf("%s:%d", host, port)
-	ln, err := net.Listen("tcp", address)
+func (s *Server) ListenWebSocket(network Network, address string) (io.Closer, error) {
+	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
-
-	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening websocket on ws://%s:%d\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerWebSocket)
 
@@ -174,62 +176,22 @@ func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
 	}
 }
 
-func (s *Server) StartUnixSocket(udsPath string) (io.Closer, error) {
-	conn, err := net.DialTimeout("unix", udsPath, time.Second)
-	if err == nil {
-		_ = conn.Close()
-		return nil, fmt.Errorf("socket at %s is already in use", udsPath)
-	}
-
-	fileInfo, err := os.Lstat(udsPath)
-	if err == nil {
-		if fileInfo.Mode()&os.ModeSocket == 0 {
-			return nil, fmt.Errorf("file at %s exists and is not a UDS file", udsPath)
-		}
-		if err := os.Remove(udsPath); err != nil {
-			return nil, fmt.Errorf("failed to remove old UDS file: %w", err)
-		}
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("error checking UDS path: %w", err)
-	}
-
-	ln, err := net.Listen("unix", udsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to listen on UDS: %w", err)
-	}
-
-	fmt.Printf("listening unixsocket on unix://%s\n", udsPath)
-
-	go s.startConnectionLoop(ln, ListenerUnixSocket)
-
-	return ln, err
-}
-
-func (s *Server) StartRawSocket(host string, port int) (io.Closer, error) {
-	address := fmt.Sprintf("%s:%d", host, port)
-	ln, err := net.Listen("tcp", address)
+func (s *Server) ListenRawSocket(network Network, address string) (io.Closer, error) {
+	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
-
-	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening rawsocket on rs://%s:%d\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerRawSocket)
 
 	return ln, err
 }
 
-func (s *Server) StartUniversalTCP(host string, port int) (io.Closer, error) {
-	address := fmt.Sprintf("%s:%d", host, port)
+func (s *Server) ListenUniversalTCP(address string) (io.Closer, error) {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
-
-	actualPort := ln.Addr().(*net.TCPAddr).Port
-	fmt.Printf("listening rawsocket on rs://%s:%d\n", host, actualPort)
-	fmt.Printf("listening websocket on ws://%s:%d\n", host, actualPort)
 
 	go s.startConnectionLoop(ln, ListenerUniversalTCP)
 
