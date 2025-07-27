@@ -335,6 +335,8 @@ type GoodBye struct {
 }
 
 type RegisterRequest struct {
+	session *Session
+
 	procedure string
 	handler   InvocationHandler
 	options   map[string]any
@@ -345,6 +347,10 @@ func NewRegisterRequest(procedure string, handler InvocationHandler) RegisterReq
 		procedure: procedure,
 		handler:   handler,
 	}
+}
+
+func (r RegisterRequest) Do() (*Registration, error) {
+	return r.session.register(r.procedure, r.handler, r.options)
 }
 
 func (r RegisterRequest) Option(key string, value any) RegisterRequest {
@@ -366,6 +372,8 @@ func (r RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 }
 
 type CallRequest struct {
+	session *Session
+
 	procedure string
 	args      []any
 	kwArgs    map[string]any
@@ -375,8 +383,12 @@ type CallRequest struct {
 	progressSender   ProgressSender
 }
 
-func NewCallRequest(procedure string) CallRequest {
-	return CallRequest{procedure: procedure}
+func (c CallRequest) Do() (*Result, error) {
+	return c.DoContext(context.Background())
+}
+
+func (c CallRequest) DoContext(ctx context.Context) (*Result, error) {
+	return c.session.callWithRequest(ctx, c)
 }
 
 func (c CallRequest) Option(key string, value any) CallRequest {
@@ -435,16 +447,15 @@ func (c CallRequest) Validate() error {
 }
 
 type SubscribeRequest struct {
+	session *Session
+
 	topic   string
 	handler EventHandler
 	options map[string]any
 }
 
-func NewSubscribeRequest(topic string, handler EventHandler) SubscribeRequest {
-	return SubscribeRequest{
-		topic:   topic,
-		handler: handler,
-	}
+func (r SubscribeRequest) Do() (*Subscription, error) {
+	return r.session.subscribe(r.topic, r.handler, r.options)
 }
 
 func (r SubscribeRequest) Option(key string, value any) SubscribeRequest {
@@ -466,14 +477,16 @@ func (r SubscribeRequest) ToSubscribe(requestID uint64) *messages.Subscribe {
 }
 
 type PublishRequest struct {
+	session *Session
+
 	topic   string
 	args    []any
 	kwArgs  map[string]any
 	options map[string]any
 }
 
-func NewPublishRequest(topic string) PublishRequest {
-	return PublishRequest{topic: topic}
+func (p PublishRequest) Do() error {
+	return p.session.publish(p.topic, p.args, p.kwArgs, p.options)
 }
 
 func (p PublishRequest) Option(key string, value any) PublishRequest {

@@ -26,7 +26,7 @@ func main() {
 
 	fmt.Println("Starting file upload...")
 
-	callRequest := xconn.NewCallRequest(procedureProgressUpload).
+	result, err := caller.Call(procedureProgressUpload).
 		ProgressSender(func(ctx context.Context) *xconn.Progress {
 			options := map[string]any{}
 
@@ -50,9 +50,8 @@ func main() {
 		// Handle progress updates mirrored by the callee
 		chunkProgress := result.Arguments[0].(float64)
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)
-	})
+	}).Do()
 
-	result, err := caller.Call(ctx, callRequest)
 	if err != nil {
 		log.Fatalf("Failed to upload data: %s", err)
 	}

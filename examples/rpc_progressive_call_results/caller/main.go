@@ -20,13 +20,12 @@ func main() {
 	}
 	defer func() { _ = caller.Leave() }()
 
-	callRequest := xconn.NewCallRequest(procedureProgressDownload).ProgressReceiver(func(result *xconn.Result) {
+	result, err := caller.Call(procedureProgressDownload).ProgressReceiver(func(result *xconn.Result) {
 		progress := result.Arguments[0]
 		fmt.Printf("Download progress: %v%%\n", progress)
-	})
-	result, err := caller.Call(ctx, callRequest)
+	}).Do()
 	if err != nil {
-		log.Fatalf("CallRaw failed: %s", err)
+		log.Fatalf("callRaw failed: %s", err)
 	}
 
 	fmt.Println(result.Arguments[0])

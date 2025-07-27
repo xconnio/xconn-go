@@ -37,8 +37,7 @@ func main() {
 		return &xconn.Result{Arguments: []any{"Upload complete"}}
 	}
 
-	request := xconn.NewRegisterRequest(procedureProgressUpload, invocationHandler)
-	registration, err := callee.Register(request)
+	registration, err := callee.Register(procedureProgressUpload, invocationHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register procedure: %s", err)
 	}
