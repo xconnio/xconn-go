@@ -333,6 +333,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			s.onLeave()
 		}
 		s.leaveChan <- struct{}{}
+	case messages.MessageTypeAbort:
+		s.leaveChan <- struct{}{}
 	default:
 		return fmt.Errorf("SESSION: received unexpected message %T", msg)
 	}
