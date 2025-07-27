@@ -350,7 +350,11 @@ func (s *Session) ID() uint64 {
 	return s.base.ID()
 }
 
-func (s *Session) Register(request RegisterRequest) (*Registration, error) {
+func (s *Session) Register(procedure string, handler InvocationHandler) RegisterRequest {
+	return RegisterRequest{session: s, procedure: procedure, handler: handler}
+}
+
+func (s *Session) RegisterWithRequest(request RegisterRequest) (*Registration, error) {
 	return s.RegisterRaw(request.procedure, request.handler, request.options)
 }
 
@@ -409,6 +413,10 @@ func (s *Session) call(ctx context.Context, call *messages.Call) (*Result, error
 	}
 
 	return waitForCallResult(ctx, channel)
+}
+
+func (s *Session) Call(procedure string) CallRequest {
+	return CallRequest{session: s, procedure: procedure}
 }
 
 func (s *Session) CallRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
@@ -526,7 +534,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) Call(ctx context.Context, request CallRequest) (*Result, error) {
+func (s *Session) CallWithRequest(ctx context.Context, request CallRequest) (*Result, error) {
 	switch {
 	case request.progressSender == nil && request.progressReceiver == nil:
 		return s.CallRaw(ctx, request.procedure, request.args, request.kwArgs, request.options)
@@ -558,7 +566,11 @@ func waitForCallResult(ctx context.Context, channel chan *CallResponse) (*Result
 	}
 }
 
-func (s *Session) Subscribe(request SubscribeRequest) (*Subscription, error) {
+func (s *Session) Subscribe(topic string, handler EventHandler) SubscribeRequest {
+	return SubscribeRequest{session: s, topic: topic, handler: handler}
+}
+
+func (s *Session) SubscribeWithRequest(request SubscribeRequest) (*Subscription, error) {
 	return s.SubscribeRaw(request.topic, request.handler, request.options)
 }
 
@@ -646,7 +658,11 @@ func (s *Session) PublishRaw(topic string, args []any, kwArgs map[string]any,
 	}
 }
 
-func (s *Session) Publish(request PublishRequest) error {
+func (s *Session) Publish(topic string) PublishRequest {
+	return PublishRequest{session: s, topic: topic}
+}
+
+func (s *Session) PublishWithRequest(request PublishRequest) error {
 	return s.PublishRaw(request.topic, request.args, request.kwArgs, request.options)
 }
 

@@ -42,7 +42,7 @@ func main() {
 	}
 
 	request := xconn.NewRegisterRequest(procedureProgressUpload, invocationHandler)
-	registration, err := callee.Register(request)
+	registration, err := callee.RegisterWithRequest(request)
 	if err != nil {
 		log.Fatalf("Failed to register method: %s", err)
 	}

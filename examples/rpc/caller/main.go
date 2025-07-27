@@ -19,7 +19,7 @@ func main() {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
 
-	// Call procedure "io.xconn.echo"
+	// CallWithRequest procedure "io.xconn.echo"
 	echoResult, err := caller.CallRaw(ctx, testProcedureEcho, []any{}, map[string]any{}, map[string]any{})
 	if err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureEcho, err)
@@ -27,7 +27,7 @@ func main() {
 	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResult.Arguments,
 		echoResult.KwArguments, echoResult.Details)
 
-	// Call procedure "io.xconn.sum"
+	// CallWithRequest procedure "io.xconn.sum"
 	sumResult, err := caller.CallRaw(ctx, testProcedureSum, []any{}, map[string]any{}, map[string]any{})
 	if err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureSum, err)

@@ -49,7 +49,7 @@ func TestRegisterCall(t *testing.T) {
 	request := xconn.NewRegisterRequest("foo.bar", func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
 		return &xconn.Result{Arguments: []any{"hello"}}
 	})
-	reg, err := session.Register(request)
+	reg, err := session.RegisterWithRequest(request)
 
 	require.NoError(t, err)
 	require.NotNil(t, reg)
@@ -76,12 +76,12 @@ func TestPublishSubscribe(t *testing.T) {
 		func(event *xconn.Event) {
 			event1 <- event
 		})
-	reg, err := session.Subscribe(request)
+	reg, err := session.SubscribeWithRequest(request)
 
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
-	t.Run("Publish", func(t *testing.T) {
+	t.Run("PublishWithRequest", func(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
@@ -107,7 +107,7 @@ func TestProgressiveCallResults(t *testing.T) {
 			// Return final result
 			return &xconn.Result{Arguments: []any{"done"}}
 		})
-	reg, err := session.Register(request)
+	reg, err := session.RegisterWithRequest(request)
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
@@ -120,7 +120,7 @@ func TestProgressiveCallResults(t *testing.T) {
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		})
-		result, err := session.Call(context.Background(), callRequest)
+		result, err := session.CallWithRequest(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		// Verify progressive updates received correctly
@@ -148,7 +148,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 
 			return &xconn.Result{Arguments: []any{"done"}}
 		})
-	reg, err := session.Register(request)
+	reg, err := session.RegisterWithRequest(request)
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
@@ -173,7 +173,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
 			})
-		result, err := session.Call(context.Background(), callRequest)
+		result, err := session.CallWithRequest(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		// Verify progressive updates received correctly
@@ -203,7 +203,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 
 			return &xconn.Result{Arguments: []any{progress}}
 		})
-	reg, err := session.Register(request)
+	reg, err := session.RegisterWithRequest(request)
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
@@ -234,7 +234,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 				receivedProgressBack = append(receivedProgressBack, progress)
 			})
 
-		result, err := session.Call(context.Background(), callRequest)
+		result, err := session.CallWithRequest(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		finalResult := int(result.Arguments[0].(float64))

@@ -52,7 +52,7 @@ func main() {
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)
 	})
 
-	result, err := caller.Call(ctx, callRequest)
+	result, err := caller.CallWithRequest(ctx, callRequest)
 	if err != nil {
 		log.Fatalf("Failed to upload data: %s", err)
 	}

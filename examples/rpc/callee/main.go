@@ -42,17 +42,17 @@ func main() {
 		return &xconn.Result{Arguments: inv.Arguments, KwArguments: inv.KwArguments, Details: inv.Details}
 	}
 
-	// Register procedure "io.xconn.echo"
+	// RegisterWithRequest procedure "io.xconn.echo"
 	echoRegisterRequest := xconn.NewRegisterRequest(testProcedureEcho, echoHandler)
-	echoRegistration, err := callee.Register(echoRegisterRequest)
+	echoRegistration, err := callee.RegisterWithRequest(echoRegisterRequest)
 	if err != nil {
 		log.Fatalf("Failed to register: %s", err)
 	}
 	log.Printf("Registered procedure: %s", testProcedureEcho)
 
-	// Register procedure "io.xconn.sum"
+	// RegisterWithRequest procedure "io.xconn.sum"
 	sumRegisterRequest := xconn.NewRegisterRequest(testProcedureSum, sumHandler)
-	sumRegistration, err := callee.Register(sumRegisterRequest)
+	sumRegistration, err := callee.RegisterWithRequest(sumRegisterRequest)
 	if err != nil {
 		log.Fatalf("Failed to register: %s", err)
 	}

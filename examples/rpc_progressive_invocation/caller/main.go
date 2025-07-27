@@ -49,7 +49,7 @@ func main() {
 			return &xconn.Progress{Arguments: args, Options: options}
 		})
 
-	result, err := caller.Call(ctx, callRequest)
+	result, err := caller.CallWithRequest(ctx, callRequest)
 	if err != nil {
 		log.Fatalf("Failed to upload data: %s", err)
 	}
