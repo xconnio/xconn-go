@@ -34,7 +34,7 @@ func connect(t *testing.T) *xconn.Session {
 func TestCall(t *testing.T) {
 	session := connect(t)
 	t.Run("CallNoProc", func(t *testing.T) {
-		result, err := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
+		result, err := session.Call("foo.bar").Do()
 		require.Error(t, err)
 		require.Nil(t, result)
 
@@ -46,19 +46,18 @@ func TestCall(t *testing.T) {
 
 func TestRegisterCall(t *testing.T) {
 	session := connect(t)
-	request := xconn.NewRegisterRequest("foo.bar", func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+	reg, err := session.Register("foo.bar", func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
 		return &xconn.Result{Arguments: []any{"hello"}}
-	})
-	reg, err := session.RegisterWithRequest(request)
+	}).Do()
 
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
-	t.Run("CallRaw", func(t *testing.T) {
+	t.Run("callRaw", func(t *testing.T) {
 		wp := workerpool.New(10)
 		for i := 0; i < 100; i++ {
 			wp.Submit(func() {
-				result, err := session.CallRaw(context.Background(), "foo.bar", nil, nil, nil)
+				result, err := session.Call("foo.bar").Do()
 				require.NoError(t, err)
 				require.NotNil(t, result)
 				require.Equal(t, "hello", result.Arguments[0])
@@ -72,11 +71,11 @@ func TestRegisterCall(t *testing.T) {
 func TestPublishSubscribe(t *testing.T) {
 	session := connect(t)
 	event1 := make(chan *xconn.Event, 1)
-	request := xconn.NewSubscribeRequest("foo.bar",
+	reg, err := session.Subscribe(
+		"foo.bar",
 		func(event *xconn.Event) {
 			event1 <- event
-		})
-	reg, err := session.SubscribeWithRequest(request)
+		}).Do()
 
 	require.NoError(t, err)
 	require.NotNil(t, reg)
@@ -85,7 +84,7 @@ func TestPublishSubscribe(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
-		err := session.PublishRaw("foo.bar", nil, nil, opt)
+		err = session.Publish("foo.bar").Options(opt).Do()
 		require.NoError(t, err)
 
 		event := <-event1
@@ -96,7 +95,7 @@ func TestPublishSubscribe(t *testing.T) {
 func TestProgressiveCallResults(t *testing.T) {
 	session := connect(t)
 
-	request := xconn.NewRegisterRequest("foo.bar.progress",
+	reg, err := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
 			// Send progress
 			for i := 1; i <= 3; i++ {
@@ -106,8 +105,7 @@ func TestProgressiveCallResults(t *testing.T) {
 
 			// Return final result
 			return &xconn.Result{Arguments: []any{"done"}}
-		})
-	reg, err := session.RegisterWithRequest(request)
+		}).Do()
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
@@ -115,12 +113,11 @@ func TestProgressiveCallResults(t *testing.T) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callRequest := xconn.NewCallRequest("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.Result) {
+		result, err := session.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.Result) {
 			progress := int(progressiveResult.Arguments[0].(float64))
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
-		})
-		result, err := session.CallWithRequest(context.Background(), callRequest)
+		}).Do()
 		require.NoError(t, err)
 
 		// Verify progressive updates received correctly
@@ -136,7 +133,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 
 	// Store progress updates
 	progressUpdates := make([]int, 0)
-	request := xconn.NewRegisterRequest("foo.bar.progress",
+	reg, err := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
 			progress := int(invocation.Arguments[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
@@ -147,8 +144,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 			}
 
 			return &xconn.Result{Arguments: []any{"done"}}
-		})
-	reg, err := session.RegisterWithRequest(request)
+		}).Do()
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
@@ -156,7 +152,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		callRequest := xconn.NewCallRequest("foo.bar.progress").
+		result, err := session.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				options := map[string]any{}
 
@@ -172,8 +168,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Arguments: args, Options: options}
-			})
-		result, err := session.CallWithRequest(context.Background(), callRequest)
+			}).Do()
 		require.NoError(t, err)
 
 		// Verify progressive updates received correctly
@@ -189,7 +184,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 
 	// Store progress updates
 	progressUpdates := make([]int, 0)
-	request := xconn.NewRegisterRequest("foo.bar.progress",
+	reg, err := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
 			progress := int(invocation.Arguments[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
@@ -202,8 +197,8 @@ func TestCallProgressiveProgress(t *testing.T) {
 			}
 
 			return &xconn.Result{Arguments: []any{progress}}
-		})
-	reg, err := session.RegisterWithRequest(request)
+		}).Do()
+
 	require.NoError(t, err)
 	require.NotNil(t, reg)
 
@@ -212,7 +207,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		callRequest := xconn.NewCallRequest("foo.bar.progress").
+		result, err := session.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				options := map[string]any{}
 
@@ -232,9 +227,8 @@ func TestCallProgressiveProgress(t *testing.T) {
 			ProgressReceiver(func(result *xconn.Result) {
 				progress := int(result.Arguments[0].(float64))
 				receivedProgressBack = append(receivedProgressBack, progress)
-			})
+			}).Do()
 
-		result, err := session.CallWithRequest(context.Background(), callRequest)
 		require.NoError(t, err)
 
 		finalResult := int(result.Arguments[0].(float64))

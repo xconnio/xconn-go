@@ -17,32 +17,25 @@ func main() {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
 
-	// PublishWithRequest event to topic
-	publishRequest := xconn.NewPublishRequest(testTopic)
-	err = publisher.PublishWithRequest(publishRequest)
+	err = publisher.Publish(testTopic).Do()
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	// PublishWithRequest event with args
-	publishRequestWithArgs := xconn.NewPublishRequest(testTopic).Args("Hello", "World")
-	err = publisher.PublishWithRequest(publishRequestWithArgs)
+	err = publisher.Publish(testTopic).Args("Hello", "World").Do()
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	// PublishWithRequest event with kwargs
-	publishRequestWithKwArgs := xconn.NewPublishRequest(testTopic).KWArg("Hello World!", "I love WAMP")
-	err = publisher.PublishWithRequest(publishRequestWithKwArgs)
+	err = publisher.Publish(testTopic).KWArg("Hello World!", "I love WAMP").Do()
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	// PublishWithRequest event with args and kwargs
-	publishRequestWithArgsKwArgs := xconn.NewPublishRequest(testTopic).
+	err = publisher.Publish(testTopic).
 		Args("Hello", "World").
-		KWArg("Hello World!", "I love WAMP")
-	err = publisher.PublishWithRequest(publishRequestWithArgsKwArgs)
+		KWArg("Hello World!", "I love WAMP").
+		Do()
 	if err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}

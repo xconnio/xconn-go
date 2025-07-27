@@ -34,8 +34,7 @@ func connectSession(t *testing.T, authenticator auth.ClientAuthenticator, serial
 func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer xconn.SerializerSpec, url string) {
 	session := connectSession(t, authenticator, serializer, url)
 
-	callRequest := xconn.NewCallRequest(procedureAdd).Args(2, 2)
-	result, err := session.CallWithRequest(context.Background(), callRequest)
+	result, err := session.Call(procedureAdd).Args(2, 2).Do()
 	require.NoError(t, err)
 
 	sumResult, ok := util.AsUInt64(result.Arguments[0])
@@ -46,16 +45,14 @@ func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer x
 func testRPC(t *testing.T, authenticator auth.ClientAuthenticator, serializer xconn.SerializerSpec, url string) {
 	session := connectSession(t, authenticator, serializer, url)
 
-	registerRequest := xconn.NewRegisterRequest("io.xconn.test",
+	reg, err := session.Register("io.xconn.test",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
 			return &xconn.Result{Arguments: invocation.Arguments, KwArguments: invocation.KwArguments}
-		})
-	reg, err := session.RegisterWithRequest(registerRequest)
+		}).Do()
 	require.NoError(t, err)
 
 	args := []any{"Hello", "wamp"}
-	callRequest := xconn.NewCallRequest("io.xconn.test").Args(args...)
-	result, err := session.CallWithRequest(context.Background(), callRequest)
+	result, err := session.Call("io.xconn.test").Args(args...).Do()
 	require.NoError(t, err)
 	require.Equal(t, args, result.Arguments)
 
@@ -67,14 +64,12 @@ func testPubSub(t *testing.T, authenticator auth.ClientAuthenticator, serializer
 	session := connectSession(t, authenticator, serializer, url)
 
 	args := []any{"Hello", "wamp"}
-	subscribeRequest := xconn.NewSubscribeRequest("io.xconn.test", func(event *xconn.Event) {
+	sub, err := session.Subscribe("io.xconn.test", func(event *xconn.Event) {
 		require.Equal(t, args, event.Arguments)
-	})
-	sub, err := session.SubscribeWithRequest(subscribeRequest)
+	}).Do()
 	require.NoError(t, err)
 
-	publishRequest := xconn.NewPublishRequest("io.xconn.test").Args(args...).Option("acknowledge", true)
-	err = session.PublishWithRequest(publishRequest)
+	err = session.Publish("io.xconn.test").Args(args...).Option("acknowledge", true).Do()
 	require.NoError(t, err)
 
 	err = sub.Unsubscribe()

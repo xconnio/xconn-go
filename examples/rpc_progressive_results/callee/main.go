@@ -41,8 +41,7 @@ func main() {
 		return &xconn.Result{Arguments: []any{fmt.Sprintf("Upload complete, chunk %v acknowledged", chunkIndex)}}
 	}
 
-	request := xconn.NewRegisterRequest(procedureProgressUpload, invocationHandler)
-	registration, err := callee.RegisterWithRequest(request)
+	registration, err := callee.Register(procedureProgressUpload, invocationHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register method: %s", err)
 	}

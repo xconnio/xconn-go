@@ -350,7 +350,7 @@ func NewRegisterRequest(procedure string, handler InvocationHandler) RegisterReq
 }
 
 func (r RegisterRequest) Do() (*Registration, error) {
-	return r.session.RegisterWithRequest(r)
+	return r.session.register(r.procedure, r.handler, r.options)
 }
 
 func (r RegisterRequest) Option(key string, value any) RegisterRequest {
@@ -383,16 +383,12 @@ type CallRequest struct {
 	progressSender   ProgressSender
 }
 
-func NewCallRequest(procedure string) CallRequest {
-	return CallRequest{procedure: procedure}
-}
-
 func (c CallRequest) Do() (*Result, error) {
-	return c.session.CallWithRequest(context.Background(), c)
+	return c.DoContext(context.Background())
 }
 
 func (c CallRequest) DoContext(ctx context.Context) (*Result, error) {
-	return c.session.CallWithRequest(ctx, c)
+	return c.session.callWithRequest(ctx, c)
 }
 
 func (c CallRequest) Option(key string, value any) CallRequest {
@@ -458,15 +454,8 @@ type SubscribeRequest struct {
 	options map[string]any
 }
 
-func NewSubscribeRequest(topic string, handler EventHandler) SubscribeRequest {
-	return SubscribeRequest{
-		topic:   topic,
-		handler: handler,
-	}
-}
-
 func (r SubscribeRequest) Do() (*Subscription, error) {
-	return r.session.SubscribeWithRequest(r)
+	return r.session.subscribe(r.topic, r.handler, r.options)
 }
 
 func (r SubscribeRequest) Option(key string, value any) SubscribeRequest {
@@ -496,12 +485,8 @@ type PublishRequest struct {
 	options map[string]any
 }
 
-func NewPublishRequest(topic string) PublishRequest {
-	return PublishRequest{topic: topic}
-}
-
 func (p PublishRequest) Do() error {
-	return p.session.PublishWithRequest(p)
+	return p.session.publish(p.topic, p.args, p.kwArgs, p.options)
 }
 
 func (p PublishRequest) Option(key string, value any) PublishRequest {

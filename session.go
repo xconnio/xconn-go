@@ -354,11 +354,7 @@ func (s *Session) Register(procedure string, handler InvocationHandler) Register
 	return RegisterRequest{session: s, procedure: procedure, handler: handler}
 }
 
-func (s *Session) RegisterWithRequest(request RegisterRequest) (*Registration, error) {
-	return s.RegisterRaw(request.procedure, request.handler, request.options)
-}
-
-func (s *Session) RegisterRaw(procedure string, handler InvocationHandler,
+func (s *Session) register(procedure string, handler InvocationHandler,
 	options map[string]any) (*Registration, error) {
 	if !s.Connected() {
 		return nil, fmt.Errorf("cannot register procedure: session not established")
@@ -419,7 +415,7 @@ func (s *Session) Call(procedure string) CallRequest {
 	return CallRequest{session: s, procedure: procedure}
 }
 
-func (s *Session) CallRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
+func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
 	options map[string]any) (*Result, error) {
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
@@ -467,7 +463,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 				// TODO: implement call canceling
 				return
 			}
-			call := messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Arguments, prog.KwArguments)
+			call = messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Arguments, prog.KwArguments)
 			toSend, err = s.proto.SendMessage(call)
 			if err != nil {
 				return
@@ -534,10 +530,10 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) CallWithRequest(ctx context.Context, request CallRequest) (*Result, error) {
+func (s *Session) callWithRequest(ctx context.Context, request CallRequest) (*Result, error) {
 	switch {
 	case request.progressSender == nil && request.progressReceiver == nil:
-		return s.CallRaw(ctx, request.procedure, request.args, request.kwArgs, request.options)
+		return s.callRaw(ctx, request.procedure, request.args, request.kwArgs, request.options)
 	case request.progressSender != nil && request.progressReceiver == nil:
 		return s.callProgressive(ctx, request.procedure, request.progressSender)
 	case request.progressSender == nil && request.progressReceiver != nil:
@@ -570,11 +566,7 @@ func (s *Session) Subscribe(topic string, handler EventHandler) SubscribeRequest
 	return SubscribeRequest{session: s, topic: topic, handler: handler}
 }
 
-func (s *Session) SubscribeWithRequest(request SubscribeRequest) (*Subscription, error) {
-	return s.SubscribeRaw(request.topic, request.handler, request.options)
-}
-
-func (s *Session) SubscribeRaw(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
+func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	if !s.Connected() {
 		return nil, fmt.Errorf("cannot subscribe to topic: session not established")
@@ -618,7 +610,7 @@ func (s *Session) SubscribeRaw(topic string, handler EventHandler, options map[s
 	}
 }
 
-func (s *Session) PublishRaw(topic string, args []any, kwArgs map[string]any,
+func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
 	options map[string]any) error {
 	if !s.Connected() {
 		return fmt.Errorf("cannot publish to topic: session not established")
@@ -660,10 +652,6 @@ func (s *Session) PublishRaw(topic string, args []any, kwArgs map[string]any,
 
 func (s *Session) Publish(topic string) PublishRequest {
 	return PublishRequest{session: s, topic: topic}
-}
-
-func (s *Session) PublishWithRequest(request PublishRequest) error {
-	return s.PublishRaw(request.topic, request.args, request.kwArgs, request.options)
 }
 
 func (s *Session) Leave() error {

@@ -27,7 +27,7 @@ func main() {
 	// Simulate file data being uploaded in chunks
 	fmt.Println("Starting file upload...")
 
-	callRequest := xconn.NewCallRequest(procedureProgressUpload).
+	result, err := caller.Call(procedureProgressUpload).
 		ProgressSender(func(ctx context.Context) *xconn.Progress {
 			options := map[string]any{}
 
@@ -47,9 +47,8 @@ func main() {
 			time.Sleep(500 * time.Millisecond)
 
 			return &xconn.Progress{Arguments: args, Options: options}
-		})
+		}).Do()
 
-	result, err := caller.CallWithRequest(ctx, callRequest)
 	if err != nil {
 		log.Fatalf("Failed to upload data: %s", err)
 	}

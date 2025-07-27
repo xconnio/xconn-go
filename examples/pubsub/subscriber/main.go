@@ -25,9 +25,7 @@ func main() {
 		log.Printf("Received event: args=%s, kwargs=%s, details=%s", event.Arguments, event.KwArguments, event.Details)
 	}
 
-	// SubscribeWithRequest to topic
-	request := xconn.NewSubscribeRequest(testTopic, eventHandler)
-	subscription, err := subscriber.SubscribeWithRequest(request)
+	subscription, err := subscriber.Subscribe(testTopic, eventHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to subscribe: %s", err)
 	}
