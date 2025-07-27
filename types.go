@@ -21,12 +21,15 @@ type (
 	ReaderFunc    func(rw io.ReadWriter) ([]byte, error)
 	WriterFunc    func(w io.Writer, p []byte) error
 	TransportType int
+
+	Serializer serializers.Serializer
 )
 
 const (
 	TransportNone TransportType = iota
 	TransportWebSocket
 	TransportRawSocket
+	TransportInMemory
 )
 
 var (
@@ -41,7 +44,7 @@ var (
 )
 
 type BaseSession interface {
-	ID() int64
+	ID() uint64
 	Realm() string
 	AuthID() string
 	AuthRole() string
@@ -154,7 +157,7 @@ func NewSerializerSpec(subProtocol string, serializer serializers.Serializer,
 }
 
 type Registration struct {
-	id      int64
+	id      uint64
 	session *Session
 }
 
@@ -191,7 +194,7 @@ func (r *Registration) Unregister() error {
 }
 
 type Subscription struct {
-	id           int64
+	id           uint64
 	session      *Session
 	eventHandler EventHandler
 }
@@ -358,7 +361,7 @@ func (r RegisterRequest) Options(options map[string]any) RegisterRequest {
 	return r
 }
 
-func (r RegisterRequest) ToRegister(requestID int64) *messages.Register {
+func (r RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 	return messages.NewRegister(requestID, r.options, r.procedure)
 }
 
@@ -419,7 +422,7 @@ func (c CallRequest) ProgressSender(handler ProgressSender) CallRequest {
 	return c
 }
 
-func (c CallRequest) ToCall(requestID int64) *messages.Call {
+func (c CallRequest) ToCall(requestID uint64) *messages.Call {
 	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwArgs)
 }
 
@@ -458,7 +461,7 @@ func (r SubscribeRequest) Options(options map[string]any) SubscribeRequest {
 	return r
 }
 
-func (r SubscribeRequest) ToSubscribe(requestID int64) *messages.Subscribe {
+func (r SubscribeRequest) ToSubscribe(requestID uint64) *messages.Subscribe {
 	return messages.NewSubscribe(requestID, r.options, r.topic)
 }
 
@@ -506,7 +509,7 @@ func (p PublishRequest) KWArgs(kwArgs map[string]any) PublishRequest {
 	return p
 }
 
-func (p PublishRequest) ToPublish(requestID int64) *messages.Publish {
+func (p PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 	return messages.NewPublish(requestID, p.options, p.topic, p.args, p.kwArgs)
 }
 
