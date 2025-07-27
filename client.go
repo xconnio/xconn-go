@@ -119,6 +119,19 @@ func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRo
 		return nil, fmt.Errorf("unable to start local session with ID %v: %w", sessionID, err)
 	}
 
+	go func() {
+		msg, err := routerSession.ReadMessage()
+		if err != nil {
+			_ = routerSession.Close()
+			return
+		}
+
+		if err = router.ReceiveMessage(routerSession, msg); err != nil {
+			_ = routerSession.Close()
+			return
+		}
+	}()
+
 	clientSession := NewBaseSession(
 		sessionID,
 		realm,
