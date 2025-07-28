@@ -639,3 +639,9 @@ type RealmRole struct {
 	Name        string
 	Permissions []Permission
 }
+
+type SessionDetails = wampproto.SessionDetails
+
+func NewSessionDetails(id uint64, realm, authID, authRole string) *SessionDetails {
+	return wampproto.NewSessionDetails(id, realm, authID, authRole, false)
+}
