@@ -260,6 +260,13 @@ type Invocation struct {
 	SendProgress SendProgress
 }
 
+type Result struct {
+	Arguments   []any
+	KwArguments map[string]any
+	Details     map[string]any
+	Err         string
+}
+
 type Progress struct {
 	Arguments   []any
 	KwArguments map[string]any

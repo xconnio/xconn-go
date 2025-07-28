@@ -46,8 +46,8 @@ func testRPC(t *testing.T, authenticator auth.ClientAuthenticator, serializer xc
 	session := connectSession(t, authenticator, serializer, url)
 
 	registerResponse := session.Register("io.xconn.test",
-		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
-			return xconn.CallResponse{Arguments: invocation.Arguments, KwArguments: invocation.KwArguments}
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+			return &xconn.Result{Arguments: invocation.Arguments, KwArguments: invocation.KwArguments}
 		}).Do()
 	require.NoError(t, registerResponse.Err)
 
