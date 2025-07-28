@@ -67,15 +67,13 @@ func (s *Server) RegisterSpec(spec SerializerSpec) error {
 	return s.wsAcceptor.RegisterSpec(spec)
 }
 
-func (s *Server) ListenWebSocket(network Network, address string) (io.Closer, error) {
+func (s *Server) ListenAndServeWebSocket(network Network, address string) (io.Closer, error) {
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	go s.startConnectionLoop(ln, ListenerWebSocket)
-
-	return ln, err
+	return s.Serve(ln, ListenerWebSocket), nil
 }
 
 type connWithPrependedReader struct {
@@ -176,24 +174,25 @@ func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
 	}
 }
 
-func (s *Server) ListenRawSocket(network Network, address string) (io.Closer, error) {
+func (s *Server) ListenAndServeRawSocket(network Network, address string) (io.Closer, error) {
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	go s.startConnectionLoop(ln, ListenerRawSocket)
-
-	return ln, err
+	return s.Serve(ln, ListenerRawSocket), nil
 }
 
-func (s *Server) ListenUniversalTCP(address string) (io.Closer, error) {
+func (s *Server) ListenAndServeUniversalTCP(address string) (io.Closer, error) {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	go s.startConnectionLoop(ln, ListenerUniversalTCP)
+	return s.Serve(ln, ListenerUniversalTCP), nil
+}
 
-	return ln, err
+func (s *Server) Serve(listener net.Listener, protocol Listener) io.Closer {
+	go s.startConnectionLoop(listener, protocol)
+	return listener
 }
