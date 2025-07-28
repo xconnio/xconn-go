@@ -5,6 +5,7 @@ import (
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
+	"github.com/xconnio/wampproto-go/util"
 	"github.com/xconnio/xconn-go/internal"
 )
 
@@ -12,6 +13,7 @@ type Realm struct {
 	broker  *wampproto.Broker
 	dealer  *wampproto.Dealer
 	clients internal.Map[uint64, BaseSession]
+	roles   internal.Map[string, RealmRole]
 }
 
 func NewRealm() *Realm {
@@ -19,6 +21,7 @@ func NewRealm() *Realm {
 		broker:  wampproto.NewBroker(),
 		dealer:  wampproto.NewDealer(),
 		clients: internal.Map[uint64, BaseSession]{},
+		roles:   internal.Map[string, RealmRole]{},
 	}
 }
 
@@ -53,11 +56,75 @@ func (r *Realm) DetachClient(base BaseSession) error {
 	return nil
 }
 
-func (r *Realm) ReceiveMessage(sessionID uint64, msg messages.Message) error {
+func (r *Realm) AddRole(role RealmRole) error {
+	_, loaded := r.roles.LoadOrStore(role.Name, role)
+	if loaded {
+		return fmt.Errorf("role '%s' already exists", role.Name)
+	}
+
+	return nil
+}
+
+func (r *Realm) RemoveRole(role string) error {
+	_, exists := r.roles.Load(role)
+	if !exists {
+		return fmt.Errorf("role %s does not exists", role)
+	}
+
+	r.roles.Delete(role)
+	return nil
+}
+
+func (r *Realm) HasRole(role string) bool {
+	_, exists := r.roles.Load(role)
+	return exists
+}
+
+func uriAndIDIfNeedsAuth(msg messages.Message) (uri string, requestID uint64, needsAuth bool) {
+	switch m := msg.(type) {
+	case *messages.Call:
+		return m.Procedure(), m.RequestID(), true
+	case *messages.Register:
+		return m.Procedure(), m.RequestID(), true
+	case *messages.Publish:
+		return m.Topic(), m.RequestID(), true
+	case *messages.Subscribe:
+		return m.Topic(), m.RequestID(), true
+	default:
+		return "", 0, false
+	}
+}
+
+func (r *Realm) isAuthorized(roleName string, msgType int, uri string) bool {
+	role, ok := r.roles.Load(roleName)
+	if !ok {
+		return false
+	}
+
+	for _, perm := range role.Permissions {
+		if !perm.Allows(msgType) {
+			continue
+		}
+		if perm.MatchURI(uri) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) error {
+	uri, requestID, needsAuth := uriAndIDIfNeedsAuth(msg)
+	if needsAuth && !r.isAuthorized(baseSession.AuthRole(), msg.Type(), uri) {
+		messageType, _ := util.AsUInt64(msg.Type())
+		errMsg := messages.NewError(messageType, requestID, map[string]any{},
+			wampproto.ErrAuthorizationFailed, nil, nil)
+		return baseSession.WriteMessage(errMsg)
+	}
+
 	switch msg.Type() {
 	case messages.MessageTypeCall, messages.MessageTypeYield, messages.MessageTypeRegister,
 		messages.MessageTypeUnregister, messages.MessageTypeError:
-		msgWithRecipient, err := r.dealer.ReceiveMessage(sessionID, msg)
+		msgWithRecipient, err := r.dealer.ReceiveMessage(baseSession.ID(), msg)
 		if err != nil {
 			return err
 		}
@@ -65,7 +132,7 @@ func (r *Realm) ReceiveMessage(sessionID uint64, msg messages.Message) error {
 		client, _ := r.clients.Load(msgWithRecipient.Recipient)
 		return client.WriteMessage(msgWithRecipient.Message)
 	case messages.MessageTypeSubscribe, messages.MessageTypeUnsubscribe:
-		msgWithRecipient, err := r.broker.ReceiveMessage(sessionID, msg)
+		msgWithRecipient, err := r.broker.ReceiveMessage(baseSession.ID(), msg)
 		if err != nil {
 			return err
 		}
@@ -74,7 +141,7 @@ func (r *Realm) ReceiveMessage(sessionID uint64, msg messages.Message) error {
 		return client.WriteMessage(msgWithRecipient.Message)
 	case messages.MessageTypePublish:
 		publish := msg.(*messages.Publish)
-		publication, err := r.broker.ReceivePublish(sessionID, publish)
+		publication, err := r.broker.ReceivePublish(baseSession.ID(), publish)
 		if err != nil {
 			return err
 		}
@@ -91,11 +158,10 @@ func (r *Realm) ReceiveMessage(sessionID uint64, msg messages.Message) error {
 
 		return nil
 	case messages.MessageTypeGoodbye:
-		if err := r.dealer.RemoveSession(sessionID); err != nil {
+		if err := r.dealer.RemoveSession(baseSession.ID()); err != nil {
 			return err
 		}
-
-		client, exists := r.clients.LoadAndDelete(sessionID)
+		client, exists := r.clients.LoadAndDelete(baseSession.ID())
 		if !exists {
 			return fmt.Errorf("goodbye: client does not exist")
 		}

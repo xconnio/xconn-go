@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
 
+	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
@@ -560,4 +562,51 @@ func (t *Throttle) Create() *ratelimit.Limiter {
 		return ratelimit.NewLeakyBucket(context.Background(), t.rate, t.duration)
 	}
 	return ratelimit.New(context.Background(), t.rate, t.duration)
+}
+
+func wildcardMatch(str, pattern string) bool {
+	matched, err := path.Match(pattern, str)
+	return err == nil && matched
+}
+
+type Permission struct {
+	Uri            string
+	Match          string
+	AllowCall      bool
+	AllowPublish   bool
+	AllowRegister  bool
+	AllowSubscribe bool
+}
+
+func (p Permission) Allows(msgType int) bool {
+	switch msgType {
+	case messages.MessageTypeCall:
+		return p.AllowCall
+	case messages.MessageTypeRegister:
+		return p.AllowRegister
+	case messages.MessageTypeSubscribe:
+		return p.AllowSubscribe
+	case messages.MessageTypePublish:
+		return p.AllowPublish
+	default:
+		return false
+	}
+}
+
+func (p Permission) MatchURI(uri string) bool {
+	switch p.Match {
+	case wampproto.MatchExact:
+		return uri == p.Uri
+	case wampproto.MatchPrefix:
+		return strings.HasPrefix(uri, p.Uri)
+	case wampproto.MatchWildcard:
+		return wildcardMatch(uri, p.Uri)
+	default:
+		return false
+	}
+}
+
+type RealmRole struct {
+	Name        string
+	Permissions []Permission
 }

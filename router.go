@@ -48,13 +48,40 @@ func (r *Router) DetachClient(base BaseSession) error {
 	return realm.DetachClient(base)
 }
 
+func (r *Router) AddRealmRole(realmName string, role RealmRole) error {
+	realm, ok := r.realms.Load(realmName)
+	if !ok {
+		return fmt.Errorf("xconn: could not find realm: %s", realmName)
+	}
+
+	return realm.AddRole(role)
+}
+
+func (r *Router) HasRealmRole(realmName string, roleName string) (bool, error) {
+	realm, ok := r.realms.Load(realmName)
+	if !ok {
+		return false, fmt.Errorf("xconn: could not find realm: %s", realmName)
+	}
+
+	return realm.HasRole(roleName), nil
+}
+
+func (r *Router) RemoveRealmRole(realmName string, roleName string) error {
+	realm, ok := r.realms.Load(realmName)
+	if !ok {
+		return fmt.Errorf("xconn: could not find realm: %s", realmName)
+	}
+
+	return realm.RemoveRole(roleName)
+}
+
 func (r *Router) ReceiveMessage(base BaseSession, msg messages.Message) error {
 	realm, ok := r.realms.Load(base.Realm())
 	if !ok {
 		return fmt.Errorf("xconn: could not find realm: %s", base.Realm())
 	}
 
-	return realm.ReceiveMessage(base.ID(), msg)
+	return realm.ReceiveMessage(base, msg)
 }
 
 func (r *Router) Close() {
