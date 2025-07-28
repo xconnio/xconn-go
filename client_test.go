@@ -82,8 +82,8 @@ func TestPublishSubscribe(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
-		err := session.Publish("foo.bar").Options(opt).Do()
-		require.NoError(t, err)
+		publishResponse := session.Publish("foo.bar").Options(opt).Do()
+		require.NoError(t, publishResponse.Err)
 
 		event := <-event1
 		log.Println(event)

@@ -242,8 +242,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received PUBLISHED for unknown request")
 		}
 
-		req := request.(chan *PublishResponse)
-		req <- &PublishResponse{msg: published}
+		req := request.(chan *publishResponse)
+		req <- &publishResponse{msg: published}
 	case messages.MessageTypeEvent:
 		event := msg.(*messages.Event)
 		subscriptions, exists := s.subscriptions.Load(event.SubscriptionID())
@@ -315,8 +315,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			responseChan := response.(chan *PublishResponse)
-			responseChan <- &PublishResponse{error: err}
+			responseChan := response.(chan *publishResponse)
+			responseChan <- &publishResponse{error: err}
 			return nil
 		default:
 			return fmt.Errorf("unknown error message type %T", msg)
@@ -611,42 +611,42 @@ func (s *Session) subscribe(topic string, handler EventHandler, options map[stri
 }
 
 func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
-	options map[string]any) error {
+	options map[string]any) PublishResponse {
 	if !s.Connected() {
-		return fmt.Errorf("cannot publish to topic: session not established")
+		return PublishResponse{Err: fmt.Errorf("cannot publish to topic: session not established")}
 	}
 
 	publish := messages.NewPublish(s.idGen.NextID(), options, topic, args, kwArgs)
 	toSend, err := s.proto.SendMessage(publish)
 	if err != nil {
-		return err
+		return PublishResponse{Err: err}
 	}
 
 	ack, exists := publish.Options()["acknowledge"].(bool)
 	if !exists || !ack {
 		if err = s.base.Write(toSend); err != nil {
-			return err
+			return PublishResponse{Err: err}
 		}
 
-		return nil
+		return PublishResponse{}
 	}
 
-	channel := make(chan *PublishResponse, 1)
+	channel := make(chan *publishResponse, 1)
 	s.publishRequests.Store(publish.RequestID(), channel)
 	defer s.publishRequests.Delete(publish.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return err
+		return PublishResponse{Err: err}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return response.error
+			return PublishResponse{Err: response.error}
 		}
 
-		return nil
+		return PublishResponse{}
 	case <-time.After(10 * time.Second):
-		return fmt.Errorf("publish request timed")
+		return PublishResponse{Err: fmt.Errorf("publish request timed")}
 	}
 }
 

@@ -69,10 +69,10 @@ func testPubSub(t *testing.T, authenticator auth.ClientAuthenticator, serializer
 	}).Do()
 	require.NoError(t, subscribeResponse.Err)
 
-	err := session.Publish("io.xconn.test").Args(args...).Option("acknowledge", true).Do()
-	require.NoError(t, err)
+	publishResponse := session.Publish("io.xconn.test").Args(args...).Option("acknowledge", true).Do()
+	require.NoError(t, publishResponse.Err)
 
-	err = subscribeResponse.Unsubscribe()
+	err := subscribeResponse.Unsubscribe()
 	require.NoError(t, err)
 }
 

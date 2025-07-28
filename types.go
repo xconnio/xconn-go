@@ -319,7 +319,7 @@ type UnsubscribeResponse struct {
 	error *Error
 }
 
-type PublishResponse struct {
+type publishResponse struct {
 	msg   *messages.Published
 	error *Error
 }
@@ -480,7 +480,7 @@ type PublishRequest struct {
 	options map[string]any
 }
 
-func (p PublishRequest) Do() error {
+func (p PublishRequest) Do() PublishResponse {
 	return p.session.publish(p.topic, p.args, p.kwArgs, p.options)
 }
 
@@ -552,6 +552,10 @@ type SubscribeResponse struct {
 
 func (r SubscribeResponse) Unsubscribe() error {
 	return r.subscription.unsubscribe()
+}
+
+type PublishResponse struct {
+	Err error
 }
 
 type Strategy int
