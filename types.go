@@ -163,7 +163,7 @@ type Registration struct {
 	session *Session
 }
 
-func (r *Registration) Unregister() error {
+func (r *Registration) unregister() error {
 	if !r.session.Connected() {
 		return fmt.Errorf("cannot unregister procedure: session not established")
 	}
@@ -294,7 +294,7 @@ func (e *Error) Error() string {
 	return errStr
 }
 
-type RegisterResponse struct {
+type registerResponse struct {
 	msg   *messages.Registered
 	error *Error
 }
@@ -344,7 +344,7 @@ func NewRegisterRequest(procedure string, handler InvocationHandler) RegisterReq
 	}
 }
 
-func (r RegisterRequest) Do() (*Registration, error) {
+func (r RegisterRequest) Do() RegisterResponse {
 	return r.session.register(r.procedure, r.handler, r.options)
 }
 
@@ -534,6 +534,15 @@ type CallResponse struct {
 	KwArguments map[string]any
 	Details     map[string]any
 	Err         error
+}
+
+type RegisterResponse struct {
+	registration *Registration
+	Err          error
+}
+
+func (r RegisterResponse) Unregister() error {
+	return r.registration.unregister()
 }
 
 type Strategy int

@@ -37,11 +37,11 @@ func main() {
 		return xconn.CallResponse{Arguments: []any{"Upload complete"}}
 	}
 
-	registration, err := callee.Register(procedureProgressUpload, invocationHandler).Do()
+	registerResponse := callee.Register(procedureProgressUpload, invocationHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register procedure: %s", err)
 	}
-	defer func() { _ = registration.Unregister() }()
+	defer func() { _ = registerResponse.Unregister() }()
 
 	// Wait for interrupt signal to gracefully shut down
 	sigChan := make(chan os.Signal, 1)

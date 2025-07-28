@@ -45,18 +45,18 @@ func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer x
 func testRPC(t *testing.T, authenticator auth.ClientAuthenticator, serializer xconn.SerializerSpec, url string) {
 	session := connectSession(t, authenticator, serializer, url)
 
-	reg, err := session.Register("io.xconn.test",
+	registerResponse := session.Register("io.xconn.test",
 		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
 			return xconn.CallResponse{Arguments: invocation.Arguments, KwArguments: invocation.KwArguments}
 		}).Do()
-	require.NoError(t, err)
+	require.NoError(t, registerResponse.Err)
 
 	args := []any{"Hello", "wamp"}
 	callResponse := session.Call("io.xconn.test").Args(args...).Do()
 	require.NoError(t, callResponse.Err)
 	require.Equal(t, args, callResponse.Arguments)
 
-	err = reg.Unregister()
+	err := registerResponse.Unregister()
 	require.NoError(t, err)
 }
 

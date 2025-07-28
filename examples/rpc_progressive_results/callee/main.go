@@ -41,11 +41,11 @@ func main() {
 		return xconn.CallResponse{Arguments: []any{fmt.Sprintf("Upload complete, chunk %v acknowledged", chunkIndex)}}
 	}
 
-	registration, err := callee.Register(procedureProgressUpload, invocationHandler).Do()
+	registerResponse := callee.Register(procedureProgressUpload, invocationHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register method: %s", err)
 	}
-	defer func() { _ = registration.Unregister() }()
+	defer func() { _ = registerResponse.Unregister() }()
 
 	// Wait for interrupt signal to gracefully shutdown
 	sigChan := make(chan os.Signal, 1)

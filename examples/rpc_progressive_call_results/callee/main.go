@@ -36,11 +36,11 @@ func main() {
 		return xconn.CallResponse{Arguments: []any{"Download complete!"}}
 	}
 
-	registration, err := callee.Register(procedureProgressDownload, invocationHandler).Do()
+	registerResponse := callee.Register(procedureProgressDownload, invocationHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register method: %s", err)
 	}
-	defer func() { _ = registration.Unregister() }()
+	defer func() { _ = registerResponse.Unregister() }()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)

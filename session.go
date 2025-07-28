@@ -112,8 +112,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received REGISTERED for unknown request")
 		}
 
-		requestChan := request.(chan *RegisterResponse)
-		requestChan <- &RegisterResponse{msg: registered}
+		requestChan := request.(chan *registerResponse)
+		requestChan <- &registerResponse{msg: registered}
 	case messages.MessageTypeUnregistered:
 		unregistered := msg.(*messages.Unregistered)
 		request, exists := s.unregisterRequests.Load(unregistered.RequestID())
@@ -280,8 +280,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			requestChan := request.(chan *RegisterResponse)
-			requestChan <- &RegisterResponse{error: err}
+			requestChan := request.(chan *registerResponse)
+			requestChan <- &registerResponse{error: err}
 			return nil
 		case messages.MessageTypeUnregister:
 			_, exists := s.unregisterRequests.LoadAndDelete(errorMsg.RequestID())
@@ -355,29 +355,29 @@ func (s *Session) Register(procedure string, handler InvocationHandler) Register
 }
 
 func (s *Session) register(procedure string, handler InvocationHandler,
-	options map[string]any) (*Registration, error) {
+	options map[string]any) RegisterResponse {
 	if !s.Connected() {
-		return nil, fmt.Errorf("cannot register procedure: session not established")
+		return RegisterResponse{Err: fmt.Errorf("cannot register procedure: session not established")}
 	}
 
 	register := messages.NewRegister(s.idGen.NextID(), options, procedure)
 	toSend, err := s.proto.SendMessage(register)
 	if err != nil {
-		return nil, err
+		return RegisterResponse{Err: err}
 	}
 
-	channel := make(chan *RegisterResponse, 1)
+	channel := make(chan *registerResponse, 1)
 	s.registerRequests.Store(register.RequestID(), channel)
 	defer s.registerRequests.Delete(register.RequestID())
 
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return RegisterResponse{Err: err}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return nil, response.error
+			return RegisterResponse{Err: response.error}
 		}
 
 		s.registrations.Store(response.msg.RegistrationID(), handler)
@@ -385,9 +385,9 @@ func (s *Session) register(procedure string, handler InvocationHandler,
 			id:      response.msg.RegistrationID(),
 			session: s,
 		}
-		return registration, nil
+		return RegisterResponse{registration: registration}
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("register request timed out")
+		return RegisterResponse{Err: fmt.Errorf("register request timed out")}
 	}
 }
 
