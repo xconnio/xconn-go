@@ -34,10 +34,10 @@ func connectSession(t *testing.T, authenticator auth.ClientAuthenticator, serial
 func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer xconn.SerializerSpec, url string) {
 	session := connectSession(t, authenticator, serializer, url)
 
-	result, err := session.Call(procedureAdd).Args(2, 2).Do()
-	require.NoError(t, err)
+	callResponse := session.Call(procedureAdd).Args(2, 2).Do()
+	require.NoError(t, callResponse.Err)
 
-	sumResult, ok := util.AsUInt64(result.Arguments[0])
+	sumResult, ok := util.AsUInt64(callResponse.Arguments[0])
 	require.True(t, ok)
 	require.Equal(t, 4, int(sumResult))
 }
@@ -46,15 +46,15 @@ func testRPC(t *testing.T, authenticator auth.ClientAuthenticator, serializer xc
 	session := connectSession(t, authenticator, serializer, url)
 
 	reg, err := session.Register("io.xconn.test",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
-			return &xconn.Result{Arguments: invocation.Arguments, KwArguments: invocation.KwArguments}
+		func(ctx context.Context, invocation *xconn.Invocation) xconn.CallResponse {
+			return xconn.CallResponse{Arguments: invocation.Arguments, KwArguments: invocation.KwArguments}
 		}).Do()
 	require.NoError(t, err)
 
 	args := []any{"Hello", "wamp"}
-	result, err := session.Call("io.xconn.test").Args(args...).Do()
-	require.NoError(t, err)
-	require.Equal(t, args, result.Arguments)
+	callResponse := session.Call("io.xconn.test").Args(args...).Do()
+	require.NoError(t, callResponse.Err)
+	require.Equal(t, args, callResponse.Arguments)
 
 	err = reg.Unregister()
 	require.NoError(t, err)

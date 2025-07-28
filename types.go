@@ -260,13 +260,6 @@ type Invocation struct {
 	SendProgress SendProgress
 }
 
-type Result struct {
-	Arguments   []any
-	KwArguments map[string]any
-	Details     map[string]any
-	Err         string
-}
-
 type Progress struct {
 	Arguments   []any
 	KwArguments map[string]any
@@ -306,7 +299,7 @@ type RegisterResponse struct {
 	error *Error
 }
 
-type CallResponse struct {
+type callResponse struct {
 	msg   *messages.Result
 	error *Error
 }
@@ -385,11 +378,11 @@ type CallRequest struct {
 	progressSender   ProgressSender
 }
 
-func (c CallRequest) Do() (*Result, error) {
+func (c CallRequest) Do() CallResponse {
 	return c.DoContext(context.Background())
 }
 
-func (c CallRequest) DoContext(ctx context.Context) (*Result, error) {
+func (c CallRequest) DoContext(ctx context.Context) CallResponse {
 	return c.session.callWithRequest(ctx, c)
 }
 
@@ -534,6 +527,13 @@ func (p PublishRequest) Validate() error {
 	}
 
 	return nil
+}
+
+type CallResponse struct {
+	Arguments   []any
+	KwArguments map[string]any
+	Details     map[string]any
+	Err         error
 }
 
 type Strategy int
