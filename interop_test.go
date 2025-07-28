@@ -64,15 +64,15 @@ func testPubSub(t *testing.T, authenticator auth.ClientAuthenticator, serializer
 	session := connectSession(t, authenticator, serializer, url)
 
 	args := []any{"Hello", "wamp"}
-	sub, err := session.Subscribe("io.xconn.test", func(event *xconn.Event) {
+	subscribeResponse := session.Subscribe("io.xconn.test", func(event *xconn.Event) {
 		require.Equal(t, args, event.Arguments)
 	}).Do()
+	require.NoError(t, subscribeResponse.Err)
+
+	err := session.Publish("io.xconn.test").Args(args...).Option("acknowledge", true).Do()
 	require.NoError(t, err)
 
-	err = session.Publish("io.xconn.test").Args(args...).Option("acknowledge", true).Do()
-	require.NoError(t, err)
-
-	err = sub.Unsubscribe()
+	err = subscribeResponse.Unsubscribe()
 	require.NoError(t, err)
 }
 

@@ -224,8 +224,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received SUBSCRIBED for unknown request")
 		}
 
-		req := request.(chan *SubscribeResponse)
-		req <- &SubscribeResponse{msg: subscribed}
+		req := request.(chan *subscribeResponse)
+		req <- &subscribeResponse{msg: subscribed}
 	case messages.MessageTypeUnsubscribed:
 		unsubscribed := msg.(*messages.Unsubscribed)
 		request, exists := s.unsubscribeRequests.Load(unsubscribed.RequestID())
@@ -297,8 +297,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			responseChan := response.(chan *SubscribeResponse)
-			responseChan <- &SubscribeResponse{error: err}
+			responseChan := response.(chan *subscribeResponse)
+			responseChan <- &subscribeResponse{error: err}
 			return nil
 		case messages.MessageTypeUnsubscribe:
 			_, exists := s.unsubscribeRequests.Load(errorMsg.RequestID())
@@ -566,28 +566,28 @@ func (s *Session) Subscribe(topic string, handler EventHandler) SubscribeRequest
 	return SubscribeRequest{session: s, topic: topic, handler: handler}
 }
 
-func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
+func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) SubscribeResponse {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	if !s.Connected() {
-		return nil, fmt.Errorf("cannot subscribe to topic: session not established")
+		return SubscribeResponse{Err: fmt.Errorf("cannot subscribe to topic: session not established")}
 	}
 
 	toSend, err := s.proto.SendMessage(subscribe)
 	if err != nil {
-		return nil, err
+		return SubscribeResponse{Err: err}
 	}
 
-	channel := make(chan *SubscribeResponse, 1)
+	channel := make(chan *subscribeResponse, 1)
 	s.subscribeRequests.Store(subscribe.RequestID(), channel)
 	defer s.subscribeRequests.Delete(subscribe.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return SubscribeResponse{Err: err}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return nil, response.error
+			return SubscribeResponse{Err: response.error}
 		}
 
 		sub := &Subscription{
@@ -604,9 +604,9 @@ func (s *Session) subscribe(topic string, handler EventHandler, options map[stri
 			subs[sub] = sub
 			s.subscriptions.Store(response.msg.SubscriptionID(), subs)
 		}
-		return sub, nil
+		return SubscribeResponse{subscription: sub}
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("subscribe request timed")
+		return SubscribeResponse{Err: fmt.Errorf("subscribe request timed")}
 	}
 }
 

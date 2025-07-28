@@ -70,20 +70,19 @@ func TestRegisterCall(t *testing.T) {
 func TestPublishSubscribe(t *testing.T) {
 	session := connect(t)
 	event1 := make(chan *xconn.Event, 1)
-	reg, err := session.Subscribe(
+	subscribeResponse := session.Subscribe(
 		"foo.bar",
 		func(event *xconn.Event) {
 			event1 <- event
 		}).Do()
 
-	require.NoError(t, err)
-	require.NotNil(t, reg)
+	require.NoError(t, subscribeResponse.Err)
 
 	t.Run("PublishWithRequest", func(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
-		err = session.Publish("foo.bar").Options(opt).Do()
+		err := session.Publish("foo.bar").Options(opt).Do()
 		require.NoError(t, err)
 
 		event := <-event1

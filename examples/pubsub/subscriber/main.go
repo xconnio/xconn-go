@@ -25,7 +25,7 @@ func main() {
 		log.Printf("Received event: args=%s, kwargs=%s, details=%s", event.Arguments, event.KwArguments, event.Details)
 	}
 
-	subscription, err := subscriber.Subscribe(testTopic, eventHandler).Do()
+	subscribeResponse := subscriber.Subscribe(testTopic, eventHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to subscribe: %s", err)
 	}
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// Unsubscribe from topic
-	err = subscription.Unsubscribe()
+	err = subscribeResponse.Unsubscribe()
 	if err != nil {
 		log.Fatalf("Failed to unsubscribe: %s", err)
 	}

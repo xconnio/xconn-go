@@ -201,7 +201,7 @@ type Subscription struct {
 	eventHandler EventHandler
 }
 
-func (s *Subscription) Unsubscribe() error {
+func (s *Subscription) unsubscribe() error {
 	if !s.session.Connected() {
 		return fmt.Errorf("cannot unsubscribe topic: session not established")
 	}
@@ -309,7 +309,7 @@ type UnregisterResponse struct {
 	error *Error
 }
 
-type SubscribeResponse struct {
+type subscribeResponse struct {
 	msg   *messages.Subscribed
 	error *Error
 }
@@ -449,7 +449,7 @@ type SubscribeRequest struct {
 	options map[string]any
 }
 
-func (r SubscribeRequest) Do() (*Subscription, error) {
+func (r SubscribeRequest) Do() SubscribeResponse {
 	return r.session.subscribe(r.topic, r.handler, r.options)
 }
 
@@ -543,6 +543,15 @@ type RegisterResponse struct {
 
 func (r RegisterResponse) Unregister() error {
 	return r.registration.unregister()
+}
+
+type SubscribeResponse struct {
+	subscription *Subscription
+	Err          error
+}
+
+func (r SubscribeResponse) Unsubscribe() error {
+	return r.subscription.unsubscribe()
 }
 
 type Strategy int
