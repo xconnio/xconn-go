@@ -624,7 +624,7 @@ func (p Permission) Allows(msgType int) bool {
 
 func (p Permission) MatchURI(uri string) bool {
 	switch p.MatchPolicy {
-	case wampproto.MatchExact:
+	case "", wampproto.MatchExact:
 		return uri == p.URI
 	case wampproto.MatchPrefix:
 		return strings.HasPrefix(uri, p.URI)
