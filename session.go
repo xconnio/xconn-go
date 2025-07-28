@@ -23,8 +23,9 @@ type ProgressReceiver func(result *Result)
 type ProgressSender func(ctx context.Context) *Progress
 
 type Session struct {
-	base  BaseSession
-	proto *wampproto.Session
+	base    BaseSession
+	details *SessionDetails
+	proto   *wampproto.Session
 
 	// wamp id generator
 	idGen *wampproto.SessionScopeIDGenerator
@@ -71,6 +72,8 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 		goodbyeChan: make(chan struct{}, 1),
 
 		leaveChan: make(chan struct{}, 1),
+
+		details: NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole()),
 	}
 
 	go session.waitForRouterMessages()
@@ -681,7 +684,11 @@ func (s *Session) SetOnLeaveListener(listener func()) {
 	s.onLeave = listener
 }
 
-func (s *Session) LeaveChan() <-chan struct{} {
+func (s *Session) Details() *SessionDetails {
+	return s.details
+}
+
+func (s *Session) Done() <-chan struct{} {
 	return s.leaveChan
 }
 
