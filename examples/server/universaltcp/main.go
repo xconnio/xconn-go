@@ -28,7 +28,7 @@ func main() {
 	defer r.Close()
 
 	server := xconn.NewServer(r, nil, nil)
-	closer, err := server.ListenUniversalTCP(fmt.Sprintf("%s:%d", *host, *port))
+	closer, err := server.ListenAndServeUniversalTCP(fmt.Sprintf("%s:%d", *host, *port))
 	if err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
