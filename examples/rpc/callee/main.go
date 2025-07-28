@@ -43,14 +43,14 @@ func main() {
 	}
 
 	// RegisterWithRequest procedure "io.xconn.echo"
-	echoRegistration, err := callee.Register(testProcedureEcho, echoHandler).Do()
+	echoRegisterResponse := callee.Register(testProcedureEcho, echoHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register: %s", err)
 	}
 	log.Printf("Registered procedure: %s", testProcedureEcho)
 
 	// RegisterWithRequest procedure "io.xconn.sum"
-	sumRegistration, err := callee.Register(testProcedureSum, sumHandler).Do()
+	sumRegisterResponse := callee.Register(testProcedureSum, sumHandler).Do()
 	if err != nil {
 		log.Fatalf("Failed to register: %s", err)
 	}
@@ -66,13 +66,13 @@ func main() {
 	}
 
 	// Unregister procedure "io.xconn.echo"
-	err = echoRegistration.Unregister()
+	err = echoRegisterResponse.Unregister()
 	if err != nil {
 		log.Fatalf("Failed to unregister: %s", err)
 	}
 
 	// Unregister procedure "io.xconn.sum"
-	err = sumRegistration.Unregister()
+	err = sumRegisterResponse.Unregister()
 	if err != nil {
 		log.Fatalf("Failed to unregister: %s", err)
 	}

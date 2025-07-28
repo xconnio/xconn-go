@@ -112,8 +112,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received REGISTERED for unknown request")
 		}
 
-		requestChan := request.(chan *RegisterResponse)
-		requestChan <- &RegisterResponse{msg: registered}
+		requestChan := request.(chan *registerResponse)
+		requestChan <- &registerResponse{msg: registered}
 	case messages.MessageTypeUnregistered:
 		unregistered := msg.(*messages.Unregistered)
 		request, exists := s.unregisterRequests.Load(unregistered.RequestID())
@@ -224,8 +224,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received SUBSCRIBED for unknown request")
 		}
 
-		req := request.(chan *SubscribeResponse)
-		req <- &SubscribeResponse{msg: subscribed}
+		req := request.(chan *subscribeResponse)
+		req <- &subscribeResponse{msg: subscribed}
 	case messages.MessageTypeUnsubscribed:
 		unsubscribed := msg.(*messages.Unsubscribed)
 		request, exists := s.unsubscribeRequests.Load(unsubscribed.RequestID())
@@ -242,8 +242,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received PUBLISHED for unknown request")
 		}
 
-		req := request.(chan *PublishResponse)
-		req <- &PublishResponse{msg: published}
+		req := request.(chan *publishResponse)
+		req <- &publishResponse{msg: published}
 	case messages.MessageTypeEvent:
 		event := msg.(*messages.Event)
 		subscriptions, exists := s.subscriptions.Load(event.SubscriptionID())
@@ -280,8 +280,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			requestChan := request.(chan *RegisterResponse)
-			requestChan <- &RegisterResponse{error: err}
+			requestChan := request.(chan *registerResponse)
+			requestChan <- &registerResponse{error: err}
 			return nil
 		case messages.MessageTypeUnregister:
 			_, exists := s.unregisterRequests.LoadAndDelete(errorMsg.RequestID())
@@ -297,8 +297,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			responseChan := response.(chan *SubscribeResponse)
-			responseChan <- &SubscribeResponse{error: err}
+			responseChan := response.(chan *subscribeResponse)
+			responseChan <- &subscribeResponse{error: err}
 			return nil
 		case messages.MessageTypeUnsubscribe:
 			_, exists := s.unsubscribeRequests.Load(errorMsg.RequestID())
@@ -315,8 +315,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			}
 
 			err := &Error{URI: errorMsg.URI(), Arguments: errorMsg.Args(), KwArguments: errorMsg.KwArgs()}
-			responseChan := response.(chan *PublishResponse)
-			responseChan <- &PublishResponse{error: err}
+			responseChan := response.(chan *publishResponse)
+			responseChan <- &publishResponse{error: err}
 			return nil
 		default:
 			return fmt.Errorf("unknown error message type %T", msg)
@@ -355,29 +355,29 @@ func (s *Session) Register(procedure string, handler InvocationHandler) Register
 }
 
 func (s *Session) register(procedure string, handler InvocationHandler,
-	options map[string]any) (*Registration, error) {
+	options map[string]any) RegisterResponse {
 	if !s.Connected() {
-		return nil, fmt.Errorf("cannot register procedure: session not established")
+		return RegisterResponse{Err: fmt.Errorf("cannot register procedure: session not established")}
 	}
 
 	register := messages.NewRegister(s.idGen.NextID(), options, procedure)
 	toSend, err := s.proto.SendMessage(register)
 	if err != nil {
-		return nil, err
+		return RegisterResponse{Err: err}
 	}
 
-	channel := make(chan *RegisterResponse, 1)
+	channel := make(chan *registerResponse, 1)
 	s.registerRequests.Store(register.RequestID(), channel)
 	defer s.registerRequests.Delete(register.RequestID())
 
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return RegisterResponse{Err: err}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return nil, response.error
+			return RegisterResponse{Err: response.error}
 		}
 
 		s.registrations.Store(response.msg.RegistrationID(), handler)
@@ -385,9 +385,9 @@ func (s *Session) register(procedure string, handler InvocationHandler,
 			id:      response.msg.RegistrationID(),
 			session: s,
 		}
-		return registration, nil
+		return RegisterResponse{registration: registration}
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("register request timed out")
+		return RegisterResponse{Err: fmt.Errorf("register request timed out")}
 	}
 }
 
@@ -566,28 +566,28 @@ func (s *Session) Subscribe(topic string, handler EventHandler) SubscribeRequest
 	return SubscribeRequest{session: s, topic: topic, handler: handler}
 }
 
-func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) (*Subscription, error) {
+func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) SubscribeResponse {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	if !s.Connected() {
-		return nil, fmt.Errorf("cannot subscribe to topic: session not established")
+		return SubscribeResponse{Err: fmt.Errorf("cannot subscribe to topic: session not established")}
 	}
 
 	toSend, err := s.proto.SendMessage(subscribe)
 	if err != nil {
-		return nil, err
+		return SubscribeResponse{Err: err}
 	}
 
-	channel := make(chan *SubscribeResponse, 1)
+	channel := make(chan *subscribeResponse, 1)
 	s.subscribeRequests.Store(subscribe.RequestID(), channel)
 	defer s.subscribeRequests.Delete(subscribe.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return nil, err
+		return SubscribeResponse{Err: err}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return nil, response.error
+			return SubscribeResponse{Err: response.error}
 		}
 
 		sub := &Subscription{
@@ -604,49 +604,49 @@ func (s *Session) subscribe(topic string, handler EventHandler, options map[stri
 			subs[sub] = sub
 			s.subscriptions.Store(response.msg.SubscriptionID(), subs)
 		}
-		return sub, nil
+		return SubscribeResponse{subscription: sub}
 	case <-time.After(10 * time.Second):
-		return nil, fmt.Errorf("subscribe request timed")
+		return SubscribeResponse{Err: fmt.Errorf("subscribe request timed")}
 	}
 }
 
 func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
-	options map[string]any) error {
+	options map[string]any) PublishResponse {
 	if !s.Connected() {
-		return fmt.Errorf("cannot publish to topic: session not established")
+		return PublishResponse{Err: fmt.Errorf("cannot publish to topic: session not established")}
 	}
 
 	publish := messages.NewPublish(s.idGen.NextID(), options, topic, args, kwArgs)
 	toSend, err := s.proto.SendMessage(publish)
 	if err != nil {
-		return err
+		return PublishResponse{Err: err}
 	}
 
 	ack, exists := publish.Options()["acknowledge"].(bool)
 	if !exists || !ack {
 		if err = s.base.Write(toSend); err != nil {
-			return err
+			return PublishResponse{Err: err}
 		}
 
-		return nil
+		return PublishResponse{}
 	}
 
-	channel := make(chan *PublishResponse, 1)
+	channel := make(chan *publishResponse, 1)
 	s.publishRequests.Store(publish.RequestID(), channel)
 	defer s.publishRequests.Delete(publish.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return err
+		return PublishResponse{Err: err}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return response.error
+			return PublishResponse{Err: response.error}
 		}
 
-		return nil
+		return PublishResponse{}
 	case <-time.After(10 * time.Second):
-		return fmt.Errorf("publish request timed")
+		return PublishResponse{Err: fmt.Errorf("publish request timed")}
 	}
 }
 

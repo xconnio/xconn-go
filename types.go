@@ -163,7 +163,7 @@ type Registration struct {
 	session *Session
 }
 
-func (r *Registration) Unregister() error {
+func (r *Registration) unregister() error {
 	if !r.session.Connected() {
 		return fmt.Errorf("cannot unregister procedure: session not established")
 	}
@@ -201,7 +201,7 @@ type Subscription struct {
 	eventHandler EventHandler
 }
 
-func (s *Subscription) Unsubscribe() error {
+func (s *Subscription) unsubscribe() error {
 	if !s.session.Connected() {
 		return fmt.Errorf("cannot unsubscribe topic: session not established")
 	}
@@ -294,7 +294,7 @@ func (e *Error) Error() string {
 	return errStr
 }
 
-type RegisterResponse struct {
+type registerResponse struct {
 	msg   *messages.Registered
 	error *Error
 }
@@ -309,7 +309,7 @@ type UnregisterResponse struct {
 	error *Error
 }
 
-type SubscribeResponse struct {
+type subscribeResponse struct {
 	msg   *messages.Subscribed
 	error *Error
 }
@@ -319,7 +319,7 @@ type UnsubscribeResponse struct {
 	error *Error
 }
 
-type PublishResponse struct {
+type publishResponse struct {
 	msg   *messages.Published
 	error *Error
 }
@@ -344,7 +344,7 @@ func NewRegisterRequest(procedure string, handler InvocationHandler) RegisterReq
 	}
 }
 
-func (r RegisterRequest) Do() (*Registration, error) {
+func (r RegisterRequest) Do() RegisterResponse {
 	return r.session.register(r.procedure, r.handler, r.options)
 }
 
@@ -449,7 +449,7 @@ type SubscribeRequest struct {
 	options map[string]any
 }
 
-func (r SubscribeRequest) Do() (*Subscription, error) {
+func (r SubscribeRequest) Do() SubscribeResponse {
 	return r.session.subscribe(r.topic, r.handler, r.options)
 }
 
@@ -480,7 +480,7 @@ type PublishRequest struct {
 	options map[string]any
 }
 
-func (p PublishRequest) Do() error {
+func (p PublishRequest) Do() PublishResponse {
 	return p.session.publish(p.topic, p.args, p.kwArgs, p.options)
 }
 
@@ -534,6 +534,28 @@ type CallResponse struct {
 	KwArguments map[string]any
 	Details     map[string]any
 	Err         error
+}
+
+type RegisterResponse struct {
+	registration *Registration
+	Err          error
+}
+
+func (r RegisterResponse) Unregister() error {
+	return r.registration.unregister()
+}
+
+type SubscribeResponse struct {
+	subscription *Subscription
+	Err          error
+}
+
+func (r SubscribeResponse) Unsubscribe() error {
+	return r.subscription.unsubscribe()
+}
+
+type PublishResponse struct {
+	Err error
 }
 
 type Strategy int

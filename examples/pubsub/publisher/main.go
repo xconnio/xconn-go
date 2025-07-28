@@ -17,26 +17,26 @@ func main() {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
 
-	err = publisher.Publish(testTopic).Do()
-	if err != nil {
+	publishResponse := publisher.Publish(testTopic).Do()
+	if publishResponse.Err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	err = publisher.Publish(testTopic).Args("Hello", "World").Do()
-	if err != nil {
+	publishResponse = publisher.Publish(testTopic).Args("Hello", "World").Do()
+	if publishResponse.Err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	err = publisher.Publish(testTopic).KWArg("Hello World!", "I love WAMP").Do()
-	if err != nil {
+	publishResponse = publisher.Publish(testTopic).KWArg("Hello World!", "I love WAMP").Do()
+	if publishResponse.Err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	err = publisher.Publish(testTopic).
+	publishResponse = publisher.Publish(testTopic).
 		Args("Hello", "World").
 		KWArg("Hello World!", "I love WAMP").
 		Do()
-	if err != nil {
+	if publishResponse.Err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
