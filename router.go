@@ -33,7 +33,7 @@ func (r *Router) HasRealm(name string) bool {
 func (r *Router) AttachClient(base BaseSession) error {
 	realm, ok := r.realms.Load(base.Realm())
 	if !ok {
-		return fmt.Errorf("xconn: could not find realm: %s", base.Realm())
+		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
 	return realm.AttachClient(base)
@@ -42,43 +42,43 @@ func (r *Router) AttachClient(base BaseSession) error {
 func (r *Router) DetachClient(base BaseSession) error {
 	realm, ok := r.realms.Load(base.Realm())
 	if !ok {
-		return fmt.Errorf("xconn: could not find realm: %s", base.Realm())
+		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
 	return realm.DetachClient(base)
 }
 
-func (r *Router) AddRealmRole(realmName string, role RealmRole) error {
-	realm, ok := r.realms.Load(realmName)
+func (r *Router) AddRealmRole(realm string, role RealmRole) error {
+	realmObj, ok := r.realms.Load(realm)
 	if !ok {
-		return fmt.Errorf("xconn: could not find realm: %s", realmName)
+		return fmt.Errorf("could not find realm: %s", realm)
 	}
 
-	return realm.AddRole(role)
+	return realmObj.AddRole(role)
 }
 
-func (r *Router) HasRealmRole(realmName string, roleName string) (bool, error) {
-	realm, ok := r.realms.Load(realmName)
+func (r *Router) HasRealmRole(realm string, roleName string) (bool, error) {
+	realmObj, ok := r.realms.Load(realm)
 	if !ok {
-		return false, fmt.Errorf("xconn: could not find realm: %s", realmName)
+		return false, fmt.Errorf("could not find realm: %s", realm)
 	}
 
-	return realm.HasRole(roleName), nil
+	return realmObj.HasRole(roleName), nil
 }
 
-func (r *Router) RemoveRealmRole(realmName string, roleName string) error {
-	realm, ok := r.realms.Load(realmName)
+func (r *Router) RemoveRealmRole(realm string, roleName string) error {
+	realmObj, ok := r.realms.Load(realm)
 	if !ok {
-		return fmt.Errorf("xconn: could not find realm: %s", realmName)
+		return fmt.Errorf("could not find realm: %s", realm)
 	}
 
-	return realm.RemoveRole(roleName)
+	return realmObj.RemoveRole(roleName)
 }
 
 func (r *Router) ReceiveMessage(base BaseSession, msg messages.Message) error {
 	realm, ok := r.realms.Load(base.Realm())
 	if !ok {
-		return fmt.Errorf("xconn: could not find realm: %s", base.Realm())
+		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
 	return realm.ReceiveMessage(base, msg)

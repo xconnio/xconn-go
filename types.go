@@ -570,8 +570,8 @@ func wildcardMatch(str, pattern string) bool {
 }
 
 type Permission struct {
-	Uri            string
-	Match          string
+	URI            string
+	MatchPolicy    string
 	AllowCall      bool
 	AllowPublish   bool
 	AllowRegister  bool
@@ -594,13 +594,13 @@ func (p Permission) Allows(msgType int) bool {
 }
 
 func (p Permission) MatchURI(uri string) bool {
-	switch p.Match {
+	switch p.MatchPolicy {
 	case wampproto.MatchExact:
-		return uri == p.Uri
+		return uri == p.URI
 	case wampproto.MatchPrefix:
-		return strings.HasPrefix(uri, p.Uri)
+		return strings.HasPrefix(uri, p.URI)
 	case wampproto.MatchWildcard:
-		return wildcardMatch(uri, p.Uri)
+		return wildcardMatch(uri, p.URI)
 	default:
 		return false
 	}

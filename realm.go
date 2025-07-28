@@ -80,21 +80,6 @@ func (r *Realm) HasRole(role string) bool {
 	return exists
 }
 
-func uriAndIDIfNeedsAuth(msg messages.Message) (uri string, requestID uint64, needsAuth bool) {
-	switch m := msg.(type) {
-	case *messages.Call:
-		return m.Procedure(), m.RequestID(), true
-	case *messages.Register:
-		return m.Procedure(), m.RequestID(), true
-	case *messages.Publish:
-		return m.Topic(), m.RequestID(), true
-	case *messages.Subscribe:
-		return m.Topic(), m.RequestID(), true
-	default:
-		return "", 0, false
-	}
-}
-
 func (r *Realm) isAuthorized(roleName string, msgType int, uri string) bool {
 	role, ok := r.roles.Load(roleName)
 	if !ok {
@@ -105,40 +90,74 @@ func (r *Realm) isAuthorized(roleName string, msgType int, uri string) bool {
 		if !perm.Allows(msgType) {
 			continue
 		}
+
 		if perm.MatchURI(uri) {
 			return true
 		}
 	}
+
 	return false
 }
 
-func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) error {
-	uri, requestID, needsAuth := uriAndIDIfNeedsAuth(msg)
-	if needsAuth && !r.isAuthorized(baseSession.AuthRole(), msg.Type(), uri) {
-		messageType, _ := util.AsUInt64(msg.Type())
+func (r *Realm) authorize(baseSession BaseSession, msgType int, uri string, requestID uint64) error {
+	if !r.isAuthorized(baseSession.AuthRole(), msgType, uri) {
+		messageType, _ := util.AsUInt64(msgType)
 		errMsg := messages.NewError(messageType, requestID, map[string]any{},
 			wampproto.ErrAuthorizationFailed, nil, nil)
+
 		return baseSession.WriteMessage(errMsg)
 	}
 
+	return nil
+}
+
+func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.Message) error {
+	msgWithRecipient, err := r.dealer.ReceiveMessage(baseSession.ID(), msg)
+	if err != nil {
+		return err
+	}
+
+	client, _ := r.clients.Load(msgWithRecipient.Recipient)
+	return client.WriteMessage(msgWithRecipient.Message)
+}
+
+func (r *Realm) handleBrokerBoundMessage(baseSession BaseSession, msg messages.Message) error {
+	msgWithRecipient, err := r.broker.ReceiveMessage(baseSession.ID(), msg)
+	if err != nil {
+		return err
+	}
+
+	client, _ := r.clients.Load(msgWithRecipient.Recipient)
+	return client.WriteMessage(msgWithRecipient.Message)
+}
+
+func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) error {
 	switch msg.Type() {
-	case messages.MessageTypeCall, messages.MessageTypeYield, messages.MessageTypeRegister,
-		messages.MessageTypeUnregister, messages.MessageTypeError:
-		msgWithRecipient, err := r.dealer.ReceiveMessage(baseSession.ID(), msg)
-		if err != nil {
+	case messages.MessageTypeCall:
+		call := msg.(*messages.Call)
+		if err := r.authorize(baseSession, call.Type(), call.Procedure(), call.RequestID()); err != nil {
 			return err
 		}
 
-		client, _ := r.clients.Load(msgWithRecipient.Recipient)
-		return client.WriteMessage(msgWithRecipient.Message)
-	case messages.MessageTypeSubscribe, messages.MessageTypeUnsubscribe:
-		msgWithRecipient, err := r.broker.ReceiveMessage(baseSession.ID(), msg)
-		if err != nil {
+		return r.handleDealerBoundMessage(baseSession, msg)
+	case messages.MessageTypeRegister:
+		reg := msg.(*messages.Register)
+		if err := r.authorize(baseSession, reg.Type(), reg.Procedure(), reg.RequestID()); err != nil {
 			return err
 		}
 
-		client, _ := r.clients.Load(msgWithRecipient.Recipient)
-		return client.WriteMessage(msgWithRecipient.Message)
+		return r.handleDealerBoundMessage(baseSession, msg)
+	case messages.MessageTypeYield, messages.MessageTypeUnregister, messages.MessageTypeError:
+		return r.handleDealerBoundMessage(baseSession, msg)
+	case messages.MessageTypeSubscribe:
+		sub := msg.(*messages.Subscribe)
+		if err := r.authorize(baseSession, sub.Type(), sub.Topic(), sub.RequestID()); err != nil {
+			return err
+		}
+
+		return r.handleBrokerBoundMessage(baseSession, msg)
+	case messages.MessageTypeUnsubscribe:
+		return r.handleBrokerBoundMessage(baseSession, msg)
 	case messages.MessageTypePublish:
 		publish := msg.(*messages.Publish)
 		publication, err := r.broker.ReceivePublish(baseSession.ID(), publish)
@@ -161,6 +180,7 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		if err := r.dealer.RemoveSession(baseSession.ID()); err != nil {
 			return err
 		}
+
 		client, exists := r.clients.LoadAndDelete(baseSession.ID())
 		if !exists {
 			return fmt.Errorf("goodbye: client does not exist")
