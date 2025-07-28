@@ -688,7 +688,7 @@ func (s *Session) Details() *SessionDetails {
 	return s.details
 }
 
-func (s *Session) LeaveChan() <-chan struct{} {
+func (s *Session) Done() <-chan struct{} {
 	return s.leaveChan
 }
 
