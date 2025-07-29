@@ -104,8 +104,12 @@ func ConnectCryptosign(ctx context.Context, url, realm, authid, privateKey strin
 	return connect(ctx, url, realm, cryptosignAuthentication)
 }
 
-func ConnectInMemoryBase(router *Router, realm, authID, authRole string) (BaseSession, error) {
-	serializer := &serializers.MsgPackSerializer{}
+func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
+	serializer serializers.Serializer) (BaseSession, error) {
+
+	if serializer == nil {
+		return nil, fmt.Errorf("serializer must not be nil")
+	}
 
 	clientPeer, routerPeer := NewInMemoryPeerPair()
 	sessionID := wampproto.GenerateID()
@@ -150,7 +154,7 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string) (BaseSe
 }
 
 func ConnectInMemory(router *Router, realm, authID, authRole string) (*Session, error) {
-	base, err := ConnectInMemoryBase(router, realm, authID, authRole)
+	base, err := ConnectInMemoryBase(router, realm, authID, authRole, &serializers.MsgPackSerializer{})
 	if err != nil {
 		return nil, err
 	}
