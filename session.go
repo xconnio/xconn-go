@@ -47,6 +47,7 @@ type Session struct {
 	goodbyeChan chan struct{}
 	goodBye     *GoodBye
 
+	connected bool
 	onLeave   func()
 	leaveChan chan struct{}
 }
@@ -73,7 +74,8 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 
 		leaveChan: make(chan struct{}, 1),
 
-		details: NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole()),
+		details:   NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole()),
+		connected: true,
 	}
 
 	go session.waitForRouterMessages()
@@ -88,6 +90,7 @@ func (s *Session) waitForRouterMessages() {
 				log.Println("failed to read message: ", err)
 			}
 
+			s.markDisconnected()
 			_ = s.base.Close()
 			return
 		}
@@ -326,6 +329,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 	case messages.MessageTypeGoodbye:
 		goodByeMessage := msg.(*messages.GoodBye)
+		s.connected = false
 		s.goodBye = &GoodBye{
 			Details: goodByeMessage.Details(),
 			Reason:  goodByeMessage.Reason(),
@@ -335,9 +339,9 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		if s.onLeave != nil {
 			s.onLeave()
 		}
-		s.leaveChan <- struct{}{}
+		s.markDisconnected()
 	case messages.MessageTypeAbort:
-		s.leaveChan <- struct{}{}
+		s.markDisconnected()
 	default:
 		return fmt.Errorf("SESSION: received unexpected message %T", msg)
 	}
@@ -346,7 +350,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 }
 
 func (s *Session) Connected() bool {
-	return s.goodBye == nil
+	return s.connected
 }
 
 func (s *Session) ID() uint64 {
@@ -411,7 +415,7 @@ func (s *Session) call(ctx context.Context, call *messages.Call) CallResponse {
 		return CallResponse{Err: err}
 	}
 
-	return waitForCallResult(ctx, channel)
+	return s.waitForCallResult(ctx, channel)
 }
 
 func (s *Session) Call(procedure string) *CallRequest {
@@ -479,7 +483,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 		}
 	}()
 
-	return waitForCallResult(ctx, channel)
+	return s.waitForCallResult(ctx, channel)
 }
 
 func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
@@ -530,7 +534,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 		}
 	}()
 
-	return waitForCallResult(ctx, channel)
+	return s.waitForCallResult(ctx, channel)
 }
 
 func (s *Session) callWithRequest(ctx context.Context, request *CallRequest) CallResponse {
@@ -547,7 +551,7 @@ func (s *Session) callWithRequest(ctx context.Context, request *CallRequest) Cal
 	}
 }
 
-func waitForCallResult(ctx context.Context, channel chan *callResponse) CallResponse {
+func (s *Session) waitForCallResult(ctx context.Context, channel chan *callResponse) CallResponse {
 	select {
 	case response := <-channel:
 		if response.error != nil {
@@ -562,6 +566,8 @@ func waitForCallResult(ctx context.Context, channel chan *callResponse) CallResp
 		return r
 	case <-ctx.Done():
 		return CallResponse{Err: fmt.Errorf("call request timed out")}
+	case <-s.leaveChan:
+		return CallResponse{Err: fmt.Errorf("connection closed unexpectedly")}
 	}
 }
 
@@ -694,4 +700,9 @@ func (s *Session) Done() <-chan struct{} {
 
 func (s *Session) GoodBye() *GoodBye {
 	return s.goodBye
+}
+
+func (s *Session) markDisconnected() {
+	s.connected = false
+	s.leaveChan <- struct{}{}
 }

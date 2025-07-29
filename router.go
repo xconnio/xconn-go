@@ -51,7 +51,11 @@ func (r *Router) AttachClient(base BaseSession) error {
 		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
-	return realm.AttachClient(base)
+	if err := realm.AttachClient(base); err == nil {
+		return nil
+	} else {
+		return err
+	}
 }
 
 func (r *Router) DetachClient(base BaseSession) error {
@@ -60,7 +64,11 @@ func (r *Router) DetachClient(base BaseSession) error {
 		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
-	return realm.DetachClient(base)
+	if err := realm.DetachClient(base); err == nil {
+		return nil
+	} else {
+		return err
+	}
 }
 
 func (r *Router) AddRealmRole(realm string, role RealmRole) error {
