@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
 )
 
@@ -102,10 +104,11 @@ func ConnectCryptosign(ctx context.Context, url, realm, authid, privateKey strin
 	return connect(ctx, url, realm, cryptosignAuthentication)
 }
 
-func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRole string,
-	serializer Serializer) (BaseSession, error) {
+func ConnectInMemoryBase(router *Router, realm, authID, authRole string) (BaseSession, error) {
+	serializer := &serializers.MsgPackSerializer{}
 
 	clientPeer, routerPeer := NewInMemoryPeerPair()
+	sessionID := wampproto.GenerateID()
 	routerSession := NewBaseSession(
 		sessionID,
 		realm,
@@ -120,15 +123,17 @@ func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRo
 	}
 
 	go func() {
-		msg, err := routerSession.ReadMessage()
-		if err != nil {
-			_ = routerSession.Close()
-			return
-		}
+		for {
+			msg, err := routerSession.ReadMessage()
+			if err != nil {
+				_ = routerSession.Close()
+				return
+			}
 
-		if err = router.ReceiveMessage(routerSession, msg); err != nil {
-			_ = routerSession.Close()
-			return
+			if err = router.ReceiveMessage(routerSession, msg); err != nil {
+				_ = routerSession.Close()
+				return
+			}
 		}
 	}()
 
@@ -144,13 +149,11 @@ func ConnectInMemoryBase(router *Router, sessionID uint64, realm, authID, authRo
 	return clientSession, nil
 }
 
-func ConnectInMemory(router *Router, sessionID uint64, realm, authID, authRole string,
-	serializer Serializer) (*Session, error) {
-
-	base, err := ConnectInMemoryBase(router, sessionID, realm, authID, authRole, serializer)
+func ConnectInMemory(router *Router, realm, authID, authRole string) (*Session, error) {
+	base, err := ConnectInMemoryBase(router, realm, authID, authRole)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewSession(base, serializer), nil
+	return NewSession(base, base.Serializer()), nil
 }

@@ -236,3 +236,42 @@ func TestCallProgressiveProgress(t *testing.T) {
 		require.Equal(t, progressUpdates, receivedProgressBack)
 	})
 }
+
+func TestInMemorySession(t *testing.T) {
+	realmName := "realm1"
+	authID := "test"
+	role := "anon"
+	procedure := "com.hello"
+
+	router := xconn.NewRouter()
+	router.AddRealm(realmName)
+	err := router.AddRealmRole(realmName, xconn.RealmRole{
+		Name: role,
+		Permissions: []xconn.Permission{
+			{
+				MatchPolicy:   "prefix",
+				AllowRegister: true,
+				AllowCall:     true,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	session, err := xconn.ConnectInMemory(router, realmName, authID, role)
+	require.NoError(t, err)
+
+	response := session.Register(
+		procedure,
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+			return &xconn.Result{Arguments: []any{"hello"}}
+		},
+	).Do()
+	require.NoError(t, response.Err)
+
+	cResponse := session.Call(procedure).Do()
+	require.NoError(t, cResponse.Err)
+
+	require.Equal(t, realmName, session.Details().Realm())
+	require.Equal(t, role, session.Details().AuthRole())
+	require.Equal(t, authID, session.Details().AuthID())
+}
