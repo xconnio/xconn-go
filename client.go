@@ -3,6 +3,7 @@ package xconn
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"strings"
 	"time"
@@ -153,7 +154,10 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
 	return clientSession, nil
 }
 
-func ConnectInMemory(router *Router, realm, authID, authRole string) (*Session, error) {
+func ConnectInMemory(router *Router, realm string) (*Session, error) {
+	authID := fmt.Sprintf("%x", rand.Uint64())[:16] // #nosec
+	authRole := "trusted"
+
 	base, err := ConnectInMemoryBase(router, realm, authID, authRole, &serializers.MsgPackSerializer{})
 	if err != nil {
 		return nil, err
