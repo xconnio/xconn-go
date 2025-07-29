@@ -2,7 +2,6 @@ package xconn
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -344,18 +343,11 @@ type RegisterRequest struct {
 	options   map[string]any
 }
 
-func NewRegisterRequest(procedure string, handler InvocationHandler) RegisterRequest {
-	return RegisterRequest{
-		procedure: procedure,
-		handler:   handler,
-	}
-}
-
-func (r RegisterRequest) Do() RegisterResponse {
+func (r *RegisterRequest) Do() RegisterResponse {
 	return r.session.register(r.procedure, r.handler, r.options)
 }
 
-func (r RegisterRequest) Option(key string, value any) RegisterRequest {
+func (r *RegisterRequest) Option(key string, value any) *RegisterRequest {
 	if r.options == nil {
 		r.options = make(map[string]any)
 	}
@@ -364,12 +356,12 @@ func (r RegisterRequest) Option(key string, value any) RegisterRequest {
 	return r
 }
 
-func (r RegisterRequest) Options(options map[string]any) RegisterRequest {
+func (r *RegisterRequest) Options(options map[string]any) *RegisterRequest {
 	r.options = options
 	return r
 }
 
-func (r RegisterRequest) ToRegister(requestID uint64) *messages.Register {
+func (r *RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 	return messages.NewRegister(requestID, r.options, r.procedure)
 }
 
@@ -385,15 +377,15 @@ type CallRequest struct {
 	progressSender   ProgressSender
 }
 
-func (c CallRequest) Do() CallResponse {
+func (c *CallRequest) Do() CallResponse {
 	return c.DoContext(context.Background())
 }
 
-func (c CallRequest) DoContext(ctx context.Context) CallResponse {
+func (c *CallRequest) DoContext(ctx context.Context) CallResponse {
 	return c.session.callWithRequest(ctx, c)
 }
 
-func (c CallRequest) Option(key string, value any) CallRequest {
+func (c *CallRequest) Option(key string, value any) *CallRequest {
 	if c.options == nil {
 		c.options = make(map[string]any)
 	}
@@ -402,17 +394,17 @@ func (c CallRequest) Option(key string, value any) CallRequest {
 	return c
 }
 
-func (c CallRequest) Options(options map[string]any) CallRequest {
+func (c *CallRequest) Options(options map[string]any) *CallRequest {
 	c.options = options
 	return c
 }
 
-func (c CallRequest) Args(args ...any) CallRequest {
+func (c *CallRequest) Args(args ...any) *CallRequest {
 	c.args = args
 	return c
 }
 
-func (c CallRequest) KWArg(key string, value any) CallRequest {
+func (c *CallRequest) KWArg(key string, value any) *CallRequest {
 	if c.kwArgs == nil {
 		c.kwArgs = make(map[string]any)
 	}
@@ -421,31 +413,23 @@ func (c CallRequest) KWArg(key string, value any) CallRequest {
 	return c
 }
 
-func (c CallRequest) KWArgs(kwArgs map[string]any) CallRequest {
+func (c *CallRequest) KWArgs(kwArgs map[string]any) *CallRequest {
 	c.kwArgs = kwArgs
 	return c
 }
 
-func (c CallRequest) ProgressReceiver(handler ProgressReceiver) CallRequest {
+func (c *CallRequest) ProgressReceiver(handler ProgressReceiver) *CallRequest {
 	c.progressReceiver = handler
 	return c
 }
 
-func (c CallRequest) ProgressSender(handler ProgressSender) CallRequest {
+func (c *CallRequest) ProgressSender(handler ProgressSender) *CallRequest {
 	c.progressSender = handler
 	return c
 }
 
-func (c CallRequest) ToCall(requestID uint64) *messages.Call {
+func (c *CallRequest) ToCall(requestID uint64) *messages.Call {
 	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwArgs)
-}
-
-func (c CallRequest) Validate() error {
-	if c.procedure == "" {
-		return errors.New("procedure is required")
-	}
-
-	return nil
 }
 
 type SubscribeRequest struct {
@@ -456,11 +440,11 @@ type SubscribeRequest struct {
 	options map[string]any
 }
 
-func (r SubscribeRequest) Do() SubscribeResponse {
+func (r *SubscribeRequest) Do() SubscribeResponse {
 	return r.session.subscribe(r.topic, r.handler, r.options)
 }
 
-func (r SubscribeRequest) Option(key string, value any) SubscribeRequest {
+func (r *SubscribeRequest) Option(key string, value any) *SubscribeRequest {
 	if r.options == nil {
 		r.options = make(map[string]any)
 	}
@@ -469,12 +453,12 @@ func (r SubscribeRequest) Option(key string, value any) SubscribeRequest {
 	return r
 }
 
-func (r SubscribeRequest) Options(options map[string]any) SubscribeRequest {
+func (r *SubscribeRequest) Options(options map[string]any) *SubscribeRequest {
 	r.options = options
 	return r
 }
 
-func (r SubscribeRequest) ToSubscribe(requestID uint64) *messages.Subscribe {
+func (r *SubscribeRequest) ToSubscribe(requestID uint64) *messages.Subscribe {
 	return messages.NewSubscribe(requestID, r.options, r.topic)
 }
 
@@ -487,11 +471,11 @@ type PublishRequest struct {
 	options map[string]any
 }
 
-func (p PublishRequest) Do() PublishResponse {
+func (p *PublishRequest) Do() PublishResponse {
 	return p.session.publish(p.topic, p.args, p.kwArgs, p.options)
 }
 
-func (p PublishRequest) Option(key string, value any) PublishRequest {
+func (p *PublishRequest) Option(key string, value any) *PublishRequest {
 	if p.options == nil {
 		p.options = make(map[string]any)
 	}
@@ -500,17 +484,17 @@ func (p PublishRequest) Option(key string, value any) PublishRequest {
 	return p
 }
 
-func (p PublishRequest) Options(options map[string]any) PublishRequest {
+func (p *PublishRequest) Options(options map[string]any) *PublishRequest {
 	p.options = options
 	return p
 }
 
-func (p PublishRequest) Args(args ...any) PublishRequest {
+func (p *PublishRequest) Args(args ...any) *PublishRequest {
 	p.args = args
 	return p
 }
 
-func (p PublishRequest) KWArg(key string, value any) PublishRequest {
+func (p *PublishRequest) KWArg(key string, value any) *PublishRequest {
 	if p.kwArgs == nil {
 		p.kwArgs = make(map[string]any)
 	}
@@ -519,21 +503,13 @@ func (p PublishRequest) KWArg(key string, value any) PublishRequest {
 	return p
 }
 
-func (p PublishRequest) KWArgs(kwArgs map[string]any) PublishRequest {
+func (p *PublishRequest) KWArgs(kwArgs map[string]any) *PublishRequest {
 	p.kwArgs = kwArgs
 	return p
 }
 
-func (p PublishRequest) ToPublish(requestID uint64) *messages.Publish {
+func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 	return messages.NewPublish(requestID, p.options, p.topic, p.args, p.kwArgs)
-}
-
-func (p PublishRequest) Validate() error {
-	if p.topic == "" {
-		return errors.New("topic is required")
-	}
-
-	return nil
 }
 
 type CallResponse struct {
