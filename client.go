@@ -3,6 +3,7 @@ package xconn
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
 	"strings"
@@ -127,21 +128,6 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
 		return nil, fmt.Errorf("unable to start local session with ID %v: %w", sessionID, err)
 	}
 
-	go func() {
-		for {
-			msg, err := routerSession.ReadMessage()
-			if err != nil {
-				_ = routerSession.Close()
-				return
-			}
-
-			if err = router.ReceiveMessage(routerSession, msg); err != nil {
-				_ = routerSession.Close()
-				return
-			}
-		}
-	}()
-
 	clientSession := NewBaseSession(
 		sessionID,
 		realm,
@@ -150,6 +136,22 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
 		clientPeer,
 		serializer,
 	)
+
+	go func() {
+		for {
+			msg, err := routerSession.ReadMessage()
+			if err != nil {
+				_ = router.DetachClient(routerSession)
+				_ = routerSession.Close()
+				return
+			}
+
+			if err = router.ReceiveMessage(routerSession, msg); err != nil {
+				log.Println(err)
+				return
+			}
+		}
+	}()
 
 	return clientSession, nil
 }

@@ -2,6 +2,7 @@ package xconn
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -298,63 +299,89 @@ func (r *RawSocketPeer) Write(bytes []byte) error {
 	return r.write(transports.MessageWamp, bytes)
 }
 
-type fakeConn struct{}
-
-func (f *fakeConn) Read(b []byte) (int, error)         { return 0, io.EOF }
-func (f *fakeConn) Write(b []byte) (int, error)        { return 0, nil }
-func (f *fakeConn) Close() error                       { return nil }
-func (f *fakeConn) LocalAddr() net.Addr                { return nil }
-func (f *fakeConn) RemoteAddr() net.Addr               { return nil }
-func (f *fakeConn) SetDeadline(t time.Time) error      { return nil }
-func (f *fakeConn) SetReadDeadline(t time.Time) error  { return nil }
-func (f *fakeConn) SetWriteDeadline(t time.Time) error { return nil }
-
-type inMemoryPeer struct {
-	transportType TransportType
-	incoming      chan []byte
-	outgoing      chan []byte
-	netConn       net.Conn
+type localPeer struct {
+	conn  net.Conn
+	other net.Conn
 }
 
-func (i *inMemoryPeer) Type() TransportType {
-	return i.transportType
+func (l *localPeer) Type() TransportType {
+	return TransportInMemory
 }
 
-func (i *inMemoryPeer) NetConn() net.Conn {
-	return i.netConn
+func (l *localPeer) NetConn() net.Conn {
+	return l.conn
 }
 
-func (i *inMemoryPeer) Read() ([]byte, error) {
-	msg, ok := <-i.incoming
-	if !ok {
-		return nil, io.EOF
+func (l *localPeer) read() ([]byte, error) {
+	var length uint32
+
+	if err := binary.Read(l.conn, binary.BigEndian, &length); err != nil {
+		return nil, err
+	}
+
+	msg := make([]byte, length)
+	_, err := io.ReadFull(l.conn, msg)
+	if err != nil {
+		return nil, err
 	}
 
 	return msg, nil
 }
 
-func (i *inMemoryPeer) Write(bytes []byte) error {
-	i.outgoing <- bytes
+func (l *localPeer) Read() ([]byte, error) {
+	data, err := l.read()
+	if err != nil {
+		_ = l.other.Close()
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func (l *localPeer) write(data []byte) error {
+	length := uint32(len(data)) // #nosec
+
+	if err := binary.Write(l.conn, binary.BigEndian, length); err != nil {
+		return err
+	}
+
+	written := 0
+	for written < len(data) {
+		n, err := l.conn.Write(data[written:])
+		if err != nil {
+			return err
+		}
+
+		if n == 0 {
+			return io.ErrShortWrite
+		}
+
+		written += n
+	}
+
 	return nil
 }
 
+func (l *localPeer) Write(data []byte) error {
+	if err := l.write(data); err != nil {
+		_ = l.other.Close()
+		return err
+	}
+
+	return nil
+}
+
+func newLocalPeer(conn, otherSide net.Conn) *localPeer {
+	return &localPeer{
+		conn:  conn,
+		other: otherSide,
+	}
+}
+
 func NewInMemoryPeerPair() (Peer, Peer) {
-	aToB := make(chan []byte, 16)
-	bToA := make(chan []byte, 16)
+	conn1, conn2 := net.Pipe()
+	peer1 := newLocalPeer(conn1, conn2)
+	peer2 := newLocalPeer(conn2, conn1)
 
-	a := &inMemoryPeer{
-		transportType: TransportInMemory,
-		incoming:      bToA,
-		outgoing:      aToB,
-		netConn:       &fakeConn{},
-	}
-
-	b := &inMemoryPeer{
-		transportType: TransportInMemory,
-		incoming:      aToB,
-		outgoing:      bToA,
-		netConn:       &fakeConn{},
-	}
-
-	return a, b
+	return peer1, peer2
 }
