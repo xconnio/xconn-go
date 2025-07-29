@@ -9,6 +9,8 @@ import (
 
 type Router struct {
 	realms internal.Map[string, *Realm]
+
+	metaAPI internal.Map[string, *meta]
 }
 
 func NewRouter() *Router {
@@ -52,6 +54,11 @@ func (r *Router) AttachClient(base BaseSession) error {
 	}
 
 	if err := realm.AttachClient(base); err == nil {
+		metaObj, ok := r.metaAPI.Load(base.Realm())
+		if ok {
+			metaObj.onJoin(base)
+		}
+
 		return nil
 	} else {
 		return err
@@ -65,6 +72,11 @@ func (r *Router) DetachClient(base BaseSession) error {
 	}
 
 	if err := realm.DetachClient(base); err == nil {
+		metaObj, ok := r.metaAPI.Load(base.Realm())
+		if ok {
+			metaObj.onLeave(base)
+		}
+
 		return nil
 	} else {
 		return err
@@ -105,6 +117,20 @@ func (r *Router) ReceiveMessage(base BaseSession, msg messages.Message) error {
 	}
 
 	return realm.ReceiveMessage(base, msg)
+}
+
+func (r *Router) EnableMetaAPI(realm string) error {
+	metaAPI, err := newMetAPI(realm, r)
+	if err != nil {
+		return err
+	}
+
+	if err = metaAPI.start(); err != nil {
+		return err
+	}
+
+	r.metaAPI.Store(realm, metaAPI)
+	return nil
 }
 
 func (r *Router) Close() {
