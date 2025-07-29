@@ -155,7 +155,7 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
 }
 
 func ConnectInMemory(router *Router, realm string) (*Session, error) {
-	authID := fmt.Sprintf("%x", rand.Uint64())[:16] // #nosec
+	authID := fmt.Sprintf("%012x", rand.Uint64())[:12] // #nosec
 	authRole := "trusted"
 
 	base, err := ConnectInMemoryBase(router, realm, authID, authRole, &serializers.MsgPackSerializer{})
