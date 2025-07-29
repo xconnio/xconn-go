@@ -18,7 +18,22 @@ func NewRouter() *Router {
 }
 
 func (r *Router) AddRealm(name string) {
-	r.realms.Store(name, NewRealm())
+	realm := NewRealm()
+	_ = realm.AddRole(RealmRole{
+		Name: "trusted",
+		Permissions: []Permission{
+			{
+				URI:            "",
+				MatchPolicy:    "prefix",
+				AllowCall:      true,
+				AllowRegister:  true,
+				AllowPublish:   true,
+				AllowSubscribe: true,
+			},
+		},
+	})
+
+	r.realms.Store(name, realm)
 }
 
 func (r *Router) RemoveRealm(name string) {
