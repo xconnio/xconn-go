@@ -353,8 +353,8 @@ func (s *Session) ID() uint64 {
 	return s.base.ID()
 }
 
-func (s *Session) Register(procedure string, handler InvocationHandler) RegisterRequest {
-	return RegisterRequest{session: s, procedure: procedure, handler: handler}
+func (s *Session) Register(procedure string, handler InvocationHandler) *RegisterRequest {
+	return &RegisterRequest{session: s, procedure: procedure, handler: handler}
 }
 
 func (s *Session) register(procedure string, handler InvocationHandler,
@@ -414,8 +414,8 @@ func (s *Session) call(ctx context.Context, call *messages.Call) CallResponse {
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) Call(procedure string) CallRequest {
-	return CallRequest{session: s, procedure: procedure}
+func (s *Session) Call(procedure string) *CallRequest {
+	return &CallRequest{session: s, procedure: procedure}
 }
 
 func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
@@ -533,7 +533,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	return waitForCallResult(ctx, channel)
 }
 
-func (s *Session) callWithRequest(ctx context.Context, request CallRequest) CallResponse {
+func (s *Session) callWithRequest(ctx context.Context, request *CallRequest) CallResponse {
 	switch {
 	case request.progressSender == nil && request.progressReceiver == nil:
 		return s.callRaw(ctx, request.procedure, request.args, request.kwArgs, request.options)
@@ -565,8 +565,8 @@ func waitForCallResult(ctx context.Context, channel chan *callResponse) CallResp
 	}
 }
 
-func (s *Session) Subscribe(topic string, handler EventHandler) SubscribeRequest {
-	return SubscribeRequest{session: s, topic: topic, handler: handler}
+func (s *Session) Subscribe(topic string, handler EventHandler) *SubscribeRequest {
+	return &SubscribeRequest{session: s, topic: topic, handler: handler}
 }
 
 func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) SubscribeResponse {
@@ -653,8 +653,8 @@ func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
 	}
 }
 
-func (s *Session) Publish(topic string) PublishRequest {
-	return PublishRequest{session: s, topic: topic}
+func (s *Session) Publish(topic string) *PublishRequest {
+	return &PublishRequest{session: s, topic: topic}
 }
 
 func (s *Session) Leave() error {
