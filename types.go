@@ -2,7 +2,6 @@ package xconn
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -433,14 +432,6 @@ func (c *CallRequest) ToCall(requestID uint64) *messages.Call {
 	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwArgs)
 }
 
-func (c *CallRequest) Validate() error {
-	if c.procedure == "" {
-		return errors.New("procedure is required")
-	}
-
-	return nil
-}
-
 type SubscribeRequest struct {
 	session *Session
 
@@ -519,14 +510,6 @@ func (p *PublishRequest) KWArgs(kwArgs map[string]any) *PublishRequest {
 
 func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 	return messages.NewPublish(requestID, p.options, p.topic, p.args, p.kwArgs)
-}
-
-func (p *PublishRequest) Validate() error {
-	if p.topic == "" {
-		return errors.New("topic is required")
-	}
-
-	return nil
 }
 
 type CallResponse struct {
