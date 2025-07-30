@@ -125,7 +125,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 		if err != nil {
 			return
 		}
-	case ListenerRawSocket, ListenerUnixSocket:
+	case ListenerRawSocket:
 		base, err = s.rsAcceptor.Accept(conn)
 		if err != nil {
 			return
@@ -183,8 +183,8 @@ func (s *Server) ListenAndServeRawSocket(network Network, address string) (io.Cl
 	return s.Serve(ln, ListenerRawSocket), nil
 }
 
-func (s *Server) ListenAndServeUniversalTCP(address string) (io.Closer, error) {
-	ln, err := net.Listen("tcp", address)
+func (s *Server) ListenAndServeUniversal(network Network, address string) (io.Closer, error) {
+	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
