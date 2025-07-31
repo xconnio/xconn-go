@@ -25,17 +25,12 @@ type Client struct {
 	KeepAliveTimeout  time.Duration
 }
 
-func (c *Client) Connect(ctx context.Context, url string, realm string) (*Session, error) {
+func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Session, error) {
 	if c.SerializerSpec == nil {
 		c.SerializerSpec = CBORSerializerSpec
 	}
 
-	if strings.HasPrefix(url, "ws") {
-		joiner := &WebSocketJoiner{
-			Authenticator:  c.Authenticator,
-			SerializerSpec: c.SerializerSpec,
-		}
-
+	if strings.HasPrefix(uri, "ws://") || strings.HasPrefix(uri, "wss://") || strings.HasPrefix(uri, "unix+ws://") {
 		dialerConfig := &WSDialerConfig{
 			SubProtocol:       c.SerializerSpec.SubProtocol(),
 			DialTimeout:       c.DialTimeout,
@@ -44,66 +39,74 @@ func (c *Client) Connect(ctx context.Context, url string, realm string) (*Sessio
 			KeepAliveTimeout:  c.KeepAliveTimeout,
 		}
 
-		base, err := joiner.Join(ctx, url, realm, dialerConfig)
+		joiner := &WebSocketJoiner{
+			Authenticator:  c.Authenticator,
+			SerializerSpec: c.SerializerSpec,
+		}
+
+		base, err := joiner.Join(ctx, uri, realm, dialerConfig)
 		if err != nil {
 			return nil, err
 		}
 
 		return NewSession(base, c.SerializerSpec.Serializer()), nil // nolint: contextcheck
-	} else if strings.HasPrefix(url, "rs") || strings.HasPrefix(url, "tcp") {
-		joiner := &RawSocketJoiner{
-			SerializerSpec: c.SerializerSpec,
-			Authenticator:  c.Authenticator,
-		}
+	} else if strings.HasPrefix(uri, "rs://") || strings.HasPrefix(uri, "rss://") ||
+		strings.HasPrefix(uri, "unix://") || strings.HasPrefix(uri, "unix+rs://") {
 		dialerConfig := &RawSocketDialerConfig{
 			Serializer:        transports.Serializer(c.SerializerSpec.SerializerID()),
 			DialTimeout:       c.DialTimeout,
+			NetDial:           c.NetDial,
 			KeepAliveInterval: c.KeepAliveInterval,
 			KeepAliveTimeout:  c.KeepAliveTimeout,
 		}
 
-		base, err := joiner.Join(ctx, url, realm, dialerConfig)
+		joiner := &RawSocketJoiner{
+			SerializerSpec: c.SerializerSpec,
+			Authenticator:  c.Authenticator,
+		}
+
+		base, err := joiner.Join(ctx, uri, realm, dialerConfig)
 		if err != nil {
 			return nil, err
 		}
 
 		return NewSession(base, c.SerializerSpec.Serializer()), nil // nolint: contextcheck
 	} else {
-		return nil, fmt.Errorf("unsupported protocol: %s", url)
+		return nil, fmt.Errorf("unsupported protocol: %s", uri)
 	}
 }
 
-func connect(ctx context.Context, url, realm string, authenticator auth.ClientAuthenticator) (*Session, error) {
+func connect(ctx context.Context, uri, realm string, authenticator auth.ClientAuthenticator) (*Session, error) {
 	client := Client{
 		Authenticator: authenticator,
 	}
 
-	return client.Connect(ctx, url, realm)
+	return client.Connect(ctx, uri, realm)
 }
 
-func ConnectAnonymous(ctx context.Context, url, realm string) (*Session, error) {
-	return connect(ctx, url, realm, nil)
+func ConnectAnonymous(ctx context.Context, uri, realm string) (*Session, error) {
+	return connect(ctx, uri, realm, nil)
 }
 
-func ConnectTicket(ctx context.Context, url, realm, authid, ticket string) (*Session, error) {
+func ConnectTicket(ctx context.Context, uri, realm, authid, ticket string) (*Session, error) {
 	ticketAuthenticator := auth.NewTicketAuthenticator(authid, ticket, nil)
 
-	return connect(ctx, url, realm, ticketAuthenticator)
+	return connect(ctx, uri, realm, ticketAuthenticator)
 }
 
-func ConnectCRA(ctx context.Context, url, realm, authid, secret string) (*Session, error) {
+func ConnectCRA(ctx context.Context, uri, realm, authid, secret string) (*Session, error) {
 	craAuthenticator := auth.NewCRAAuthenticator(authid, secret, nil)
 
-	return connect(ctx, url, realm, craAuthenticator)
+	return connect(ctx, uri, realm, craAuthenticator)
 }
 
-func ConnectCryptosign(ctx context.Context, url, realm, authid, privateKey string) (*Session, error) {
+func ConnectCryptosign(ctx context.Context, uri, realm, authid, privateKey string) (*Session, error) {
 	cryptosignAuthentication, err := auth.NewCryptoSignAuthenticator(authid, privateKey, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return connect(ctx, url, realm, cryptosignAuthentication)
+	return connect(ctx, uri, realm, cryptosignAuthentication)
 }
 
 func ConnectInMemoryBase(router *Router, realm, authID, authRole string,

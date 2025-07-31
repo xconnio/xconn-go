@@ -51,6 +51,7 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 	if config == nil {
 		config = &WSDialerConfig{SubProtocol: JsonWebsocketProtocol}
 	}
+
 	wsDialer := ws.Dialer{
 		Protocols: []string{config.SubProtocol},
 	}
@@ -62,13 +63,14 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 	}
 
 	if config.NetDial == nil {
-		if url.Scheme == "unix" {
+		if url.Scheme == "unix+ws" {
 			// Custom dial function for Unix Domain Socket
 			wsDialer.NetDial = func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return net.Dial("unix", url.Path)
+				return net.Dial(string(NetworkUnix), url.Path)
 			}
+
 			url.Scheme = "ws"
-			url.Host = "unix"
+			url.Host = string(NetworkUnix)
 		}
 	} else {
 		wsDialer.NetDial = config.NetDial
@@ -91,9 +93,9 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 	return NewWebSocketPeer(conn, peerConfig)
 }
 
-func (r *RawSocketJoiner) Join(ctx context.Context, url, realm string,
+func (r *RawSocketJoiner) Join(ctx context.Context, uri, realm string,
 	config *RawSocketDialerConfig) (BaseSession, error) {
-	parsedURL, err := netURL.Parse(url)
+	parsedURL, err := netURL.Parse(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +114,14 @@ func (r *RawSocketJoiner) Join(ctx context.Context, url, realm string,
 
 func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialerConfig) (Peer, error) {
 	var dialer net.Dialer
-	conn, err := dialer.DialContext(ctx, "tcp", url.Host)
+	var conn net.Conn
+	var err error
+	if url.Scheme == "unix" || url.Scheme == "unix+rs" {
+		conn, err = dialer.DialContext(ctx, "unix", url.Path)
+	} else {
+		conn, err = dialer.DialContext(ctx, "unix", url.Host)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -261,4 +262,47 @@ func TestInMemorySession(t *testing.T) {
 
 	require.Equal(t, realmName, session.Details().Realm())
 	require.Equal(t, role, session.Details().AuthRole())
+}
+
+func createUnixPath(t *testing.T) string {
+	tmpFile, err := os.CreateTemp("", "unix-*.sock")
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(tmpFile.Name()))
+	return tmpFile.Name()
+}
+
+func TestUnixSocket(t *testing.T) {
+	router := xconn.NewRouter()
+	router.AddRealm("unix")
+	server := xconn.NewServer(router, nil, nil)
+
+	t.Run("websocket-over-unix", func(t *testing.T) {
+		tmpFile := createUnixPath(t)
+		path := "unix+ws://" + tmpFile
+
+		closer, err := server.ListenAndServeWebSocket("unix", tmpFile)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = closer.Close() })
+
+		session, err := xconn.ConnectAnonymous(context.Background(), path, "unix")
+		require.NoError(t, err)
+		require.NotNil(t, session)
+	})
+
+	t.Run("rawsocket-over-unix", func(t *testing.T) {
+		tmpFile := createUnixPath(t)
+		closer, err := server.ListenAndServeRawSocket("unix", tmpFile)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = closer.Close() })
+
+		path := "unix://" + tmpFile
+		session, err := xconn.ConnectAnonymous(context.Background(), path, "unix")
+		require.NoError(t, err)
+		require.NotNil(t, session)
+
+		path = "unix+rs://" + tmpFile
+		session, err = xconn.ConnectAnonymous(context.Background(), path, "unix")
+		require.NoError(t, err)
+		require.NotNil(t, session)
+	})
 }
