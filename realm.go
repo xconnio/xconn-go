@@ -167,6 +167,11 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleBrokerBoundMessage(baseSession, msg)
 	case messages.MessageTypePublish:
 		publish := msg.(*messages.Publish)
+		authorized, err := r.authorize(baseSession, publish.Type(), publish.Topic(), publish.RequestID())
+		if err != nil || !authorized {
+			return err
+		}
+
 		publication, err := r.broker.ReceivePublish(baseSession.ID(), publish)
 		if err != nil {
 			return err
