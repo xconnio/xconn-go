@@ -27,12 +27,12 @@ func main() {
 		for i := 0; i <= fileSize; i += 10 {
 			progress := i * 100 / fileSize
 			if err := invocation.SendProgress([]any{progress}, nil); err != nil {
-				return xconn.ErrWithArg("wamp.error.canceled", err.Error())
+				return xconn.NewInvocationError("wamp.error.canceled", err.Error())
 			}
 			time.Sleep(500 * time.Millisecond) // Simulate time taken for download
 		}
 
-		return xconn.ResultWithArg("Download complete!")
+		return xconn.NewInvocationResult("Download complete!")
 	}
 
 	registerResponse := callee.Register(procedureProgressDownload, invocationHandler).Do()

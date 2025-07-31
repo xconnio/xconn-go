@@ -29,12 +29,12 @@ func main() {
 		if isProgress {
 			chunkIndex := invocation.Arguments[0].(float64)
 			fmt.Printf("Received chunk %v\n", chunkIndex)
-			return xconn.Err(xconn.ErrNoResult)
+			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}
 
 		// Final response after all chunks are received
 		fmt.Println("All chunks received, processing complete.")
-		return xconn.ResultWithArg("Upload complete")
+		return xconn.NewInvocationResult("Upload complete")
 	}
 
 	registerResponse := callee.Register(procedureProgressUpload, invocationHandler).Do()

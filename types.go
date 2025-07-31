@@ -267,76 +267,24 @@ type Result struct {
 	Err         string
 }
 
-func ResultWithArg(argument any) *Result {
+func NewInvocationResult(args ...any) *Result {
+	if len(args) == 0 {
+		return &Result{}
+	}
+
 	return &Result{
-		Arguments: []any{argument},
+		Arguments: []any{args},
 	}
 }
 
-func ResultWithArgs(arguments []any) *Result {
-	return &Result{
-		Arguments: arguments,
+func NewInvocationError(uri string, args ...any) *Result {
+	if len(args) == 0 {
+		return &Result{Err: uri}
 	}
-}
 
-func ResultWithKwArg(key string, value any) *Result {
-	return &Result{
-		KwArguments: map[string]any{key: value},
-	}
-}
-
-func ResultWithKwArgs(kwArguments map[string]any) *Result {
-	return &Result{
-		KwArguments: kwArguments,
-	}
-}
-
-func ResultWithArgsAndKwArgs(argument []any, kwArgument map[string]any) *Result {
-	return &Result{
-		Arguments:   argument,
-		KwArguments: kwArgument,
-	}
-}
-
-func Err(uri string) *Result {
-	return &Result{
-		Err: uri,
-	}
-}
-
-func ErrWithArg(uri string, arg any) *Result {
 	return &Result{
 		Err:       uri,
-		Arguments: []any{arg},
-	}
-}
-
-func ErrWithArgs(uri string, arguments []any) *Result {
-	return &Result{
-		Err:       uri,
-		Arguments: arguments,
-	}
-}
-
-func ErrWithKwArg(key string, value any) *Result {
-	return &Result{
-		Err:         key,
-		KwArguments: map[string]any{key: value},
-	}
-}
-
-func ErrWithKwArgs(uri string, kwArguments map[string]any) *Result {
-	return &Result{
-		Err:         uri,
-		KwArguments: kwArguments,
-	}
-}
-
-func ErrWithArgsAndKwArgs(uri string, arguments []any, kwArguments map[string]any) *Result {
-	return &Result{
-		Err:         uri,
-		Arguments:   arguments,
-		KwArguments: kwArguments,
+		Arguments: []any{args},
 	}
 }
 

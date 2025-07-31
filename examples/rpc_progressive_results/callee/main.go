@@ -30,15 +30,15 @@ func main() {
 			// Mirror back the received chunk as progress
 			fmt.Printf("Received chunk %v, sending progress back\n", chunkIndex)
 			if err = invocation.SendProgress([]any{chunkIndex}, nil); err != nil {
-				return xconn.ErrWithArg("wamp.error.canceled", err.Error())
+				return xconn.NewInvocationError("wamp.error.canceled", err.Error())
 			}
 
-			return xconn.Err(xconn.ErrNoResult)
+			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}
 
 		// Final response when all chunks are received
 		fmt.Println("All chunks received, processing complete.")
-		return xconn.ResultWithArg(fmt.Sprintf("Upload complete, chunk %v acknowledged", chunkIndex))
+		return xconn.NewInvocationResult(fmt.Sprintf("Upload complete, chunk %v acknowledged", chunkIndex))
 	}
 
 	registerResponse := callee.Register(procedureProgressUpload, invocationHandler).Do()

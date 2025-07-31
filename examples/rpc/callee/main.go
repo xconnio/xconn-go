@@ -23,7 +23,7 @@ func sumHandler(_ context.Context, inv *xconn.Invocation) *xconn.Result {
 			sum = sum + arg
 		}
 	}
-	return xconn.ResultWithArg(sum)
+	return xconn.NewInvocationResult(sum)
 }
 
 func main() {
