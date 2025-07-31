@@ -399,6 +399,15 @@ func (c *CallRequest) Options(options map[string]any) *CallRequest {
 	return c
 }
 
+func (c *CallRequest) Arg(arg any) *CallRequest {
+	if c.args == nil {
+		c.args = make([]any, 0)
+	}
+
+	c.args = append(c.args, arg)
+	return c
+}
+
 func (c *CallRequest) Args(args ...any) *CallRequest {
 	c.args = args
 	return c
@@ -486,6 +495,15 @@ func (p *PublishRequest) Option(key string, value any) *PublishRequest {
 
 func (p *PublishRequest) Options(options map[string]any) *PublishRequest {
 	p.options = options
+	return p
+}
+
+func (p *PublishRequest) Arg(arg any) *PublishRequest {
+	if p.args == nil {
+		p.args = make([]any, 0)
+	}
+
+	p.args = append(p.args, arg)
 	return p
 }
 
