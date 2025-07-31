@@ -90,6 +90,7 @@ type WSPeerConfig struct {
 
 type RawSocketDialerConfig struct {
 	Serializer        transports.Serializer
+	NetDial           func(ctx context.Context, network, addr string) (net.Conn, error)
 	DialTimeout       time.Duration
 	KeepAliveInterval time.Duration
 	KeepAliveTimeout  time.Duration
