@@ -80,7 +80,7 @@ func (r *Realm) HasRole(role string) bool {
 	return exists
 }
 
-func (r *Realm) isAuthorized(roleName string, msgType int, uri string) bool {
+func (r *Realm) isAuthorized(roleName string, msgType uint64, uri string) bool {
 	role, ok := r.roles.Load(roleName)
 	if !ok {
 		return false
@@ -99,7 +99,7 @@ func (r *Realm) isAuthorized(roleName string, msgType int, uri string) bool {
 	return false
 }
 
-func (r *Realm) authorize(baseSession BaseSession, msgType int, uri string, requestID uint64) (bool, error) {
+func (r *Realm) authorize(baseSession BaseSession, msgType uint64, uri string, requestID uint64) (bool, error) {
 	if !r.isAuthorized(baseSession.AuthRole(), msgType, uri) {
 		messageType, _ := util.AsUInt64(msgType)
 		errMsg := messages.NewError(messageType, requestID, map[string]any{},

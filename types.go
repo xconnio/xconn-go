@@ -601,7 +601,7 @@ type Permission struct {
 	AllowSubscribe bool
 }
 
-func (p Permission) Allows(msgType int) bool {
+func (p Permission) Allows(msgType uint64) bool {
 	switch msgType {
 	case messages.MessageTypeCall:
 		return p.AllowCall

@@ -40,10 +40,10 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
-github.com/xconnio/wampproto-go v0.0.0-20250727140448-d64a8ee8dbf6 h1:tdqSkg95MkDBxA8VKdc5i3Eh5jeP8nj2HYEOi3ut7AM=
-github.com/xconnio/wampproto-go v0.0.0-20250727140448-d64a8ee8dbf6/go.mod h1:LONo5ncxniaMNsvdQ0YKUT2lsSchu9Y/NeGvfQgUSiI=
-github.com/xconnio/wampproto-protobuf/go v0.0.0-20250726204657-c974978cb6ff h1:KYXS6e6jSqYG0QtyDyKgF18jv+UYSaAD4LqS7gJAKRs=
-github.com/xconnio/wampproto-protobuf/go v0.0.0-20250726204657-c974978cb6ff/go.mod h1:72BoY+MeaDpsfL8NOC278vzttDQ/acZiDSWyWpQgGN8=
+github.com/xconnio/wampproto-go v0.0.0-20250729091733-63896eb589ba h1:4/G9y/W7WsNG62eGcD1Atgrons1wEqMWHosmM5p60So=
+github.com/xconnio/wampproto-go v0.0.0-20250729091733-63896eb589ba/go.mod h1:LONo5ncxniaMNsvdQ0YKUT2lsSchu9Y/NeGvfQgUSiI=
+github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3 h1:AmvYzzmvHfRsJDLmBNwqDsm06k37NG5A7AQjQ0IOxC0=
+github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3/go.mod h1:JK4nus2F4v1zFydyuxii7yFlicDXrKhzBFSkk7y9/gQ=
 go.uber.org/goleak v1.2.1 h1:NBol2c7O1ZokfZ0LEU9K6Whx/KnwvepVetCUhtKja4A=
 go.uber.org/goleak v1.2.1/go.mod h1:qlT2yGI9QafXHhZZLxlSuNsMw3FFLxBr+tBRlmO1xH4=
 golang.org/x/crypto v0.40.0 h1:r4x+VvoG5Fm+eJcxMaY8CQM7Lb0l1lsmjGBQ6s8BfKM=
