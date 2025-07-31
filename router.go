@@ -21,19 +21,18 @@ func NewRouter() *Router {
 
 func (r *Router) AddRealm(name string) {
 	realm := NewRealm()
-	_ = realm.AddRole(RealmRole{
-		Name: "trusted",
-		Permissions: []Permission{
-			{
-				URI:            "",
-				MatchPolicy:    "prefix",
-				AllowCall:      true,
-				AllowRegister:  true,
-				AllowPublish:   true,
-				AllowSubscribe: true,
-			},
-		},
-	})
+
+	perms := []Permission{{
+		URI:            "",
+		MatchPolicy:    "prefix",
+		AllowCall:      true,
+		AllowRegister:  true,
+		AllowPublish:   true,
+		AllowSubscribe: true,
+	}}
+
+	_ = realm.AddRole(RealmRole{Name: "trusted", Permissions: perms})
+	_ = realm.AddRole(RealmRole{Name: "anonymous", Permissions: perms})
 
 	r.realms.Store(name, realm)
 }

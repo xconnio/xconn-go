@@ -10,8 +10,8 @@ require (
 	github.com/gobwas/ws v1.4.0
 	github.com/projectdiscovery/ratelimit v0.0.81
 	github.com/stretchr/testify v1.10.0
-	github.com/xconnio/wampproto-go v0.0.0-20250727140448-d64a8ee8dbf6
-	github.com/xconnio/wampproto-protobuf/go v0.0.0-20250726204657-c974978cb6ff
+	github.com/xconnio/wampproto-go v0.0.0-20250729091733-63896eb589ba
+	github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3
 	golang.org/x/exp v0.0.0-20250718183923-645b1fa84792
 )
 
