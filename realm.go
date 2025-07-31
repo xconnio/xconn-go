@@ -99,16 +99,16 @@ func (r *Realm) isAuthorized(roleName string, msgType int, uri string) bool {
 	return false
 }
 
-func (r *Realm) authorize(baseSession BaseSession, msgType int, uri string, requestID uint64) error {
+func (r *Realm) authorize(baseSession BaseSession, msgType int, uri string, requestID uint64) (bool, error) {
 	if !r.isAuthorized(baseSession.AuthRole(), msgType, uri) {
 		messageType, _ := util.AsUInt64(msgType)
 		errMsg := messages.NewError(messageType, requestID, map[string]any{},
 			wampproto.ErrAuthorizationFailed, nil, nil)
 
-		return baseSession.WriteMessage(errMsg)
+		return false, baseSession.WriteMessage(errMsg)
 	}
 
-	return nil
+	return true, nil
 }
 
 func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.Message) error {
@@ -139,14 +139,16 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 	switch msg.Type() {
 	case messages.MessageTypeCall:
 		call := msg.(*messages.Call)
-		if err := r.authorize(baseSession, call.Type(), call.Procedure(), call.RequestID()); err != nil {
+		authorized, err := r.authorize(baseSession, call.Type(), call.Procedure(), call.RequestID())
+		if err != nil || !authorized {
 			return err
 		}
 
 		return r.handleDealerBoundMessage(baseSession, msg)
 	case messages.MessageTypeRegister:
 		reg := msg.(*messages.Register)
-		if err := r.authorize(baseSession, reg.Type(), reg.Procedure(), reg.RequestID()); err != nil {
+		authorized, err := r.authorize(baseSession, reg.Type(), reg.Procedure(), reg.RequestID())
+		if err != nil || !authorized {
 			return err
 		}
 
@@ -155,7 +157,8 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleDealerBoundMessage(baseSession, msg)
 	case messages.MessageTypeSubscribe:
 		sub := msg.(*messages.Subscribe)
-		if err := r.authorize(baseSession, sub.Type(), sub.Topic(), sub.RequestID()); err != nil {
+		authorized, err := r.authorize(baseSession, sub.Type(), sub.Topic(), sub.RequestID())
+		if err != nil || !authorized {
 			return err
 		}
 
