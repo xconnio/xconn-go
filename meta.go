@@ -72,36 +72,36 @@ func (m *meta) onLeave(base BaseSession) {
 	}()
 }
 
-func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *Result {
-	if len(invocation.Arguments) != 1 {
-		return &Result{Err: "wamp.error.invalid_argument"}
+func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *InvocationResult {
+	if len(invocation.Args) != 1 {
+		return &InvocationResult{Err: "wamp.error.invalid_argument"}
 	}
 
-	sessionID, ok := util.AsUInt64(invocation.Arguments[0])
+	sessionID, ok := util.AsUInt64(invocation.Args[0])
 	if !ok {
-		return &Result{Err: "wamp.error.invalid_argument"}
+		return &InvocationResult{Err: "wamp.error.invalid_argument"}
 	}
 
 	if sessionID == m.session.ID() {
-		return &Result{Err: "wamp.error.invalid_session"}
+		return &InvocationResult{Err: "wamp.error.invalid_session"}
 	}
 
 	rlm, ok := m.router.realms.Load(m.realm)
 	if !ok {
-		return &Result{Err: "wamp.error.not_found"}
+		return &InvocationResult{Err: "wamp.error.not_found"}
 	}
 
 	client, ok := rlm.clients.Load(sessionID)
 	if !ok {
-		return &Result{Err: "wamp.error.not_found"}
+		return &InvocationResult{Err: "wamp.error.not_found"}
 	}
 
 	goodbye := messages.NewGoodBye("wamp.error.abort", nil)
 	if err := client.WriteMessage(goodbye); err != nil {
-		return &Result{Err: "wamp.error.internal_error"}
+		return &InvocationResult{Err: "wamp.error.internal_error"}
 	}
 
 	_ = client.Close()
 
-	return &Result{}
+	return &InvocationResult{}
 }

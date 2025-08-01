@@ -21,12 +21,12 @@ func main() {
 	}
 	defer func() { _ = callee.Leave() }()
 
-	invocationHandler := func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
+	invocationHandler := func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 		isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
 
 		// Handle the progressive chunk
 		if isProgress {
-			chunkIndex := invocation.Arguments[0].(float64)
+			chunkIndex := invocation.Args[0].(float64)
 			fmt.Printf("Received chunk %v\n", chunkIndex)
 			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}
