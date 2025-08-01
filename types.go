@@ -392,6 +392,15 @@ func (r *RegisterRequest) Match(value string) *RegisterRequest {
 	return r
 }
 
+func (r *RegisterRequest) Invoke(value string) *RegisterRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options["invoke"] = value
+	return r
+}
+
 func (r *RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 	return messages.NewRegister(requestID, r.options, r.procedure)
 }
