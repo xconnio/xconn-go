@@ -29,8 +29,7 @@ func sumHandler(_ context.Context, inv *xconn.Invocation) *xconn.Result {
 func main() {
 	// Create and connect a callee client to server
 	ctx := context.Background()
-	client := xconn.Client{}
-	callee, err := client.Connect(ctx, "ws://localhost:8080/ws", "realm1")
+	callee, err := xconn.ConnectAnonymous(ctx, "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}

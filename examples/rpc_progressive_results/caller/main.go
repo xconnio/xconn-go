@@ -14,8 +14,7 @@ const procedureProgressUpload = "io.xconn.progress.upload"
 
 func main() {
 	ctx := context.Background()
-	client := xconn.Client{}
-	caller, err := client.Connect(ctx, "ws://localhost:8080/ws", "realm1")
+	caller, err := xconn.ConnectAnonymous(ctx, "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
