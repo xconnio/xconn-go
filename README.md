@@ -76,7 +76,7 @@ func exampleSubscribe(session *xconn.Session) {
 }
 
 func eventHandler(evt *xconn.Event) {
-    fmt.Printf("Event Received: args=%s, kwargs=%s, details=%s", evt.Args, evt.KwArgs, evt.Details)
+    fmt.Printf("Event Received: args=%s, kwargs=%s, details=%s", evt.Args, evt.Kwargs, evt.Details)
 }
 ```
 
@@ -104,7 +104,7 @@ func exampleRegister(session *xconn.Session) {
 }
 
 func invocationHandler(ctx context.Context, inv *xconn.Invocation) *xconn.Result {
-    return &xconn.Result{Args: inv.Args, KwArgs: inv.KwArgs, Details: inv.Details}
+    return &xconn.Result{Args: inv.Args, Kwargs: inv.Kwargs, Details: inv.Details}
 }
 ```
 
@@ -116,7 +116,7 @@ func exampleCall(session *xconn.Session) {
     if err != nil {
         log.Fatalf("Failed to call: %v", err)
     }
-    log.Printf("Call result: args=%s, kwargs=%s, details=%s", result.Args, result.KwArgs, result.Details)
+    log.Printf("Call result: args=%s, kwargs=%s, details=%s", result.Args, result.Kwargs, result.Details)
 }
 ```
 
