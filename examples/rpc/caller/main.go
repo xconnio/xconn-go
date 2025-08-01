@@ -23,7 +23,7 @@ func main() {
 		log.Fatalf("Failed to call %s: %s", testProcedureEcho, echoResponse.Err)
 	}
 	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResponse.Args,
-		echoResponse.KwArgs, echoResponse.Details)
+		echoResponse.Kwargs, echoResponse.Details)
 
 	// Call procedure "io.xconn.sum"
 	sumResponse := caller.Call(testProcedureSum).Do()

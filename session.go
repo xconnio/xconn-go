@@ -143,7 +143,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				progHandler := progressHandler.(ProgressReceiver)
 				progHandler(&InvocationResult{
 					Args:    result.Args(),
-					KwArgs:  result.KwArgs(),
+					Kwargs:  result.KwArgs(),
 					Details: result.Details(),
 				})
 			}
@@ -160,7 +160,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 
 		inv := &Invocation{
 			Args:    invocation.Args(),
-			KwArgs:  invocation.KwArgs(),
+			Kwargs:  invocation.KwArgs(),
 			Details: invocation.Details(),
 		}
 
@@ -205,10 +205,10 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			} else if res.Err != "" {
 				msgType, _ := util.AsUInt64(invocation.Type())
 				msgToSend = messages.NewError(
-					msgType, invocation.RequestID(), map[string]any{}, res.Err, res.Args, res.KwArgs,
+					msgType, invocation.RequestID(), map[string]any{}, res.Err, res.Args, res.Kwargs,
 				)
 			} else {
-				msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Args, res.KwArgs)
+				msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Args, res.Kwargs)
 			}
 
 			payload, err := s.proto.SendMessage(msgToSend)
@@ -259,7 +259,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 
 		evt := &Event{
 			Args:    event.Args(),
-			KwArgs:  event.KwArgs(),
+			Kwargs:  event.KwArgs(),
 			Details: event.Details(),
 		}
 		subs := subscriptions.(map[*Subscription]*Subscription)
@@ -275,7 +275,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return fmt.Errorf("received ERROR for invalid call request")
 			}
 
-			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), KwArgs: errorMsg.KwArgs()}
+			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), Kwargs: errorMsg.KwArgs()}
 			responseChan := response.(chan *callResponse)
 			responseChan <- &callResponse{error: err}
 			return nil
@@ -285,7 +285,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return fmt.Errorf("received ERROR for invalid register request")
 			}
 
-			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), KwArgs: errorMsg.KwArgs()}
+			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), Kwargs: errorMsg.KwArgs()}
 			requestChan := request.(chan *registerResponse)
 			requestChan <- &registerResponse{error: err}
 			return nil
@@ -302,7 +302,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return fmt.Errorf("received ERROR for invalid subscribe request")
 			}
 
-			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), KwArgs: errorMsg.KwArgs()}
+			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), Kwargs: errorMsg.KwArgs()}
 			responseChan := response.(chan *subscribeResponse)
 			responseChan <- &subscribeResponse{error: err}
 			return nil
@@ -320,7 +320,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return fmt.Errorf("received ERROR for invalid publish request")
 			}
 
-			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), KwArgs: errorMsg.KwArgs()}
+			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), Kwargs: errorMsg.KwArgs()}
 			responseChan := response.(chan *publishResponse)
 			responseChan <- &publishResponse{error: err}
 			return nil
@@ -448,7 +448,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 	if progress.Err != nil {
 		return CallResponse{Err: progress.Err}
 	}
-	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.KwArgs)
+	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.Kwargs)
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
@@ -470,7 +470,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 				// TODO: implement call canceling
 				return
 			}
-			call = messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.KwArgs)
+			call = messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.Kwargs)
 			toSend, err = s.proto.SendMessage(call)
 			if err != nil {
 				return
@@ -497,7 +497,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	if progress.Err != nil {
 		return CallResponse{Err: progress.Err}
 	}
-	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.KwArgs)
+	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.Kwargs)
 	s.progressHandlers.Store(call.RequestID(), progressHandler)
 	call.Options()[wampproto.OptionReceiveProgress] = true
 
@@ -521,7 +521,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 				// TODO: implement call canceling
 				return
 			}
-			call := messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.KwArgs)
+			call := messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.Kwargs)
 			toSend, err = s.proto.SendMessage(call)
 			if err != nil {
 				return
@@ -560,7 +560,7 @@ func (s *Session) waitForCallResult(ctx context.Context, channel chan *callRespo
 
 		r := CallResponse{
 			Args:    response.msg.Args(),
-			KwArgs:  response.msg.KwArgs(),
+			Kwargs:  response.msg.KwArgs(),
 			Details: response.msg.Details(),
 		}
 		return r

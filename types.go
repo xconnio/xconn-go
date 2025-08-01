@@ -245,24 +245,24 @@ func (s *Subscription) unsubscribe() error {
 type Event struct {
 	Topic   string
 	Args    []any
-	KwArgs  map[string]any
+	Kwargs  map[string]any
 	Details map[string]any
 }
 
 type SendProgress func(args []any, kwArgs map[string]any) error
 
 type Invocation struct {
-	Procedure string
-	Args      []any
-	KwArgs    map[string]any
-	Details   map[string]any
+	Procedure string         `json:"procedure"`
+	Args      []any          `json:"args"`
+	Kwargs    map[string]any `json:"kwargs"`
+	Details   map[string]any `json:"details"`
 
 	SendProgress SendProgress
 }
 
 type InvocationResult struct {
 	Args    []any
-	KwArgs  map[string]any
+	Kwargs  map[string]any
 	Details map[string]any
 	Err     string
 }
@@ -290,7 +290,7 @@ func NewInvocationError(uri string, args ...any) *InvocationResult {
 
 type Progress struct {
 	Args    []any
-	KwArgs  map[string]any
+	Kwargs  map[string]any
 	Options map[string]any
 	Err     error
 }
@@ -298,7 +298,7 @@ type Progress struct {
 type Error struct {
 	URI    string
 	Args   []any
-	KwArgs map[string]any
+	Kwargs map[string]any
 }
 
 func (e *Error) Error() string {
@@ -311,9 +311,9 @@ func (e *Error) Error() string {
 		errStr += ": " + strings.Join(args, ", ")
 	}
 
-	if e.KwArgs != nil {
-		kwargs := make([]string, len(e.KwArgs))
-		for key, value := range e.KwArgs {
+	if e.Kwargs != nil {
+		kwargs := make([]string, len(e.Kwargs))
+		for key, value := range e.Kwargs {
 			kwargs = append(kwargs, fmt.Sprintf("%s=%v", key, value))
 		}
 		errStr += ": " + strings.Join(kwargs, ", ")
@@ -599,7 +599,7 @@ func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 
 type CallResponse struct {
 	Args    []any
-	KwArgs  map[string]any
+	Kwargs  map[string]any
 	Details map[string]any
 	Err     error
 }
