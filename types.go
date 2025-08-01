@@ -547,6 +547,15 @@ func (p *PublishRequest) Acknowledge(value bool) *PublishRequest {
 	return p
 }
 
+func (p *PublishRequest) ExcludeMe(value bool) *PublishRequest {
+	if p.options == nil {
+		p.options = make(map[string]any)
+	}
+
+	p.options["exclude_me"] = value
+	return p
+}
+
 func (p *PublishRequest) Arg(arg any) *PublishRequest {
 	if p.args == nil {
 		p.args = make([]any, 0)
