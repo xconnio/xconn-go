@@ -92,7 +92,7 @@ func TestAuthorization(t *testing.T) {
 		callResp := session.Call("io.xconn.test").Do()
 		require.NoError(t, callResp.Err)
 
-		publishResp := session.Publish("io.xconn.test").Option("acknowledge", true).Do()
+		publishResp := session.Publish("io.xconn.test").Acknowledge(true).Do()
 		require.EqualError(t, publishResp.Err, "wamp.error.authorization_failed")
 
 		subscribeResp := session.Subscribe("io.xconn.test", func(event *xconn.Event) {}).Do()
@@ -140,7 +140,7 @@ func TestAuthorization(t *testing.T) {
 		subscribeResp := session.Subscribe("io.xconn.test", func(event *xconn.Event) {}).Do()
 		require.NoError(t, subscribeResp.Err)
 
-		publishResp := session.Publish("io.xconn.test").Option("acknowledge", true).Do()
+		publishResp := session.Publish("io.xconn.test").Acknowledge(true).Do()
 		require.NoError(t, publishResp.Err)
 	})
 }
