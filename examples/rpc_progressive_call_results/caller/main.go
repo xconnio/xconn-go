@@ -13,8 +13,7 @@ const procedureProgressDownload = "io.xconn.progress.download"
 func main() {
 	// Create and connect a caller client to server
 	ctx := context.Background()
-	client := xconn.Client{}
-	caller, err := client.Connect(ctx, "ws://localhost:8080/ws", "realm1")
+	caller, err := xconn.ConnectAnonymous(ctx, "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}

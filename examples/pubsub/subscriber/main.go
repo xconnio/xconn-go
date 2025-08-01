@@ -14,8 +14,7 @@ const testTopic = "io.xconn.test"
 func main() {
 	// Create and connect a subscriber client to server
 	ctx := context.Background()
-	client := xconn.Client{}
-	subscriber, err := client.Connect(ctx, "ws://localhost:8080/ws", "realm1")
+	subscriber, err := xconn.ConnectAnonymous(ctx, "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}

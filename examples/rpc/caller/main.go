@@ -12,8 +12,7 @@ const testProcedureSum = "io.xconn.sum"
 
 func main() {
 	// Create and connect a caller client to server
-	client := xconn.Client{}
-	caller, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
+	caller, err := xconn.ConnectAnonymous(context.Background(), "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
