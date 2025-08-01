@@ -48,7 +48,7 @@ func TestRegisterCall(t *testing.T) {
 	session := connect(t)
 	registerResponse := session.Register("foo.bar",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
-			return &xconn.Result{Arguments: []any{"hello"}}
+			return xconn.NewInvocationResult("hello")
 		}).Do()
 
 	require.NoError(t, registerResponse.Err)
@@ -103,7 +103,7 @@ func TestProgressiveCallResults(t *testing.T) {
 			}
 
 			// Return final result
-			return &xconn.Result{Arguments: []any{"done"}}
+			return xconn.NewInvocationResult("done")
 		}).Do()
 	require.NoError(t, registerResponse.Err)
 
@@ -138,10 +138,10 @@ func TestProgressiveCallInvocation(t *testing.T) {
 
 			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
 			if isProgress {
-				return &xconn.Result{Err: xconn.ErrNoResult}
+				return xconn.NewInvocationError(xconn.ErrNoResult)
 			}
 
-			return &xconn.Result{Arguments: []any{"done"}}
+			return xconn.NewInvocationResult("done")
 		}).Do()
 	require.NoError(t, registerResponse.Err)
 
@@ -190,10 +190,10 @@ func TestCallProgressiveProgress(t *testing.T) {
 			if isProgress {
 				err := invocation.SendProgress([]any{progress}, nil)
 				require.NoError(t, err)
-				return &xconn.Result{Err: xconn.ErrNoResult}
+				return xconn.NewInvocationError(xconn.ErrNoResult)
 			}
 
-			return &xconn.Result{Arguments: []any{progress}}
+			return xconn.NewInvocationResult(progress)
 		}).Do()
 
 	require.NoError(t, registerResponse.Err)
@@ -252,7 +252,7 @@ func TestInMemorySession(t *testing.T) {
 	response := session.Register(
 		procedure,
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result {
-			return &xconn.Result{Arguments: []any{"hello"}}
+			return xconn.NewInvocationResult("hello")
 		},
 	).Do()
 	require.NoError(t, response.Err)
