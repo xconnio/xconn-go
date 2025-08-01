@@ -260,29 +260,29 @@ type Invocation struct {
 	SendProgress SendProgress
 }
 
-type Result struct {
+type InvocationResult struct {
 	Arguments   []any
 	KwArguments map[string]any
 	Details     map[string]any
 	Err         string
 }
 
-func NewInvocationResult(args ...any) *Result {
+func NewInvocationResult(args ...any) *InvocationResult {
 	if len(args) == 0 {
-		return &Result{}
+		return &InvocationResult{}
 	}
 
-	return &Result{
+	return &InvocationResult{
 		Arguments: args,
 	}
 }
 
-func NewInvocationError(uri string, args ...any) *Result {
+func NewInvocationError(uri string, args ...any) *InvocationResult {
 	if len(args) == 0 {
-		return &Result{Err: uri}
+		return &InvocationResult{Err: uri}
 	}
 
-	return &Result{
+	return &InvocationResult{
 		Err:       uri,
 		Arguments: args,
 	}

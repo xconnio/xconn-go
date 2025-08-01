@@ -46,7 +46,7 @@ func main() {
 			time.Sleep(500 * time.Millisecond)
 
 			return &xconn.Progress{Arguments: args, Options: options}
-		}).ProgressReceiver(func(result *xconn.Result) {
+		}).ProgressReceiver(func(result *xconn.InvocationResult) {
 		// Handle progress updates mirrored by the callee
 		chunkProgress := result.Arguments[0].(float64)
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)

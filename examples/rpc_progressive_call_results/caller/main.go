@@ -20,7 +20,7 @@ func main() {
 	}
 	defer func() { _ = caller.Leave() }()
 
-	callResponse := caller.Call(procedureProgressDownload).ProgressReceiver(func(result *xconn.Result) {
+	callResponse := caller.Call(procedureProgressDownload).ProgressReceiver(func(result *xconn.InvocationResult) {
 		progress := result.Arguments[0]
 		fmt.Printf("Download progress: %v%%\n", progress)
 	}).Do()

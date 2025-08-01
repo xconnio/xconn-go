@@ -86,7 +86,9 @@ func TestAuthorization(t *testing.T) {
 		session := createSession("registerCall")
 
 		registerResp := session.Register("io.xconn.test",
-			func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result { return &xconn.Result{} }).Do()
+			func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+				return &xconn.InvocationResult{}
+			}).Do()
 		require.NoError(t, registerResp.Err)
 
 		callResp := session.Call("io.xconn.test").Do()
@@ -117,7 +119,9 @@ func TestAuthorization(t *testing.T) {
 		require.EqualError(t, subscribeResp.Err, "wamp.error.authorization_failed")
 
 		registerResp := session.Register("io.xconn.test",
-			func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result { return &xconn.Result{} }).Do()
+			func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+				return &xconn.InvocationResult{}
+			}).Do()
 		require.EqualError(t, registerResp.Err, "wamp.error.authorization_failed")
 	})
 
@@ -131,7 +135,9 @@ func TestAuthorization(t *testing.T) {
 		session := createSession("subscriberAndPublish")
 
 		registerResp := session.Register("io.xconn.test",
-			func(ctx context.Context, invocation *xconn.Invocation) *xconn.Result { return &xconn.Result{} }).Do()
+			func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+				return &xconn.InvocationResult{}
+			}).Do()
 		require.EqualError(t, registerResp.Err, "wamp.error.authorization_failed")
 
 		callResp := session.Call("io.xconn.test").Do()
