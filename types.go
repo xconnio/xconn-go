@@ -273,7 +273,7 @@ func NewInvocationResult(args ...any) *Result {
 	}
 
 	return &Result{
-		Arguments: []any{args},
+		Arguments: args,
 	}
 }
 
@@ -284,7 +284,7 @@ func NewInvocationError(uri string, args ...any) *Result {
 
 	return &Result{
 		Err:       uri,
-		Arguments: []any{args},
+		Arguments: args,
 	}
 }
 
