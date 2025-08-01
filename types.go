@@ -383,6 +383,15 @@ func (r *RegisterRequest) Options(options map[string]any) *RegisterRequest {
 	return r
 }
 
+func (r *RegisterRequest) Match(value string) *RegisterRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options[wampproto.OptionMatch] = value
+	return r
+}
+
 func (r *RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 	return messages.NewRegister(requestID, r.options, r.procedure)
 }
@@ -486,6 +495,15 @@ func (r *SubscribeRequest) Option(key string, value any) *SubscribeRequest {
 
 func (r *SubscribeRequest) Options(options map[string]any) *SubscribeRequest {
 	r.options = options
+	return r
+}
+
+func (r *SubscribeRequest) Match(value string) *SubscribeRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options[wampproto.OptionMatch] = value
 	return r
 }
 
