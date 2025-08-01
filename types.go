@@ -383,6 +383,24 @@ func (r *RegisterRequest) Options(options map[string]any) *RegisterRequest {
 	return r
 }
 
+func (r *RegisterRequest) Match(value string) *RegisterRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options[wampproto.OptionMatch] = value
+	return r
+}
+
+func (r *RegisterRequest) Invoke(value string) *RegisterRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options["invoke"] = value
+	return r
+}
+
 func (r *RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 	return messages.NewRegister(requestID, r.options, r.procedure)
 }
@@ -489,6 +507,15 @@ func (r *SubscribeRequest) Options(options map[string]any) *SubscribeRequest {
 	return r
 }
 
+func (r *SubscribeRequest) Match(value string) *SubscribeRequest {
+	if r.options == nil {
+		r.options = make(map[string]any)
+	}
+
+	r.options[wampproto.OptionMatch] = value
+	return r
+}
+
 func (r *SubscribeRequest) ToSubscribe(requestID uint64) *messages.Subscribe {
 	return messages.NewSubscribe(requestID, r.options, r.topic)
 }
@@ -517,6 +544,24 @@ func (p *PublishRequest) Option(key string, value any) *PublishRequest {
 
 func (p *PublishRequest) Options(options map[string]any) *PublishRequest {
 	p.options = options
+	return p
+}
+
+func (p *PublishRequest) Acknowledge(value bool) *PublishRequest {
+	if p.options == nil {
+		p.options = make(map[string]any)
+	}
+
+	p.options["acknowledge"] = value
+	return p
+}
+
+func (p *PublishRequest) ExcludeMe(value bool) *PublishRequest {
+	if p.options == nil {
+		p.options = make(map[string]any)
+	}
+
+	p.options["exclude_me"] = value
 	return p
 }
 
