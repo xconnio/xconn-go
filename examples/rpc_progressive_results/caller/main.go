@@ -45,10 +45,10 @@ func main() {
 			// Simulate delay for each chunk
 			time.Sleep(500 * time.Millisecond)
 
-			return &xconn.Progress{Arguments: args, Options: options}
+			return &xconn.Progress{Args: args, Options: options}
 		}).ProgressReceiver(func(result *xconn.InvocationResult) {
 		// Handle progress updates mirrored by the callee
-		chunkProgress := result.Arguments[0].(float64)
+		chunkProgress := result.Args[0].(float64)
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)
 	}).Do()
 
@@ -56,5 +56,5 @@ func main() {
 		log.Fatalf("Failed to upload data: %s", callResponse.Err)
 	}
 
-	fmt.Printf("Upload complete: %s\n", callResponse.Arguments[0])
+	fmt.Printf("Upload complete: %s\n", callResponse.Args[0])
 }

@@ -46,11 +46,11 @@ func main() {
 			// Simulate network delay between chunks
 			time.Sleep(500 * time.Millisecond)
 
-			return &xconn.Progress{Arguments: args, Options: options}
+			return &xconn.Progress{Args: args, Options: options}
 		}).Do()
 	if callResponse.Err != nil {
 		log.Fatalf("Failed to upload data: %s", callResponse.Err)
 	}
 
-	fmt.Println("Final result:", callResponse.Arguments[0])
+	fmt.Println("Final result:", callResponse.Args[0])
 }

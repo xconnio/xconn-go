@@ -27,7 +27,7 @@ func main() {
 
 		// Handle the progressive chunk
 		if isProgress {
-			chunkIndex := invocation.Arguments[0].(float64)
+			chunkIndex := invocation.Args[0].(float64)
 			fmt.Printf("Received chunk %v\n", chunkIndex)
 			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}

@@ -243,28 +243,28 @@ func (s *Subscription) unsubscribe() error {
 }
 
 type Event struct {
-	Topic       string
-	Arguments   []any
-	KwArguments map[string]any
-	Details     map[string]any
+	Topic   string
+	Args    []any
+	KwArgs  map[string]any
+	Details map[string]any
 }
 
-type SendProgress func(arguments []any, kwArguments map[string]any) error
+type SendProgress func(args []any, kwArgs map[string]any) error
 
 type Invocation struct {
-	Procedure   string
-	Arguments   []any
-	KwArguments map[string]any
-	Details     map[string]any
+	Procedure string
+	Args      []any
+	KwArgs    map[string]any
+	Details   map[string]any
 
 	SendProgress SendProgress
 }
 
 type InvocationResult struct {
-	Arguments   []any
-	KwArguments map[string]any
-	Details     map[string]any
-	Err         string
+	Args    []any
+	KwArgs  map[string]any
+	Details map[string]any
+	Err     string
 }
 
 func NewInvocationResult(args ...any) *InvocationResult {
@@ -273,7 +273,7 @@ func NewInvocationResult(args ...any) *InvocationResult {
 	}
 
 	return &InvocationResult{
-		Arguments: args,
+		Args: args,
 	}
 }
 
@@ -283,37 +283,37 @@ func NewInvocationError(uri string, args ...any) *InvocationResult {
 	}
 
 	return &InvocationResult{
-		Err:       uri,
-		Arguments: args,
+		Err:  uri,
+		Args: args,
 	}
 }
 
 type Progress struct {
-	Arguments   []any
-	KwArguments map[string]any
-	Options     map[string]any
-	Err         error
+	Args    []any
+	KwArgs  map[string]any
+	Options map[string]any
+	Err     error
 }
 
 type Error struct {
-	URI         string
-	Arguments   []any
-	KwArguments map[string]any
+	URI    string
+	Args   []any
+	KwArgs map[string]any
 }
 
 func (e *Error) Error() string {
 	errStr := e.URI
-	if e.Arguments != nil {
-		args := make([]string, len(e.Arguments))
-		for i, arg := range e.Arguments {
+	if e.Args != nil {
+		args := make([]string, len(e.Args))
+		for i, arg := range e.Args {
 			args[i] = fmt.Sprintf("%v", arg)
 		}
 		errStr += ": " + strings.Join(args, ", ")
 	}
 
-	if e.KwArguments != nil {
-		kwargs := make([]string, len(e.KwArguments))
-		for key, value := range e.KwArguments {
+	if e.KwArgs != nil {
+		kwargs := make([]string, len(e.KwArgs))
+		for key, value := range e.KwArgs {
 			kwargs = append(kwargs, fmt.Sprintf("%s=%v", key, value))
 		}
 		errStr += ": " + strings.Join(kwargs, ", ")
@@ -553,10 +553,10 @@ func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 }
 
 type CallResponse struct {
-	Arguments   []any
-	KwArguments map[string]any
-	Details     map[string]any
-	Err         error
+	Args    []any
+	KwArgs  map[string]any
+	Details map[string]any
+	Err     error
 }
 
 type RegisterResponse struct {

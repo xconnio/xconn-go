@@ -60,7 +60,7 @@ func TestRegisterCall(t *testing.T) {
 				callResponse := session.Call("foo.bar").Do()
 				require.NoError(t, callResponse.Err)
 				require.NotNil(t, callResponse)
-				require.Equal(t, "hello", callResponse.Arguments[0])
+				require.Equal(t, "hello", callResponse.Args[0])
 			})
 		}
 
@@ -112,7 +112,7 @@ func TestProgressiveCallResults(t *testing.T) {
 		progressUpdates := make([]int, 0)
 
 		callResponse := session.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
-			progress := int(progressiveResult.Arguments[0].(float64))
+			progress := int(progressiveResult.Args[0].(float64))
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		}).Do()
@@ -122,7 +122,7 @@ func TestProgressiveCallResults(t *testing.T) {
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Arguments[0])
+		require.Equal(t, "done", callResponse.Args[0])
 	})
 }
 
@@ -133,7 +133,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 	progressUpdates := make([]int, 0)
 	registerResponse := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress := int(invocation.Arguments[0].(float64))
+			progress := int(invocation.Args[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
 
 			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
@@ -164,7 +164,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 				chunkIndex++
 
 				time.Sleep(10 * time.Millisecond)
-				return &xconn.Progress{Arguments: args, Options: options}
+				return &xconn.Progress{Args: args, Options: options}
 			}).Do()
 		require.NoError(t, callResponse.Err)
 
@@ -172,7 +172,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Arguments[0])
+		require.Equal(t, "done", callResponse.Args[0])
 	})
 }
 
@@ -183,7 +183,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 	progressUpdates := make([]int, 0)
 	registerResponse := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress := int(invocation.Arguments[0].(float64))
+			progress := int(invocation.Args[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
 
 			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
@@ -218,16 +218,16 @@ func TestCallProgressiveProgress(t *testing.T) {
 				chunkIndex++
 
 				time.Sleep(10 * time.Millisecond)
-				return &xconn.Progress{Arguments: args, Options: options}
+				return &xconn.Progress{Args: args, Options: options}
 			}).
 			ProgressReceiver(func(result *xconn.InvocationResult) {
-				progress := int(result.Arguments[0].(float64))
+				progress := int(result.Args[0].(float64))
 				receivedProgressBack = append(receivedProgressBack, progress)
 			}).Do()
 
 		require.NoError(t, callResponse.Err)
 
-		finalResult := int(callResponse.Arguments[0].(float64))
+		finalResult := int(callResponse.Args[0].(float64))
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly
