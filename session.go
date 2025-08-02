@@ -12,7 +12,6 @@ import (
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
-	"github.com/xconnio/wampproto-go/util"
 )
 
 const ErrNoResult = "io.xconn.no_result"
@@ -203,9 +202,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			if res.Err == ErrNoResult {
 				return
 			} else if res.Err != "" {
-				msgType, _ := util.AsUInt64(invocation.Type())
 				msgToSend = messages.NewError(
-					msgType, invocation.RequestID(), map[string]any{}, res.Err, res.Args, res.Kwargs,
+					invocation.Type(), invocation.RequestID(), map[string]any{}, res.Err, res.Args, res.Kwargs,
 				)
 			} else {
 				msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Args, res.Kwargs)

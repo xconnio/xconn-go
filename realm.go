@@ -101,8 +101,7 @@ func (r *Realm) isAuthorized(roleName string, msgType uint64, uri string) bool {
 
 func (r *Realm) authorize(baseSession BaseSession, msgType uint64, uri string, requestID uint64) (bool, error) {
 	if !r.isAuthorized(baseSession.AuthRole(), msgType, uri) {
-		messageType, _ := util.AsUInt64(msgType)
-		errMsg := messages.NewError(messageType, requestID, map[string]any{},
+		errMsg := messages.NewError(msgType, requestID, map[string]any{},
 			wampproto.ErrAuthorizationFailed, nil, nil)
 
 		return false, baseSession.WriteMessage(errMsg)
@@ -167,9 +166,15 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleBrokerBoundMessage(baseSession, msg)
 	case messages.MessageTypePublish:
 		publish := msg.(*messages.Publish)
-		authorized, err := r.authorize(baseSession, publish.Type(), publish.Topic(), publish.RequestID())
-		if err != nil || !authorized {
-			return err
+		if !r.isAuthorized(baseSession.AuthRole(), publish.Type(), publish.Topic()) {
+			acknowledge := util.ToBool(publish.Options()["acknowledge"])
+			if acknowledge {
+				errMsg := messages.NewError(publish.Type(), publish.RequestID(), map[string]any{},
+					wampproto.ErrAuthorizationFailed, nil, nil)
+
+				return baseSession.WriteMessage(errMsg)
+			}
+			return nil
 		}
 
 		publication, err := r.broker.ReceivePublish(baseSession.ID(), publish)
