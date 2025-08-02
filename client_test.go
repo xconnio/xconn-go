@@ -2,7 +2,6 @@ package xconn_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -36,11 +35,8 @@ func TestCall(t *testing.T) {
 	session := connect(t)
 	t.Run("CallNoProc", func(t *testing.T) {
 		callResponse := session.Call("foo.bar").Do()
-		require.Error(t, callResponse.Err)
-
-		var er *xconn.Error
-		errors.As(callResponse.Err, &er)
-		require.Equal(t, "wamp.error.no_such_procedure", er.URI)
+		require.True(t, callResponse.IsError())
+		require.Equal(t, "wamp.error.no_such_procedure", callResponse.Error().URI)
 	})
 }
 
@@ -51,14 +47,14 @@ func TestRegisterCall(t *testing.T) {
 			return xconn.NewInvocationResult("hello")
 		}).Do()
 
-	require.NoError(t, registerResponse.Err)
+	require.False(t, registerResponse.IsError())
 
 	t.Run("callRaw", func(t *testing.T) {
 		wp := workerpool.New(10)
 		for i := 0; i < 100; i++ {
 			wp.Submit(func() {
 				callResponse := session.Call("foo.bar").Do()
-				require.NoError(t, callResponse.Err)
+				require.False(t, callResponse.IsError())
 				require.NotNil(t, callResponse)
 				require.Equal(t, "hello", callResponse.Args[0])
 			})
@@ -77,14 +73,14 @@ func TestPublishSubscribe(t *testing.T) {
 			event1 <- event
 		}).Do()
 
-	require.NoError(t, subscribeResponse.Err)
+	require.False(t, subscribeResponse.IsError())
 
 	t.Run("PublishWithRequest", func(t *testing.T) {
 		opt := map[string]any{
 			"exclude_me": false,
 		}
 		publishResponse := session.Publish("foo.bar").Options(opt).Do()
-		require.NoError(t, publishResponse.Err)
+		require.False(t, publishResponse.IsError())
 
 		event := <-event1
 		log.Println(event)
@@ -105,7 +101,7 @@ func TestProgressiveCallResults(t *testing.T) {
 			// Return final result
 			return xconn.NewInvocationResult("done")
 		}).Do()
-	require.NoError(t, registerResponse.Err)
+	require.False(t, registerResponse.IsError())
 
 	t.Run("ProgressiveCall", func(t *testing.T) {
 		// Store received progress updates
@@ -116,7 +112,7 @@ func TestProgressiveCallResults(t *testing.T) {
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		}).Do()
-		require.NoError(t, callResponse.Err)
+		require.False(t, callResponse.IsError())
 
 		// Verify progressive updates received correctly
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
@@ -143,7 +139,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 
 			return xconn.NewInvocationResult("done")
 		}).Do()
-	require.NoError(t, registerResponse.Err)
+	require.False(t, registerResponse.IsError())
 
 	t.Run("ProgressiveCall", func(t *testing.T) {
 		totalChunks := 6
@@ -166,7 +162,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 				time.Sleep(10 * time.Millisecond)
 				return &xconn.Progress{Args: args, Options: options}
 			}).Do()
-		require.NoError(t, callResponse.Err)
+		require.False(t, callResponse.IsError())
 
 		// Verify progressive updates received correctly
 		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
@@ -196,7 +192,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 			return xconn.NewInvocationResult(progress)
 		}).Do()
 
-	require.NoError(t, registerResponse.Err)
+	require.False(t, registerResponse.IsError())
 
 	t.Run("ProgressiveCall", func(t *testing.T) {
 		receivedProgressBack := make([]int, 0)
@@ -225,7 +221,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 				receivedProgressBack = append(receivedProgressBack, progress)
 			}).Do()
 
-		require.NoError(t, callResponse.Err)
+		require.False(t, callResponse.IsError())
 
 		finalResult := int(callResponse.Args[0].(float64))
 		receivedProgressBack = append(receivedProgressBack, finalResult)
@@ -255,10 +251,10 @@ func TestInMemorySession(t *testing.T) {
 			return xconn.NewInvocationResult("hello")
 		},
 	).Do()
-	require.NoError(t, response.Err)
+	require.False(t, response.IsError())
 
 	cResponse := session.Call(procedure).Do()
-	require.NoError(t, cResponse.Err)
+	require.False(t, cResponse.IsError())
 
 	require.Equal(t, realmName, session.Details().Realm())
 	require.Equal(t, role, session.Details().AuthRole())
