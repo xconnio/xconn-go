@@ -10,34 +10,6 @@ To install `xconn`, use the following command:
 go get github.com/xconnio/xconn-go
 ```
 
-## Server
-
-Setting up a basic server is straightforward:
-
-```go
-package main
-
-import (
-	"log"
-
-	"github.com/xconnio/xconn-go"
-)
-
-func main() {
-	r := xconn.NewRouter()
-	r.AddRealm("realm1")
-
-	server := xconn.NewServer(r, nil)
-	err := server.Start("localhost", 8080)
-	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
-}
-```
-
-For more advanced usage, such as integrating an authenticator, refer to the sample tool available
-in the [cmd](./cmd/xconn) folder of the project.
-
 ## Client
 
 Creating a client:
@@ -53,8 +25,7 @@ import (
 )
 
 func main() {
-	client := xconn.Client{}
-	session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
+	session, err := xconn.ConnectAnonymous(context.Background(), "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,11 +39,11 @@ operations:
 
 ```go
 func exampleSubscribe(session *xconn.Session) {
-    subscription, err := session.Subscribe("io.xconn.example", eventHandler, map[string]any{})
-    if err != nil {
-    log.Fatalf("Failed to subscribe: %v", err)
+    subscribeResponse := session.Subscribe("io.xconn.example", eventHandler).Do()
+    if subscribeResponse.Err != nil {
+        log.Fatalf("Failed to subscribe: %v", subscribeResponse.Err)
     }
-    log.Printf("Subscribed to topic io.xconn.example: %v", subscription)
+    log.Printf("Subscribed to topic io.xconn.example")
 }
 
 func eventHandler(evt *xconn.Event) {
@@ -84,9 +55,9 @@ func eventHandler(evt *xconn.Event) {
 
 ```go
 func examplePublish(session *xconn.Session) {
-    err := session.Publish("io.xconn.example", []any{}, map[string]any{}, map[string]any{})
-    if err != nil {
-        log.Fatalf("Failed to publish: %v", err)
+    publishResponse := session.Publish("io.xconn.example").Arg("test").Do()
+    if publishResponse.Err != nil {
+        log.Fatalf("Failed to publish: %v", publishResponse.Err)
     }
     log.Printf("Publsihed to topic io.xconn.example")
 }
@@ -96,15 +67,15 @@ func examplePublish(session *xconn.Session) {
 
 ```go
 func exampleRegister(session *xconn.Session) {
-    registration, err := session.Register("io.xconn.example", invocationHandler, map[string]any{})
-    if err != nil {
-        log.Fatalf("Failed to register: %v", err)
+    registerResponse := session.Register("io.xconn.example", invocationHandler).Do()
+    if registerResponse.Err != nil {
+        log.Fatalf("Failed to register: %v", registerResponse.Err)
     }
-    log.Printf("Registered procedure io.xconn.example: %v", registration)
+    log.Printf("Registered procedure io.xconn.example")
 }
 
-func invocationHandler(ctx context.Context, inv *xconn.Invocation) *xconn.Result {
-    return &xconn.Result{Args: inv.Args, Kwargs: inv.Kwargs, Details: inv.Details}
+func invocationHandler(ctx context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
+    return xconn.NewInvocationResult()
 }
 ```
 
@@ -112,11 +83,11 @@ func invocationHandler(ctx context.Context, inv *xconn.Invocation) *xconn.Result
 
 ```go
 func exampleCall(session *xconn.Session) {
-    result, err := session.Call(context.Background(), "io.xconn.example", []any{"Hello World!"}, map[string]any{}, map[string]any{})
-    if err != nil {
-        log.Fatalf("Failed to call: %v", err)
+    callResponse := session.Call("io.xconn.example").Arg("Hello World!").Do()
+    if callResponse.Err != nil {
+        log.Fatalf("Failed to call: %v", callResponse.Err)
     }
-    log.Printf("Call result: args=%s, kwargs=%s, details=%s", result.Args, result.Kwargs, result.Details)
+    log.Printf("Call result: args=%s, kwargs=%s, details=%s", callResponse.Args, callResponse.Kwargs, callResponse.Details)
 }
 ```
 
@@ -128,9 +99,7 @@ to the Client.
 **Ticket Auth**
 
 ```go
-ticketAuthenticator := auth.NewTicketAuthenticator(authID, map[string]any{}, ticket)
-client := xconn.Client{Authenticator: ticketAuthenticator}
-session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
+session, err := xconn.ConnectTicket(context.Background(), "ws://localhost:8080/ws", "realm1", "authID", "ticket")
 if err != nil {
     log.Fatalf("Failed to connect: %v", err)
 }
@@ -139,9 +108,7 @@ if err != nil {
 **Challenge Response Auth**
 
 ```go
-craAuthenticator := auth.NewCRAAuthenticator(authID, map[string]any{}, secret)
-client := xconn.Client{Authenticator: craAuthenticator}
-session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
+session, err := xconn.ConnectCRA(context.Background(), "ws://localhost:8080/ws", "realm1", "authID", "secret")
 if err != nil {
 	log.Fatalf("Failed to connect: %v", err)
 }
@@ -150,44 +117,10 @@ if err != nil {
 **Cryptosign Auth**
 
 ```go
-cryptoSignAuthenticator, err := auth.NewCryptoSignAuthenticator(authID, map[string]any{}, secret)
-if err != nil {
-    log.Fatal(err)
-}
-client := xconn.Client{Authenticator: cryptoSignAuthenticator}
-session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
+session, err := xconn.ConnectCryptosign(context.Background(), "ws://localhost:8080/ws", "realm1", "authID", "privateKey")
 if err != nil {
     log.Fatalf("Failed to connect: %v", err)
 }
 ```
 
-### Serializers
-XConn supports various serializers for different data formats. To use, just pass chosen serializer spec to the client.
-
-**JSON Serializer**
-```go
-client := xconn.Client{SerializerSpec: xconn.JSONSerializerSpec}
-session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
-if err != nil {
-	log.Fatalf("Failed to connect: %v", err)
-}
-```
-
-**CBOR Serializer**
-```go
-client := xconn.Client{SerializerSpec: xconn.CBORSerializerSpec}
-session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
-if err != nil {
-	log.Fatalf("Failed to connect: %v", err)
-}
-```
-
-**MsgPack Serializer**
-```go
-client := xconn.Client{SerializerSpec: xconn.MsgPackSerializerSpec}
-session, err := client.Connect(context.Background(), "ws://localhost:8080/ws", "realm1")
-if err != nil {
-	log.Fatalf("Failed to connect: %v", err)
-}
-```
 For more detailed examples or usage, refer to the [examples](./examples) folder of the project.
