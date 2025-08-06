@@ -15,6 +15,7 @@ import (
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
+	"github.com/xconnio/wampproto-go/util"
 	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
 )
 
@@ -260,6 +261,10 @@ type Invocation struct {
 	SendProgress SendProgress
 }
 
+func (i *Invocation) IsProgress() bool {
+	return util.ToBool(i.Details[wampproto.OptionProgress])
+}
+
 type InvocationResult struct {
 	Args    []any
 	Kwargs  map[string]any
@@ -293,6 +298,19 @@ type Progress struct {
 	Kwargs  map[string]any
 	Options map[string]any
 	Err     error
+}
+
+func NewProgress(args ...any) *Progress {
+	return &Progress{
+		Args:    args,
+		Options: map[string]any{wampproto.OptionProgress: true},
+	}
+}
+
+func NewFinalProgress(args ...any) *Progress {
+	return &Progress{
+		Args: args,
+	}
 }
 
 type Error struct {

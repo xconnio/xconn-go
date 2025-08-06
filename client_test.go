@@ -12,7 +12,6 @@ import (
 	"github.com/gammazero/workerpool"
 	"github.com/stretchr/testify/require"
 
-	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -136,8 +135,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 			progress := int(invocation.Args[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
 
-			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
-			if isProgress {
+			if invocation.IsProgress() {
 				return xconn.NewInvocationError(xconn.ErrNoResult)
 			}
 
@@ -151,20 +149,15 @@ func TestProgressiveCallInvocation(t *testing.T) {
 
 		callResponse := session.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
-				options := map[string]any{}
-
-				// Mark the last chunk as non-progressive
-				if chunkIndex == totalChunks-1 {
-					options[wampproto.OptionProgress] = false
-				} else {
-					options[wampproto.OptionProgress] = true
-				}
-
-				args := []any{chunkIndex}
-				chunkIndex++
+				defer func() { chunkIndex++ }()
 
 				time.Sleep(10 * time.Millisecond)
-				return &xconn.Progress{Args: args, Options: options}
+
+				if chunkIndex == totalChunks-1 {
+					return xconn.NewFinalProgress(chunkIndex)
+				} else {
+					return xconn.NewProgress(chunkIndex)
+				}
 			}).Do()
 		require.NoError(t, callResponse.Err)
 
@@ -186,8 +179,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 			progress := int(invocation.Args[0].(float64))
 			progressUpdates = append(progressUpdates, progress)
 
-			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
-			if isProgress {
+			if invocation.IsProgress() {
 				err := invocation.SendProgress([]any{progress}, nil)
 				require.NoError(t, err)
 				return xconn.NewInvocationError(xconn.ErrNoResult)
@@ -205,20 +197,15 @@ func TestCallProgressiveProgress(t *testing.T) {
 
 		callResponse := session.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
-				options := map[string]any{}
-
-				// Mark the last chunk as non-progressive
-				if chunkIndex == totalChunks-1 {
-					options[wampproto.OptionProgress] = false
-				} else {
-					options[wampproto.OptionProgress] = true
-				}
-
-				args := []any{chunkIndex}
-				chunkIndex++
+				defer func() { chunkIndex++ }()
 
 				time.Sleep(10 * time.Millisecond)
-				return &xconn.Progress{Args: args, Options: options}
+
+				if chunkIndex == totalChunks-1 {
+					return xconn.NewFinalProgress(chunkIndex)
+				} else {
+					return xconn.NewProgress(chunkIndex)
+				}
 			}).
 			ProgressReceiver(func(result *xconn.InvocationResult) {
 				progress := int(result.Args[0].(float64))
