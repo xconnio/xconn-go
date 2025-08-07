@@ -119,7 +119,7 @@ func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialer
 	if url.Scheme == "unix" || url.Scheme == "unix+rs" {
 		conn, err = dialer.DialContext(ctx, "unix", url.Path)
 	} else {
-		conn, err = dialer.DialContext(ctx, "unix", url.Host)
+		conn, err = dialer.DialContext(ctx, "tcp", url.Host)
 	}
 
 	if err != nil {
