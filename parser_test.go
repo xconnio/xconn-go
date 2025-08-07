@@ -149,3 +149,25 @@ func TestRole(t *testing.T) {
 	err = xconn.NewInvocationParser(inv).AllowRole("user").Validate()
 	require.Error(t, err)
 }
+
+func TestInvalidPayloadNoCrash(t *testing.T) {
+	inv := &xconn.Invocation{Args: []any{"John", nil}}
+
+	var name string
+	var data []byte
+
+	err := xconn.NewInvocationParser(inv).Args(&name, &data).Validate()
+	require.Error(t, err)
+
+	inv = &xconn.Invocation{
+		Kwargs: map[string]any{
+			"username": nil,
+		},
+	}
+
+	var username string
+	err = xconn.NewInvocationParser(inv).KwargsSpecific(map[string]any{
+		"username": &username,
+	}).Validate()
+	require.Error(t, err)
+}

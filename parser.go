@@ -81,6 +81,11 @@ func (p *InvocationParser) Args(targets ...any) *InvocationParser {
 	}
 
 	for i, target := range targets {
+		if p.inv.Args[i] == nil {
+			p.err = fmt.Errorf("failed to assign arg[%d]: got nil value", i)
+			return p
+		}
+
 		if err := assignValue(p.inv.Args[i], target); err != nil {
 			p.err = fmt.Errorf("failed to assign arg[%d]: %w", i, err)
 			return p
@@ -180,6 +185,11 @@ func (p *InvocationParser) KwargsSpecific(mapping map[string]any) *InvocationPar
 
 	for key, target := range mapping {
 		if value, exists := p.inv.Kwargs[key]; exists {
+			if value == nil {
+				p.err = fmt.Errorf("failed to assign kwargs[%s]: got nil value", key)
+				return p
+			}
+
 			if err := assignValue(value, target); err != nil {
 				p.err = fmt.Errorf("failed to assign kwargs[%s]: %w", key, err)
 				return p
