@@ -47,8 +47,8 @@ func main() {
 
 			return &xconn.Progress{Args: args, Options: options}
 		}).Do()
-	if callResponse.Err != nil {
-		log.Fatalf("Failed to upload data: %s", callResponse.Err)
+	if callResponse.IsError() {
+		log.Fatalf("Failed to upload data: %s", callResponse.Error().Error())
 	}
 
 	fmt.Println("Final result:", callResponse.Args[0])

@@ -23,8 +23,8 @@ func main() {
 		progress := result.Args[0]
 		fmt.Printf("Download progress: %v%%\n", progress)
 	}).Do()
-	if callResponse.Err != nil {
-		log.Fatalf("CallRaw failed: %s", err)
+	if callResponse.IsError() {
+		log.Fatalf("CallRaw failed: %s", callResponse.Error().Error())
 	}
 
 	fmt.Println(callResponse.Args[0])
