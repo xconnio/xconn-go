@@ -14,18 +14,24 @@ import (
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
+	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
+	wampprotocapnp "github.com/xconnio/wampproto-serializer-capnproto/go"
 )
 
 var compiledWSProtocols = [][]byte{ //nolint:gochecknoglobals
 	[]byte(JsonWebsocketProtocol),
 	[]byte(MsgpackWebsocketProtocol),
 	[]byte(CborWebsocketProtocol),
+	[]byte(ProtobufSubProtocol),
+	[]byte(CapnprotoSplitSubProtocol),
 }
 
 var serializersByWSSubProtocol = map[string]serializers.Serializer{ //nolint:gochecknoglobals
-	JsonWebsocketProtocol:    &serializers.JSONSerializer{},
-	MsgpackWebsocketProtocol: &serializers.MsgPackSerializer{},
-	CborWebsocketProtocol:    &serializers.CBORSerializer{},
+	JsonWebsocketProtocol:     &serializers.JSONSerializer{},
+	MsgpackWebsocketProtocol:  &serializers.MsgPackSerializer{},
+	CborWebsocketProtocol:     &serializers.CBORSerializer{},
+	ProtobufSubProtocol:       &wampprotobuf.ProtobufSerializer{},
+	CapnprotoSplitSubProtocol: &wampprotocapnp.CapnprotoSerializer{},
 }
 
 type WebSocketAcceptor struct {
@@ -195,9 +201,11 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 }
 
 var serializersBySerializerID = map[SerializerID]serializers.Serializer{ //nolint:gochecknoglobals
-	JsonSerializerID:    &serializers.JSONSerializer{},
-	MsgPackSerializerID: &serializers.MsgPackSerializer{},
-	CborSerializerID:    &serializers.CBORSerializer{},
+	JsonSerializerID:           &serializers.JSONSerializer{},
+	MsgPackSerializerID:        &serializers.MsgPackSerializer{},
+	CborSerializerID:           &serializers.CBORSerializer{},
+	ProtobufSerializerID:       &wampprotobuf.ProtobufSerializer{},
+	CapnprotoSplitSerializerID: &wampprotocapnp.CapnprotoSerializer{},
 }
 
 type RawSocketAcceptor struct {
