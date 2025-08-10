@@ -249,7 +249,7 @@ func (l List) BytesOr(i int, def []byte) []byte {
 }
 
 func (l List) Decode(out any) error {
-	raw := make([]any, len(l))
+	raw := make(map[int]any, len(l))
 	for i, v := range l {
 		raw[i] = v.Raw()
 	}
@@ -425,20 +425,40 @@ func (inv *Invocation) ArgUInt64(index int) (uint64, error) {
 	return inv.args.UInt64(index)
 }
 
+func (inv *Invocation) ArgUInt64Or(index int, def uint64) uint64 {
+	return inv.args.UInt64Or(index, def)
+}
+
 func (inv *Invocation) ArgString(index int) (string, error) {
 	return inv.args.String(index)
+}
+
+func (inv *Invocation) ArgStringOr(index int, def string) string {
+	return inv.args.StringOr(index, def)
 }
 
 func (inv *Invocation) ArgBool(index int) (bool, error) {
 	return inv.args.Bool(index)
 }
 
+func (inv *Invocation) ArgBoolOr(index int, def bool) bool {
+	return inv.args.BoolOr(index, def)
+}
+
 func (inv *Invocation) ArgFloat64(index int) (float64, error) {
 	return inv.args.Float64(index)
 }
 
+func (inv *Invocation) ArgFloat64Or(index int, def float64) float64 {
+	return inv.args.Float64Or(index, def)
+}
+
 func (inv *Invocation) ArgInt64(index int) (int64, error) {
 	return inv.args.Int64(index)
+}
+
+func (inv *Invocation) ArgInt64Or(index int, def int64) int64 {
+	return inv.args.Int64Or(index, def)
 }
 
 func (inv *Invocation) ArgBytes(index int) ([]byte, error) {
@@ -447,6 +467,10 @@ func (inv *Invocation) ArgBytes(index int) ([]byte, error) {
 
 func (inv *Invocation) ArgsStruct(out any) error {
 	return inv.args.Decode(out)
+}
+
+func (inv *Invocation) ArgBytesOr(index int, def []byte) []byte {
+	return inv.args.BytesOr(index, def)
 }
 
 func (inv *Invocation) ArgsLen() int {
@@ -461,24 +485,48 @@ func (inv *Invocation) KwargUInt64(key string) (uint64, error) {
 	return inv.kwargs.UInt64(key)
 }
 
+func (inv *Invocation) KwargUInt64Or(key string, def uint64) uint64 {
+	return inv.kwargs.UInt64Or(key, def)
+}
+
 func (inv *Invocation) KwargString(key string) (string, error) {
 	return inv.kwargs.String(key)
+}
+
+func (inv *Invocation) KwargStringOr(key string, def string) string {
+	return inv.kwargs.StringOr(key, def)
 }
 
 func (inv *Invocation) KwargBool(key string) (bool, error) {
 	return inv.kwargs.Bool(key)
 }
 
+func (inv *Invocation) KwargBoolOr(key string, def bool) bool {
+	return inv.kwargs.BoolOr(key, def)
+}
+
 func (inv *Invocation) KwargFloat64(key string) (float64, error) {
 	return inv.kwargs.Float64(key)
+}
+
+func (inv *Invocation) KwargFloat64Or(key string, def float64) float64 {
+	return inv.kwargs.Float64Or(key, def)
 }
 
 func (inv *Invocation) KwargInt64(key string) (int64, error) {
 	return inv.kwargs.Int64(key)
 }
 
+func (inv *Invocation) KwargInt64Or(key string, def int64) int64 {
+	return inv.kwargs.Int64Or(key, def)
+}
+
 func (inv *Invocation) KwargBytes(key string) ([]byte, error) {
 	return inv.kwargs.Bytes(key)
+}
+
+func (inv *Invocation) KwargBytesOr(key string, def []byte) []byte {
+	return inv.kwargs.BytesOr(key, def)
 }
 
 func (inv *Invocation) KwargsStruct(out any) error {
