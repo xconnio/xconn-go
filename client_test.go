@@ -133,10 +133,10 @@ func TestProgressiveCallInvocation(t *testing.T) {
 	progressUpdates := make([]int, 0)
 	registerResponse := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress := int(invocation.Args[0].(float64))
-			progressUpdates = append(progressUpdates, progress)
+			progress, _ := invocation.ArgFloat64(0)
+			progressUpdates = append(progressUpdates, int(progress))
 
-			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
+			isProgress, _ := invocation.Details()[wampproto.OptionProgress].(bool)
 			if isProgress {
 				return xconn.NewInvocationError(xconn.ErrNoResult)
 			}
@@ -183,10 +183,10 @@ func TestCallProgressiveProgress(t *testing.T) {
 	progressUpdates := make([]int, 0)
 	registerResponse := session.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress := int(invocation.Args[0].(float64))
-			progressUpdates = append(progressUpdates, progress)
+			progress, _ := invocation.ArgFloat64(0)
+			progressUpdates = append(progressUpdates, int(progress))
 
-			isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
+			isProgress, _ := invocation.Details()[wampproto.OptionProgress].(bool)
 			if isProgress {
 				err := invocation.SendProgress([]any{progress}, nil)
 				require.NoError(t, err)
