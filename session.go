@@ -157,12 +157,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		end, _ := s.registrations.Load(invocation.RegistrationID())
 		endpoint := end.(InvocationHandler)
 
-		inv := &Invocation{
-			Args:    invocation.Args(),
-			Kwargs:  invocation.KwArgs(),
-			Details: invocation.Details(),
-		}
-
+		inv := NewInvocation(invocation.Args(), invocation.KwArgs(), invocation.Details())
 		progress, _ := invocation.Details()[wampproto.OptionProgress].(bool)
 		receiveProgress, _ := invocation.Details()[wampproto.OptionReceiveProgress].(bool)
 		if receiveProgress {

@@ -22,8 +22,8 @@ func main() {
 	defer func() { _ = callee.Leave() }()
 
 	invocationHandler := func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-		isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
-		chunkIndex := invocation.Args[0].(float64)
+		isProgress, _ := invocation.Details()[wampproto.OptionProgress].(bool)
+		chunkIndex, _ := invocation.ArgFloat64(0)
 
 		if isProgress {
 			// Mirror back the received chunk as progress

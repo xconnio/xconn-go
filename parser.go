@@ -1,240 +1,562 @@
 package xconn
 
 import (
+	"encoding/json"
 	"fmt"
-	"reflect"
 )
 
-// InvocationParser provides a fluent interface for parsing WAMP invocations.
-type InvocationParser struct {
-	inv *Invocation
-	err error
+type Value struct {
+	data any
 }
 
-// NewInvocationParser creates a new parser for the given invocation.
-func NewInvocationParser(inv *Invocation) *InvocationParser {
-	return &InvocationParser{inv: inv}
+func NewValue(v any) Value {
+	return Value{data: v}
 }
 
-func (p *InvocationParser) AllowRole(allowedRoles ...string) *InvocationParser {
-	if p.err != nil {
-		return p
-	}
-
-	if len(allowedRoles) == 0 {
-		p.err = fmt.Errorf("no roles specified for authorization")
-		return p
-	}
-
-	if len(allowedRoles) == 0 {
-		p.err = fmt.Errorf("no roles specified for authorization")
-		return p
-	}
-
-	callerRoles := p.extractCallerRoles()
-	if len(callerRoles) == 0 {
-		p.err = fmt.Errorf("no caller roles found in invocation details")
-		return p
-	}
-
-	// Check if caller has any of the allowed roles
-	for _, callerRole := range callerRoles {
-		for _, allowedRole := range allowedRoles {
-			if callerRole == allowedRole {
-				return p // Authorized
-			}
-		}
-	}
-
-	p.err = fmt.Errorf("access denied: caller roles %v not in allowed roles %v", callerRoles, allowedRoles)
-	return p
+func (v Value) Raw() any {
+	return v.data
 }
 
-func (p *InvocationParser) extractCallerRoles() []string {
-	if p.inv.Details == nil {
-		return nil
+func (v Value) String() (string, error) {
+	if s, ok := v.data.(string); ok {
+		return s, nil
 	}
-
-	var roles []string
-	if value, exists := p.inv.Details["caller_authrole"]; exists {
-		switch v := value.(type) {
-		case string:
-			if v != "" {
-				roles = append(roles, v)
-			}
-		}
-	}
-
-	return roles
+	return "", fmt.Errorf("value is not data string, got %T", v.data)
 }
 
-// Args maps positional arguments to the provided pointers
-// Usage: parser.Args(&name, &city, &age).
-func (p *InvocationParser) Args(targets ...any) *InvocationParser {
-	if p.err != nil {
-		return p
+func (v Value) StringOr(def string) string {
+	if s, err := v.String(); err == nil {
+		return s
 	}
-
-	if len(targets) > len(p.inv.Args) {
-		p.err = fmt.Errorf("not enough arguments: expected %d, got %d", len(targets), len(p.inv.Args))
-		return p
-	}
-
-	for i, target := range targets {
-		if p.inv.Args[i] == nil {
-			p.err = fmt.Errorf("failed to assign arg[%d]: got nil value", i)
-			return p
-		}
-
-		if err := assignValue(p.inv.Args[i], target); err != nil {
-			p.err = fmt.Errorf("failed to assign arg[%d]: %w", i, err)
-			return p
-		}
-	}
-
-	return p
+	return def
 }
 
-// ArgsToStruct maps all args to struct fields by position
-// The struct should have fields that match the args in order.
-func (p *InvocationParser) ArgsToStruct(target any) *InvocationParser {
-	if p.err != nil {
-		return p
+func (v Value) Bool() (bool, error) {
+	if b, ok := v.data.(bool); ok {
+		return b, nil
 	}
-
-	rv := reflect.ValueOf(target)
-	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Struct {
-		p.err = fmt.Errorf("target must be a pointer to struct")
-		return p
-	}
-
-	structVal := rv.Elem()
-	structType := structVal.Type()
-
-	numFields := structVal.NumField()
-	if len(p.inv.Args) > numFields {
-		p.err = fmt.Errorf("too many args for struct: got %d args, struct has %d fields", len(p.inv.Args), numFields)
-		return p
-	}
-
-	for i, arg := range p.inv.Args {
-		if i >= numFields {
-			break
-		}
-
-		field := structVal.Field(i)
-		if !field.CanSet() {
-			continue // Skip unexported fields
-		}
-
-		if err := assignValueToReflectValue(arg, field); err != nil {
-			p.err = fmt.Errorf("failed to assign arg[%d] to field %s: %w", i, structType.Field(i).Name, err)
-			return p
-		}
-	}
-
-	return p
+	return false, fmt.Errorf("value is not data bool, got %T", v.data)
 }
 
-// Kwargs maps keyword arguments to struct fields by json tag or field name.
-func (p *InvocationParser) Kwargs(target any) *InvocationParser {
-	if p.err != nil {
-		return p
+func (v Value) BoolOr(def bool) bool {
+	if b, err := v.Bool(); err == nil {
+		return b
 	}
-
-	rv := reflect.ValueOf(target)
-	if rv.Kind() != reflect.Ptr || rv.Elem().Kind() != reflect.Struct {
-		p.err = fmt.Errorf("target must be a pointer to struct")
-		return p
-	}
-
-	structVal := rv.Elem()
-	structType := structVal.Type()
-
-	for i := 0; i < structVal.NumField(); i++ {
-		field := structVal.Field(i)
-		fieldType := structType.Field(i)
-
-		if !field.CanSet() {
-			continue // Skip unexported fields
-		}
-
-		// Try to get the key from json tag first, then use field name
-		key := fieldType.Tag.Get("json")
-		if key == "" || key == "-" {
-			key = fieldType.Name
-		}
-
-		if value, exists := p.inv.Kwargs[key]; exists {
-			if err := assignValueToReflectValue(value, field); err != nil {
-				p.err = fmt.Errorf("failed to assign kwargs[%s] to field %s: %w", key, fieldType.Name, err)
-				return p
-			}
-		}
-	}
-
-	return p
+	return def
 }
 
-// KwargsSpecific maps specific kwargs keys to provided pointers
-// Usage: parser.KwargsSpecific(map[string]any{"name": &name, "city": &city}).
-func (p *InvocationParser) KwargsSpecific(mapping map[string]any) *InvocationParser {
-	if p.err != nil {
-		return p
+func (v Value) Int64() (int64, error) {
+	switch val := v.data.(type) {
+	case int64:
+		return val, nil
+	case int:
+		return int64(val), nil
+	case int32:
+		return int64(val), nil
+	case float64:
+		return int64(val), nil
 	}
+	return 0, fmt.Errorf("value cannot be converted to int64, got %T", v.data)
+}
 
-	for key, target := range mapping {
-		if value, exists := p.inv.Kwargs[key]; exists {
-			if value == nil {
-				p.err = fmt.Errorf("failed to assign kwargs[%s]: got nil value", key)
-				return p
-			}
+func (v Value) Int64Or(def int64) int64 {
+	if i, err := v.Int64(); err == nil {
+		return i
+	}
+	return def
+}
 
-			if err := assignValue(value, target); err != nil {
-				p.err = fmt.Errorf("failed to assign kwargs[%s]: %w", key, err)
-				return p
-			}
+func (v Value) Float64() (float64, error) {
+	switch val := v.data.(type) {
+	case float64:
+		return val, nil
+	case float32:
+		return float64(val), nil
+	case int64:
+		return float64(val), nil
+	case int:
+		return float64(val), nil
+	}
+	return 0, fmt.Errorf("value cannot be converted to float64, got %T", v.data)
+}
+
+func (v Value) Float64Or(def float64) float64 {
+	if f, err := v.Float64(); err == nil {
+		return f
+	}
+	return def
+}
+
+func (v Value) UInt64() (uint64, error) {
+	switch val := v.data.(type) {
+	case uint64:
+		return val, nil
+	case uint:
+		return uint64(val), nil
+	case uint32:
+		return uint64(val), nil
+	case int64:
+		if val >= 0 {
+			return uint64(val), nil
+		}
+	case int:
+		if val >= 0 {
+			return uint64(val), nil
+		}
+	case float64:
+		if val >= 0 {
+			return uint64(val), nil
 		}
 	}
-
-	return p
+	return 0, fmt.Errorf("value cannot be converted to uint64, got %T", v.data)
 }
 
-// Validate returns any error that occurred during parsing.
-func (p *InvocationParser) Validate() error {
-	return p.err
+func (v Value) UInt64Or(def uint64) uint64 {
+	if u, err := v.UInt64(); err == nil {
+		return u
+	}
+	return def
 }
 
-// Helper function to assign a value to a pointer target.
-func assignValue(source any, target any) error {
-	rv := reflect.ValueOf(target)
-	if rv.Kind() != reflect.Ptr {
-		return fmt.Errorf("target must be a pointer")
+func (v Value) Bytes() ([]byte, error) {
+	if b, ok := v.data.([]byte); ok {
+		return b, nil
 	}
-
-	return assignValueToReflectValue(source, rv.Elem())
+	if s, ok := v.data.(string); ok {
+		return []byte(s), nil
+	}
+	return nil, fmt.Errorf("value cannot be converted to []byte, got %T", v.data)
 }
 
-// Helper function to assign a value to a reflect.Value.
-func assignValueToReflectValue(source any, target reflect.Value) error {
-	if !target.CanSet() {
-		return fmt.Errorf("target cannot be set")
+func (v Value) BytesOr(def []byte) []byte {
+	if b, err := v.Bytes(); err == nil {
+		return b
+	}
+	return def
+}
+
+func (v Value) Decode(out any) error {
+	data, err := json.Marshal(v.data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal value: %w", err)
 	}
 
-	sourceVal := reflect.ValueOf(source)
-	targetType := target.Type()
-
-	// Direct assignment if types match
-	if sourceVal.Type().AssignableTo(targetType) {
-		target.Set(sourceVal)
-		return nil
+	if err = json.Unmarshal(data, out); err != nil {
+		return fmt.Errorf("failed to decode value: %w", err)
 	}
 
-	// Type conversion if possible
-	if sourceVal.Type().ConvertibleTo(targetType) {
-		target.Set(sourceVal.Convert(targetType))
-		return nil
+	return nil
+}
+
+type List []Value
+
+func NewList(values []any) List {
+	list := make(List, len(values))
+	for i, v := range values {
+		list[i] = NewValue(v)
+	}
+	return list
+}
+
+func (l List) Len() int {
+	return len(l)
+}
+
+func (l List) Get(i int) (Value, error) {
+	if i < 0 || i >= len(l) {
+		return Value{}, fmt.Errorf("index %d out of range [0, %d)", i, len(l))
+	}
+	return l[i], nil
+}
+
+func (l List) GetOr(i int, def any) Value {
+	if v, err := l.Get(i); err == nil {
+		return v
+	}
+	return NewValue(def)
+}
+
+func (l List) String(i int) (string, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return "", err
+	}
+	return v.String()
+}
+
+func (l List) StringOr(i int, def string) string {
+	return l.GetOr(i, def).StringOr(def)
+}
+
+func (l List) Bool(i int) (bool, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return false, err
+	}
+	return v.Bool()
+}
+
+func (l List) BoolOr(i int, def bool) bool {
+	return l.GetOr(i, def).BoolOr(def)
+}
+
+func (l List) Int64(i int) (int64, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return 0, err
+	}
+	return v.Int64()
+}
+
+func (l List) Int64Or(i int, def int64) int64 {
+	return l.GetOr(i, def).Int64Or(def)
+}
+
+func (l List) Float64(i int) (float64, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return 0, err
+	}
+	return v.Float64()
+}
+
+func (l List) Float64Or(i int, def float64) float64 {
+	return l.GetOr(i, def).Float64Or(def)
+}
+
+func (l List) UInt64(i int) (uint64, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return 0, err
+	}
+	return v.UInt64()
+}
+
+func (l List) UInt64Or(i int, def uint64) uint64 {
+	return l.GetOr(i, def).UInt64Or(def)
+}
+
+func (l List) Bytes(i int) ([]byte, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return nil, err
+	}
+	return v.Bytes()
+}
+
+func (l List) BytesOr(i int, def []byte) []byte {
+	return l.GetOr(i, def).BytesOr(def)
+}
+
+func (l List) Decode(out any) error {
+	raw := make(map[int]any, len(l))
+	for i, v := range l {
+		raw[i] = v.Raw()
 	}
 
-	return fmt.Errorf("cannot assign %T to %s", source, targetType)
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return fmt.Errorf("failed to marshal args: %w", err)
+	}
+
+	if err = json.Unmarshal(data, out); err != nil {
+		return fmt.Errorf("failed to decode args into struct: %w", err)
+	}
+
+	return nil
+}
+
+func (l List) Raw() []any {
+	raw := make([]any, len(l))
+	for i, v := range l {
+		raw[i] = v.Raw()
+	}
+	return raw
+}
+
+type Dict map[string]Value
+
+func NewDict(values map[string]any) Dict {
+	dict := make(Dict, len(values))
+	for k, v := range values {
+		dict[k] = NewValue(v)
+	}
+	return dict
+}
+
+func (d Dict) Len() int {
+	return len(d)
+}
+
+func (d Dict) Get(key string) (Value, error) {
+	if v, ok := d[key]; ok {
+		return v, nil
+	}
+	return Value{}, fmt.Errorf("key %q not found", key)
+}
+
+func (d Dict) GetOr(key string, def any) Value {
+	if v, err := d.Get(key); err == nil {
+		return v
+	}
+	return NewValue(def)
+}
+
+func (d Dict) Has(key string) bool {
+	_, ok := d[key]
+	return ok
+}
+
+func (d Dict) String(key string) (string, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return "", err
+	}
+	return v.String()
+}
+
+func (d Dict) StringOr(key string, def string) string {
+	return d.GetOr(key, def).StringOr(def)
+}
+
+func (d Dict) Bool(key string) (bool, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return false, err
+	}
+	return v.Bool()
+}
+
+func (d Dict) BoolOr(key string, def bool) bool {
+	return d.GetOr(key, def).BoolOr(def)
+}
+
+func (d Dict) Int64(key string) (int64, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	return v.Int64()
+}
+
+func (d Dict) Int64Or(key string, def int64) int64 {
+	return d.GetOr(key, def).Int64Or(def)
+}
+
+func (d Dict) Float64(key string) (float64, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	return v.Float64()
+}
+
+func (d Dict) Float64Or(key string, def float64) float64 {
+	return d.GetOr(key, def).Float64Or(def)
+}
+
+func (d Dict) UInt64(key string) (uint64, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	return v.UInt64()
+}
+
+func (d Dict) UInt64Or(key string, def uint64) uint64 {
+	return d.GetOr(key, def).UInt64Or(def)
+}
+
+func (d Dict) Bytes(key string) ([]byte, error) {
+	v, err := d.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	return v.Bytes()
+}
+
+func (d Dict) BytesOr(key string, def []byte) []byte {
+	return d.GetOr(key, def).BytesOr(def)
+}
+
+func (d Dict) Decode(out any) error {
+	raw := make(map[string]any, len(d))
+	for key, v := range d {
+		raw[key] = v.Raw()
+	}
+
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return fmt.Errorf("failed to marshal kwargs: %w", err)
+	}
+
+	if err = json.Unmarshal(data, out); err != nil {
+		return fmt.Errorf("failed to decode kwargs into struct: %w", err)
+	}
+
+	return nil
+}
+
+func (d Dict) Raw() map[string]any {
+	raw := make(map[string]any, len(d))
+	for key, v := range d {
+		raw[key] = v.Raw()
+	}
+	return raw
+}
+
+type Invocation struct {
+	args    List
+	kwargs  Dict
+	details Dict
+
+	SendProgress SendProgress
+}
+
+func NewInvocation(args []any, kwargs map[string]any, details map[string]any) *Invocation {
+	return &Invocation{
+		args:    NewList(args),
+		kwargs:  NewDict(kwargs),
+		details: NewDict(details),
+	}
+}
+
+func (inv *Invocation) ArgUInt64(index int) (uint64, error) {
+	return inv.args.UInt64(index)
+}
+
+func (inv *Invocation) ArgUInt64Or(index int, def uint64) uint64 {
+	return inv.args.UInt64Or(index, def)
+}
+
+func (inv *Invocation) ArgString(index int) (string, error) {
+	return inv.args.String(index)
+}
+
+func (inv *Invocation) ArgStringOr(index int, def string) string {
+	return inv.args.StringOr(index, def)
+}
+
+func (inv *Invocation) ArgBool(index int) (bool, error) {
+	return inv.args.Bool(index)
+}
+
+func (inv *Invocation) ArgBoolOr(index int, def bool) bool {
+	return inv.args.BoolOr(index, def)
+}
+
+func (inv *Invocation) ArgFloat64(index int) (float64, error) {
+	return inv.args.Float64(index)
+}
+
+func (inv *Invocation) ArgFloat64Or(index int, def float64) float64 {
+	return inv.args.Float64Or(index, def)
+}
+
+func (inv *Invocation) ArgInt64(index int) (int64, error) {
+	return inv.args.Int64(index)
+}
+
+func (inv *Invocation) ArgInt64Or(index int, def int64) int64 {
+	return inv.args.Int64Or(index, def)
+}
+
+func (inv *Invocation) ArgBytes(index int) ([]byte, error) {
+	return inv.args.Bytes(index)
+}
+
+func (inv *Invocation) ArgsStruct(out any) error {
+	return inv.args.Decode(out)
+}
+
+func (inv *Invocation) ArgBytesOr(index int, def []byte) []byte {
+	return inv.args.BytesOr(index, def)
+}
+
+func (inv *Invocation) ArgsLen() int {
+	return inv.args.Len()
+}
+
+func (inv *Invocation) Args() []any {
+	return inv.args.Raw()
+}
+
+func (inv *Invocation) KwargUInt64(key string) (uint64, error) {
+	return inv.kwargs.UInt64(key)
+}
+
+func (inv *Invocation) KwargUInt64Or(key string, def uint64) uint64 {
+	return inv.kwargs.UInt64Or(key, def)
+}
+
+func (inv *Invocation) KwargString(key string) (string, error) {
+	return inv.kwargs.String(key)
+}
+
+func (inv *Invocation) KwargStringOr(key string, def string) string {
+	return inv.kwargs.StringOr(key, def)
+}
+
+func (inv *Invocation) KwargBool(key string) (bool, error) {
+	return inv.kwargs.Bool(key)
+}
+
+func (inv *Invocation) KwargBoolOr(key string, def bool) bool {
+	return inv.kwargs.BoolOr(key, def)
+}
+
+func (inv *Invocation) KwargFloat64(key string) (float64, error) {
+	return inv.kwargs.Float64(key)
+}
+
+func (inv *Invocation) KwargFloat64Or(key string, def float64) float64 {
+	return inv.kwargs.Float64Or(key, def)
+}
+
+func (inv *Invocation) KwargInt64(key string) (int64, error) {
+	return inv.kwargs.Int64(key)
+}
+
+func (inv *Invocation) KwargInt64Or(key string, def int64) int64 {
+	return inv.kwargs.Int64Or(key, def)
+}
+
+func (inv *Invocation) KwargBytes(key string) ([]byte, error) {
+	return inv.kwargs.Bytes(key)
+}
+
+func (inv *Invocation) KwargBytesOr(key string, def []byte) []byte {
+	return inv.kwargs.BytesOr(key, def)
+}
+
+func (inv *Invocation) KwargsStruct(out any) error {
+	return inv.kwargs.Decode(out)
+}
+
+func (inv *Invocation) KwargsLen() int {
+	return inv.kwargs.Len()
+}
+
+func (inv *Invocation) Kwargs() map[string]any {
+	return inv.kwargs.Raw()
+}
+
+func (inv *Invocation) Details() map[string]any {
+	return inv.details.Raw()
+}
+
+func (inv *Invocation) Procedure() string {
+	return inv.details.StringOr("procedure", "")
+}
+
+func (inv *Invocation) Caller() uint64 {
+	return inv.details.UInt64Or("caller", 0)
+}
+
+func (inv *Invocation) CallerAuthID() string {
+	return inv.details.StringOr("caller_authid", "")
+}
+
+func (inv *Invocation) CallerAuthRole() string {
+	return inv.details.StringOr("caller_authrole", "")
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/xconnio/wampproto-go/messages"
-	"github.com/xconnio/wampproto-go/util"
 )
 
 const (
@@ -73,12 +72,12 @@ func (m *meta) onLeave(base BaseSession) {
 }
 
 func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *InvocationResult {
-	if len(invocation.Args) != 1 {
+	if invocation.ArgsLen() != 1 {
 		return &InvocationResult{Err: "wamp.error.invalid_argument"}
 	}
 
-	sessionID, ok := util.AsUInt64(invocation.Args[0])
-	if !ok {
+	sessionID, err := invocation.ArgUInt64(0)
+	if err != nil {
 		return &InvocationResult{Err: "wamp.error.invalid_argument"}
 	}
 

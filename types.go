@@ -251,15 +251,6 @@ type Event struct {
 
 type SendProgress func(args []any, kwArgs map[string]any) error
 
-type Invocation struct {
-	Procedure string         `json:"procedure"`
-	Args      []any          `json:"args"`
-	Kwargs    map[string]any `json:"kwargs"`
-	Details   map[string]any `json:"details"`
-
-	SendProgress SendProgress
-}
-
 type InvocationResult struct {
 	Args    []any
 	Kwargs  map[string]any
@@ -306,7 +297,7 @@ func (e *Error) Error() string {
 	if e.Args != nil {
 		args := make([]string, len(e.Args))
 		for i, arg := range e.Args {
-			args[i] = fmt.Sprintf("%v", arg)
+			args[i] = fmt.Sprintf("%data", arg)
 		}
 		errStr += ": " + strings.Join(args, ", ")
 	}
@@ -314,7 +305,7 @@ func (e *Error) Error() string {
 	if e.Kwargs != nil {
 		kwargs := make([]string, len(e.Kwargs))
 		for key, value := range e.Kwargs {
-			kwargs = append(kwargs, fmt.Sprintf("%s=%v", key, value))
+			kwargs = append(kwargs, fmt.Sprintf("%s=%data", key, value))
 		}
 		errStr += ": " + strings.Join(kwargs, ", ")
 	}
