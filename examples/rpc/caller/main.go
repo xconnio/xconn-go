@@ -26,7 +26,7 @@ func main() {
 		echoResponse.Kwargs, echoResponse.Details)
 
 	// Call procedure "io.xconn.sum"
-	sumResponse := caller.Call(testProcedureSum).Do()
+	sumResponse := caller.Call(testProcedureSum).Arg(1).Arg(2).Do()
 	if sumResponse.Err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureSum, sumResponse.Err)
 	}

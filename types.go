@@ -16,6 +16,7 @@ import (
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
 	wampprotobuf "github.com/xconnio/wampproto-protobuf/go"
+	wampprotocapnp "github.com/xconnio/wampproto-serializer-capnproto/go"
 )
 
 type (
@@ -42,6 +43,8 @@ var (
 		MsgpackWebsocketProtocol, &serializers.MsgPackSerializer{}, MsgPackSerializerID)
 	ProtobufSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
 		ProtobufSubProtocol, &wampprotobuf.ProtobufSerializer{}, ProtobufSerializerID)
+	CapnprotoSplitSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
+		CapnprotoSplitSubProtocol, &wampprotocapnp.CapnprotoSerializer{}, CapnprotoSplitSerializerID)
 )
 
 type BaseSession interface {
@@ -112,6 +115,8 @@ func DefaultWebSocketServerConfig() *WebSocketServerConfig {
 			JsonWebsocketProtocol,
 			MsgpackWebsocketProtocol,
 			CborWebsocketProtocol,
+			ProtobufSubProtocol,
+			CapnprotoSplitSubProtocol,
 		},
 	}
 }
@@ -119,10 +124,11 @@ func DefaultWebSocketServerConfig() *WebSocketServerConfig {
 type SerializerID transports.Serializer
 
 const (
-	JsonSerializerID     SerializerID = 1
-	MsgPackSerializerID  SerializerID = 2
-	CborSerializerID     SerializerID = 3
-	ProtobufSerializerID SerializerID = 15
+	JsonSerializerID           SerializerID = 1
+	MsgPackSerializerID        SerializerID = 2
+	CborSerializerID           SerializerID = 3
+	ProtobufSerializerID       SerializerID = 15
+	CapnprotoSplitSerializerID SerializerID = 14
 )
 
 type SerializerSpec interface {
