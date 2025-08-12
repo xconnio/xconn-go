@@ -49,6 +49,8 @@ type Session struct {
 	connected bool
 	onLeave   func()
 	leaveChan chan struct{}
+
+	sync.Mutex
 }
 
 func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
@@ -322,7 +324,6 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		}
 	case messages.MessageTypeGoodbye:
 		goodByeMessage := msg.(*messages.GoodBye)
-		s.connected = false
 		s.goodBye = &GoodBye{
 			Details: goodByeMessage.Details(),
 			Reason:  goodByeMessage.Reason(),
@@ -343,6 +344,9 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 }
 
 func (s *Session) Connected() bool {
+	s.Lock()
+	defer s.Unlock()
+
 	return s.connected
 }
 
@@ -680,6 +684,9 @@ func (s *Session) Leave() error {
 }
 
 func (s *Session) SetOnLeaveListener(listener func()) {
+	s.Lock()
+	defer s.Unlock()
+
 	s.onLeave = listener
 }
 
@@ -692,10 +699,16 @@ func (s *Session) Done() <-chan struct{} {
 }
 
 func (s *Session) GoodBye() *GoodBye {
+	s.Lock()
+	defer s.Unlock()
+
 	return s.goodBye
 }
 
 func (s *Session) markDisconnected() {
+	s.Lock()
 	s.connected = false
+	s.Unlock()
+
 	s.leaveChan <- struct{}{}
 }

@@ -236,6 +236,8 @@ type RawSocketPeer struct {
 	transportType TransportType
 	conn          net.Conn
 	serializer    transports.Serializer
+
+	sync.Mutex
 }
 
 func (r *RawSocketPeer) Type() TransportType {
@@ -281,6 +283,8 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 }
 
 func (r *RawSocketPeer) write(kind transports.Message, bytes []byte) error {
+	r.Lock()
+	defer r.Unlock()
 	header := transports.NewMessageHeader(kind, len(bytes))
 	_, err := r.conn.Write(transports.SendMessageHeader(header))
 	if err != nil {
