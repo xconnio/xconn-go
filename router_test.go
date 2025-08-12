@@ -14,8 +14,9 @@ import (
 	"github.com/xconnio/xconn-go"
 )
 
+const realmName = "test"
+
 func TestRouterMetaKill(t *testing.T) {
-	realmName := "test"
 	router := xconn.NewRouter()
 	router.AddRealm(realmName)
 	require.NoError(t, router.EnableMetaAPI(realmName))
@@ -57,7 +58,6 @@ func TestRouterMetaKill(t *testing.T) {
 }
 
 func TestAuthorization(t *testing.T) {
-	realmName := "test"
 	router := xconn.NewRouter()
 	router.AddRealm(realmName)
 
@@ -162,4 +162,63 @@ func TestRealmAlias(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, r.HasRealm("hello"))
 	require.True(t, r.HasRealm("alias"))
+}
+
+func TestAutoDiscloseCallerAndPublisher(t *testing.T) {
+	router := xconn.NewRouter()
+	router.AddRealm(realmName)
+
+	callee, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	caller, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	callDetailsCh := make(chan map[string]any, 3)
+	callee.Register("io.xconn.test",
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+			callDetailsCh <- invocation.Details()
+			return xconn.NewInvocationResult()
+		}).Do()
+
+	publishDetailsCh := make(chan map[string]any, 1)
+	callee.Subscribe("io.xconn.test", func(event *xconn.Event) {
+		publishDetailsCh <- event.Details()
+	}).Do()
+
+	t.Run("DisabledByDefault", func(t *testing.T) {
+		caller.Call("io.xconn.test").Do()
+		require.Equal(t, map[string]any{}, <-callDetailsCh)
+
+		caller.Publish("io.xconn.test").Do()
+		require.Equal(t, map[string]any{}, <-publishDetailsCh)
+	})
+
+	t.Run("Enable", func(t *testing.T) {
+		expectedCallerDetails := map[string]any{"caller": caller.ID(),
+			"caller_authid": caller.Details().AuthID(), "caller_authrole": "trusted", "procedure": "io.xconn.test"}
+		err = router.AutoDiscloseCaller(realmName, true)
+		require.NoError(t, err)
+		caller.Call("io.xconn.test").Do()
+		require.Equal(t, expectedCallerDetails, <-callDetailsCh)
+
+		expectedPublisherDetails := map[string]any{"publisher": caller.ID(),
+			"publisher_authid": caller.Details().AuthID(), "publisher_authrole": "trusted", "topic": "io.xconn.test"}
+		err = router.AutoDisclosePublisher(realmName, true)
+		require.NoError(t, err)
+		caller.Publish("io.xconn.test").Do()
+		require.Equal(t, expectedPublisherDetails, <-publishDetailsCh)
+	})
+
+	t.Run("Disable", func(t *testing.T) {
+		err = router.AutoDiscloseCaller(realmName, false)
+		require.NoError(t, err)
+		caller.Call("io.xconn.test").Do()
+		require.Equal(t, map[string]any{}, <-callDetailsCh)
+
+		err = router.AutoDisclosePublisher(realmName, false)
+		require.NoError(t, err)
+		caller.Publish("io.xconn.test").Do()
+		require.Equal(t, map[string]any{}, <-publishDetailsCh)
+	})
 }
