@@ -418,6 +418,12 @@ func (s *Session) Call(procedure string) *CallRequest {
 func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
 	options map[string]any) CallResponse {
 
+	serializer, ok := options["x_payload_serializer"].(uint64)
+	if ok {
+		call := messages.NewCallBinary(s.idGen.NextID(), options, procedure, args[0].([]byte), serializer)
+		return s.call(ctx, call)
+	}
+
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
 	return s.call(ctx, call)
 }

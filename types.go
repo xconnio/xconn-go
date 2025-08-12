@@ -475,6 +475,11 @@ func (c *CallRequest) ProgressSender(handler ProgressSender) *CallRequest {
 }
 
 func (c *CallRequest) ToCall(requestID uint64) *messages.Call {
+	serializer, exists := c.options["x_payload_serializer"].(uint64)
+	if exists {
+		return messages.NewCallBinary(requestID, c.options, c.procedure, c.args[0].([]byte), serializer)
+	}
+
 	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwArgs)
 }
 

@@ -30,14 +30,18 @@ func sumHandler(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResul
 func main() {
 	// Create and connect a callee client to server
 	ctx := context.Background()
-	callee, err := xconn.ConnectAnonymous(ctx, "ws://localhost:8080/ws", "realm1")
+	client := xconn.Client{
+		SerializerSpec: xconn.CapnprotoSplitSerializerSpec,
+	}
+	callee, err := client.Connect(ctx, "ws://localhost:8080/ws", "realm1")
 	if err != nil {
 		log.Fatalf("Failed to connect to server: %s", err)
 	}
 
 	// Define function to handle received Invocation for "io.xconn.echo"
 	echoHandler := func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
-		log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Args(), inv.Kwargs(), inv.Details())
+		//fmt.Println(len(inv.Args()))
+		//log.Printf("Received invocation: args=%s, kwargs=%s, details=%s", inv.Args(), inv.Kwargs(), inv.Details())
 
 		return &xconn.InvocationResult{Args: inv.Args(), Kwargs: inv.Kwargs(), Details: inv.Details()}
 	}

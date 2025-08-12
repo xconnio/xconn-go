@@ -40,3 +40,6 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/xconnio/wampproto-go => /home/om26er/scm/xconnio/wampproto-go
+replace github.com/xconnio/wampproto-serializer-capnproto/go => /home/om26er/scm/xconnio/wampproto-serializer-capnproto/go
