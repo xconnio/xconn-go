@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.4
 
 require (
+	github.com/fxamacker/cbor/v2 v2.9.0
 	github.com/gammazero/nexus/v3 v3.2.2
 	github.com/gammazero/workerpool v1.1.3
 	github.com/gobwas/ws v1.4.0
@@ -20,7 +21,6 @@ require (
 	capnproto.org/go/capnp/v3 v3.1.0-alpha.1 // indirect
 	github.com/colega/zeropool v0.0.0-20230505084239-6fb4a4f75381 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gammazero/deque v1.1.0 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect

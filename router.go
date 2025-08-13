@@ -37,6 +37,21 @@ func (r *Router) AddRealm(name string) {
 	r.realms.Store(name, realm)
 }
 
+func (r *Router) AddRealmAlias(realm, alias string) error {
+	_, ok := r.realms.Load(realm)
+	if !ok {
+		return fmt.Errorf("realm '%s' not found", realm)
+	}
+
+	rlm, ok := r.realms.Load(alias)
+	if ok {
+		return fmt.Errorf("realm '%s' already registered", realm)
+	}
+
+	r.realms.Store(alias, rlm)
+	return nil
+}
+
 func (r *Router) RemoveRealm(name string) {
 	r.realms.Delete(name)
 }
