@@ -147,6 +147,26 @@ func (r *Router) EnableMetaAPI(realm string) error {
 	return nil
 }
 
+func (r *Router) AutoDiscloseCaller(realm string, disclose bool) error {
+	realmObj, ok := r.realms.Load(realm)
+	if !ok {
+		return fmt.Errorf("could not find realm: %s", realm)
+	}
+
+	realmObj.AutoDiscloseCaller(disclose)
+	return nil
+}
+
+func (r *Router) AutoDisclosePublisher(realm string, disclose bool) error {
+	realmObj, ok := r.realms.Load(realm)
+	if !ok {
+		return fmt.Errorf("could not find realm: %s", realm)
+	}
+
+	realmObj.AutoDisclosePublisher(disclose)
+	return nil
+}
+
 func (r *Router) Close() {
 	r.realms.Range(func(name string, realm *Realm) bool {
 		realm.Close()

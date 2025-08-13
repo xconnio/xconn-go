@@ -56,6 +56,14 @@ func (r *Realm) DetachClient(base BaseSession) error {
 	return nil
 }
 
+func (r *Realm) AutoDiscloseCaller(disclose bool) {
+	r.dealer.AutoDiscloseCaller(disclose)
+}
+
+func (r *Realm) AutoDisclosePublisher(disclose bool) {
+	r.broker.AutoDisclosePublisher(disclose)
+}
+
 func (r *Realm) AddRole(role RealmRole) error {
 	_, loaded := r.roles.LoadOrStore(role.Name, role)
 	if loaded {
