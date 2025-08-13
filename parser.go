@@ -560,3 +560,157 @@ func (inv *Invocation) CallerAuthID() string {
 func (inv *Invocation) CallerAuthRole() string {
 	return inv.details.StringOr("caller_authrole", "")
 }
+
+type Event struct {
+	args    List
+	kwargs  Dict
+	details Dict
+}
+
+func NewEvent(args []any, kwargs map[string]any, details map[string]any) *Event {
+	return &Event{
+		args:    NewList(args),
+		kwargs:  NewDict(kwargs),
+		details: NewDict(details),
+	}
+}
+
+func (e *Event) ArgUInt64(index int) (uint64, error) {
+	return e.args.UInt64(index)
+}
+
+func (e *Event) ArgUInt64Or(index int, def uint64) uint64 {
+	return e.args.UInt64Or(index, def)
+}
+
+func (e *Event) ArgString(index int) (string, error) {
+	return e.args.String(index)
+}
+
+func (e *Event) ArgStringOr(index int, def string) string {
+	return e.args.StringOr(index, def)
+}
+
+func (e *Event) ArgBool(index int) (bool, error) {
+	return e.args.Bool(index)
+}
+
+func (e *Event) ArgBoolOr(index int, def bool) bool {
+	return e.args.BoolOr(index, def)
+}
+
+func (e *Event) ArgFloat64(index int) (float64, error) {
+	return e.args.Float64(index)
+}
+
+func (e *Event) ArgFloat64Or(index int, def float64) float64 {
+	return e.args.Float64Or(index, def)
+}
+
+func (e *Event) ArgInt64(index int) (int64, error) {
+	return e.args.Int64(index)
+}
+
+func (e *Event) ArgInt64Or(index int, def int64) int64 {
+	return e.args.Int64Or(index, def)
+}
+
+func (e *Event) ArgBytes(index int) ([]byte, error) {
+	return e.args.Bytes(index)
+}
+
+func (e *Event) ArgsStruct(out any) error {
+	return e.args.Decode(out)
+}
+
+func (e *Event) ArgBytesOr(index int, def []byte) []byte {
+	return e.args.BytesOr(index, def)
+}
+
+func (e *Event) ArgsLen() int {
+	return e.args.Len()
+}
+
+func (e *Event) Args() []any {
+	return e.args.Raw()
+}
+
+func (e *Event) KwargUInt64(key string) (uint64, error) {
+	return e.kwargs.UInt64(key)
+}
+
+func (e *Event) KwargUInt64Or(key string, def uint64) uint64 {
+	return e.kwargs.UInt64Or(key, def)
+}
+
+func (e *Event) KwargString(key string) (string, error) {
+	return e.kwargs.String(key)
+}
+
+func (e *Event) KwargStringOr(key string, def string) string {
+	return e.kwargs.StringOr(key, def)
+}
+
+func (e *Event) KwargBool(key string) (bool, error) {
+	return e.kwargs.Bool(key)
+}
+
+func (e *Event) KwargBoolOr(key string, def bool) bool {
+	return e.kwargs.BoolOr(key, def)
+}
+
+func (e *Event) KwargFloat64(key string) (float64, error) {
+	return e.kwargs.Float64(key)
+}
+
+func (e *Event) KwargFloat64Or(key string, def float64) float64 {
+	return e.kwargs.Float64Or(key, def)
+}
+
+func (e *Event) KwargInt64(key string) (int64, error) {
+	return e.kwargs.Int64(key)
+}
+
+func (e *Event) KwargInt64Or(key string, def int64) int64 {
+	return e.kwargs.Int64Or(key, def)
+}
+
+func (e *Event) KwargBytes(key string) ([]byte, error) {
+	return e.kwargs.Bytes(key)
+}
+
+func (e *Event) KwargBytesOr(key string, def []byte) []byte {
+	return e.kwargs.BytesOr(key, def)
+}
+
+func (e *Event) KwargsStruct(out any) error {
+	return e.kwargs.Decode(out)
+}
+
+func (e *Event) KwargsLen() int {
+	return e.kwargs.Len()
+}
+
+func (e *Event) Kwargs() map[string]any {
+	return e.kwargs.Raw()
+}
+
+func (e *Event) Details() map[string]any {
+	return e.details.Raw()
+}
+
+func (e *Event) Topic() string {
+	return e.details.StringOr("topic", "")
+}
+
+func (e *Event) Publisher() uint64 {
+	return e.details.UInt64Or("publisher", 0)
+}
+
+func (e *Event) PublisherAuthID() string {
+	return e.details.StringOr("publisher_authid", "")
+}
+
+func (e *Event) PublisherAuthRole() string {
+	return e.details.StringOr("publisher_authrole", "")
+}

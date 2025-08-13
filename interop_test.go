@@ -65,7 +65,7 @@ func testPubSub(t *testing.T, authenticator auth.ClientAuthenticator, serializer
 
 	args := []any{"Hello", "wamp"}
 	subscribeResponse := session.Subscribe("io.xconn.test", func(event *xconn.Event) {
-		require.Equal(t, args, event.Args)
+		require.Equal(t, args, event.Args())
 	}).Do()
 	require.NoError(t, subscribeResponse.Err)
 

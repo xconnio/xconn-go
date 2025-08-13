@@ -21,7 +21,7 @@ func main() {
 
 	// Define function to handle received events
 	eventHandler := func(event *xconn.Event) {
-		log.Printf("Received event: args=%s, kwargs=%s, details=%s", event.Args, event.Kwargs, event.Details)
+		log.Printf("Received event: args=%s, kwargs=%s, details=%s", event.Args(), event.Kwargs(), event.Details())
 	}
 
 	subscribeResponse := subscriber.Subscribe(testTopic, eventHandler).Do()

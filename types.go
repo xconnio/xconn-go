@@ -248,13 +248,6 @@ func (s *Subscription) unsubscribe() error {
 	}
 }
 
-type Event struct {
-	Topic   string
-	Args    []any
-	Kwargs  map[string]any
-	Details map[string]any
-}
-
 type SendProgress func(args []any, kwArgs map[string]any) error
 
 type InvocationResult struct {
