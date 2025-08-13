@@ -252,11 +252,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			return fmt.Errorf("received EVENT for unknown subscription")
 		}
 
-		evt := &Event{
-			Args:    event.Args(),
-			Kwargs:  event.KwArgs(),
-			Details: event.Details(),
-		}
+		evt := NewEvent(event.Args(), event.KwArgs(), event.Details())
 		subs := subscriptions.(map[*Subscription]*Subscription)
 		for _, sub := range subs {
 			go sub.eventHandler(evt)
