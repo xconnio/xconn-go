@@ -150,3 +150,16 @@ func TestAuthorization(t *testing.T) {
 		require.NoError(t, publishResp.Err)
 	})
 }
+
+func TestRealmAlias(t *testing.T) {
+	r := xconn.NewRouter()
+	r.AddRealm("hello")
+
+	require.True(t, r.HasRealm("hello"))
+	require.False(t, r.HasRealm("alias"))
+
+	err := r.AddRealmAlias("hello", "alias")
+	require.NoError(t, err)
+	require.True(t, r.HasRealm("hello"))
+	require.True(t, r.HasRealm("alias"))
+}
