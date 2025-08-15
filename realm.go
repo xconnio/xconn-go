@@ -10,10 +10,11 @@ import (
 )
 
 type Realm struct {
-	broker  *wampproto.Broker
-	dealer  *wampproto.Dealer
-	clients internal.Map[uint64, BaseSession]
-	roles   internal.Map[string, RealmRole]
+	broker     *wampproto.Broker
+	dealer     *wampproto.Dealer
+	clients    internal.Map[uint64, BaseSession]
+	roles      internal.Map[string, RealmRole]
+	authorizer Authorizer
 }
 
 func NewRealm() *Realm {
@@ -88,6 +89,10 @@ func (r *Realm) HasRole(role string) bool {
 	return exists
 }
 
+func (r *Realm) SetAuthorizer(authorizer Authorizer) {
+	r.authorizer = authorizer
+}
+
 func (r *Realm) isAuthorized(roleName string, msgType uint64, uri string) bool {
 	role, ok := r.roles.Load(roleName)
 	if !ok {
@@ -107,15 +112,36 @@ func (r *Realm) isAuthorized(roleName string, msgType uint64, uri string) bool {
 	return false
 }
 
-func (r *Realm) authorize(baseSession BaseSession, msgType uint64, uri string, requestID uint64) (bool, error) {
-	if !r.isAuthorized(baseSession.AuthRole(), msgType, uri) {
-		errMsg := messages.NewError(msgType, requestID, map[string]any{},
-			wampproto.ErrAuthorizationFailed, nil, nil)
-
-		return false, baseSession.WriteMessage(errMsg)
+func (r *Realm) authorize(baseSession BaseSession, msg messages.Message, msgType uint64, uri string,
+	requestID uint64) (bool, error) {
+	if r.isAuthorized(baseSession.AuthRole(), msgType, uri) {
+		return true, nil
 	}
 
-	return true, nil
+	var authErr error
+	if r.authorizer != nil {
+		ok, err := r.authorizer.Authorize(baseSession, msg)
+		if ok {
+			return true, nil
+		}
+		authErr = err
+	}
+
+	if msgType == messages.MessageTypePublish {
+		acknowledge := util.ToBool(msg.(*messages.Publish).Options()["acknowledge"])
+		if !acknowledge {
+			return false, nil
+		}
+	}
+
+	var args []any
+	if authErr != nil {
+		args = []any{authErr.Error()}
+	}
+	errMsg := messages.NewError(msgType, requestID, map[string]any{},
+		wampproto.ErrAuthorizationFailed, args, nil)
+
+	return false, baseSession.WriteMessage(errMsg)
 }
 
 func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.Message) error {
@@ -146,7 +172,7 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 	switch msg.Type() {
 	case messages.MessageTypeCall:
 		call := msg.(*messages.Call)
-		authorized, err := r.authorize(baseSession, call.Type(), call.Procedure(), call.RequestID())
+		authorized, err := r.authorize(baseSession, msg, call.Type(), call.Procedure(), call.RequestID())
 		if err != nil || !authorized {
 			return err
 		}
@@ -154,7 +180,7 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleDealerBoundMessage(baseSession, msg)
 	case messages.MessageTypeRegister:
 		reg := msg.(*messages.Register)
-		authorized, err := r.authorize(baseSession, reg.Type(), reg.Procedure(), reg.RequestID())
+		authorized, err := r.authorize(baseSession, msg, reg.Type(), reg.Procedure(), reg.RequestID())
 		if err != nil || !authorized {
 			return err
 		}
@@ -164,7 +190,7 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleDealerBoundMessage(baseSession, msg)
 	case messages.MessageTypeSubscribe:
 		sub := msg.(*messages.Subscribe)
-		authorized, err := r.authorize(baseSession, sub.Type(), sub.Topic(), sub.RequestID())
+		authorized, err := r.authorize(baseSession, msg, sub.Type(), sub.Topic(), sub.RequestID())
 		if err != nil || !authorized {
 			return err
 		}
@@ -174,15 +200,9 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleBrokerBoundMessage(baseSession, msg)
 	case messages.MessageTypePublish:
 		publish := msg.(*messages.Publish)
-		if !r.isAuthorized(baseSession.AuthRole(), publish.Type(), publish.Topic()) {
-			acknowledge := util.ToBool(publish.Options()["acknowledge"])
-			if acknowledge {
-				errMsg := messages.NewError(publish.Type(), publish.RequestID(), map[string]any{},
-					wampproto.ErrAuthorizationFailed, nil, nil)
-
-				return baseSession.WriteMessage(errMsg)
-			}
-			return nil
+		authorized, err := r.authorize(baseSession, msg, publish.Type(), publish.Topic(), publish.RequestID())
+		if err != nil || !authorized {
+			return err
 		}
 
 		publication, err := r.broker.ReceivePublish(baseSession.ID(), publish)
