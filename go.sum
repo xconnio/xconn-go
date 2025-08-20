@@ -50,12 +50,12 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
-github.com/xconnio/wampproto-go v0.0.0-20250812074530-d6abbcb54312 h1:RFxQhqI3z/tctdiFNbGyFm8gjGvrZ0D8P/LrLiDBS4M=
-github.com/xconnio/wampproto-go v0.0.0-20250812074530-d6abbcb54312/go.mod h1:LONo5ncxniaMNsvdQ0YKUT2lsSchu9Y/NeGvfQgUSiI=
+github.com/xconnio/wampproto-go v0.0.0-20250820111356-1ebf798b6d92 h1:ZJGhlI+Cs58h5cVY0W5NDYxtY5vJOFdjxsUKImhDTn4=
+github.com/xconnio/wampproto-go v0.0.0-20250820111356-1ebf798b6d92/go.mod h1:LONo5ncxniaMNsvdQ0YKUT2lsSchu9Y/NeGvfQgUSiI=
 github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3 h1:AmvYzzmvHfRsJDLmBNwqDsm06k37NG5A7AQjQ0IOxC0=
 github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3/go.mod h1:JK4nus2F4v1zFydyuxii7yFlicDXrKhzBFSkk7y9/gQ=
-github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250811185755-858803d57dd7 h1:KdcjtTJuIlxQMQ5Y3xIQcqf5xpdzWkFKV9SW73kaBck=
-github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250811185755-858803d57dd7/go.mod h1:g+UaM/0Mb34ZoNecS+PK7k/EOqjrsA2wrFdLMui4lHQ=
+github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250820111704-ec53fb132bce h1:EnJZ9nllp80x5Hl/gDCIPZ5QxMljS9JimyOvTbwT2Uo=
+github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250820111704-ec53fb132bce/go.mod h1:HorxIFH0Cmxo6qBpohucup8tfvmheKfdnbETmcisvTI=
 go.uber.org/goleak v1.2.1 h1:NBol2c7O1ZokfZ0LEU9K6Whx/KnwvepVetCUhtKja4A=
 go.uber.org/goleak v1.2.1/go.mod h1:qlT2yGI9QafXHhZZLxlSuNsMw3FFLxBr+tBRlmO1xH4=
 golang.org/x/crypto v0.40.0 h1:r4x+VvoG5Fm+eJcxMaY8CQM7Lb0l1lsmjGBQ6s8BfKM=
