@@ -16,6 +16,15 @@ const (
 	crossbarURL  = "ws://localhost:8081/ws"
 	realm        = "realm1"
 	procedureAdd = "io.xconn.backend.add2"
+
+	ticketUserAuthID = "ticket-user"
+	ticket           = "ticket-pass"
+
+	craUserAuthID = "wamp-cra-user"
+	secret        = "cra-secret"
+
+	cryptosignUserAuthID = "cryptosign-user"
+	privateKey           = "150085398329d255ad69e82bf47ced397bcec5b8fbeecd28a80edbbd85b49081"
 )
 
 func connectSession(t *testing.T, authenticator auth.ClientAuthenticator, serializer xconn.SerializerSpec,
@@ -82,17 +91,13 @@ func TestInteroperability(t *testing.T) {
 		"Crossbar": crossbarURL,
 	}
 
-	cryptosignAuthenticator, err := auth.NewCryptoSignAuthenticator(
-		"cryptosign-user",
-		"150085398329d255ad69e82bf47ced397bcec5b8fbeecd28a80edbbd85b49081",
-		map[string]any{},
-	)
+	cryptosignAuthenticator, err := auth.NewCryptoSignAuthenticator(cryptosignUserAuthID, privateKey, map[string]any{})
 	require.NoError(t, err)
 
 	authenticators := map[string]auth.ClientAuthenticator{
 		"AnonymousAuth":     auth.NewAnonymousAuthenticator("", map[string]any{}),
-		"TicketAuth":        auth.NewTicketAuthenticator("ticket-user", "ticket-pass", map[string]any{}),
-		"WAMPCRAAuth":       auth.NewCRAAuthenticator("wamp-cra-user", "cra-secret", map[string]any{}),
+		"TicketAuth":        auth.NewTicketAuthenticator(ticketUserAuthID, ticket, map[string]any{}),
+		"WAMPCRAAuth":       auth.NewCRAAuthenticator(craUserAuthID, secret, map[string]any{}),
 		"WAMPCRAAuthSalted": auth.NewCRAAuthenticator("wamp-cra-salt-user", "cra-salt-secret", map[string]any{}),
 		"CryptosignAuth":    cryptosignAuthenticator,
 	}
@@ -113,5 +118,39 @@ func TestInteroperability(t *testing.T) {
 				})
 			}
 		}
+	}
+
+	for serverName, uri := range serverURLs {
+		t.Run("AnonymousAuthWith"+serverName, func(t *testing.T) {
+			session, err := xconn.ConnectAnonymous(context.Background(), uri, realm)
+			require.NoError(t, err)
+			require.NotNil(t, session)
+
+			require.NoError(t, session.Leave())
+		})
+
+		t.Run("TicketAuthWith"+serverName, func(t *testing.T) {
+			session, err := xconn.ConnectTicket(context.Background(), uri, realm, ticketUserAuthID, ticket)
+			require.NoError(t, err)
+			require.NotNil(t, session)
+
+			require.NoError(t, session.Leave())
+		})
+
+		t.Run("CRAAuthWith"+serverName, func(t *testing.T) {
+			session, err := xconn.ConnectCRA(context.Background(), uri, realm, craUserAuthID, secret)
+			require.NoError(t, err)
+			require.NotNil(t, session)
+
+			require.NoError(t, session.Leave())
+		})
+
+		t.Run("CryptosignAuthWith"+serverName, func(t *testing.T) {
+			session, err := xconn.ConnectCryptosign(context.Background(), uri, realm, cryptosignUserAuthID, privateKey)
+			require.NoError(t, err)
+			require.NotNil(t, session)
+
+			require.NoError(t, session.Leave())
+		})
 	}
 }
