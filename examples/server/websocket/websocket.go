@@ -24,7 +24,9 @@ func main() {
 	}
 
 	r := xconn.NewRouter()
-	r.AddRealm(*realm)
+	if err := r.AddRealm(*realm); err != nil {
+		log.Fatal(err)
+	}
 	defer r.Close()
 
 	server := xconn.NewServer(r, nil, nil)

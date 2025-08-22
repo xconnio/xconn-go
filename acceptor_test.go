@@ -25,7 +25,8 @@ func TestAccept(t *testing.T) {
 		require.NotNil(t, conn)
 
 		rout := xconn.NewRouter()
-		rout.AddRealm("realm1")
+		err = rout.AddRealm("realm1")
+		require.NoError(t, err)
 
 		acceptor := xconn.WebSocketAcceptor{}
 		session, err := acceptor.Accept(conn, rout, nil)

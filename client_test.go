@@ -239,12 +239,12 @@ func TestCallProgressiveProgress(t *testing.T) {
 }
 
 func TestInMemorySession(t *testing.T) {
-	realmName := "realm1"
 	role := "trusted"
 	procedure := "com.hello"
 
 	router := xconn.NewRouter()
-	router.AddRealm(realmName)
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
 
 	session, err := xconn.ConnectInMemory(router, realmName)
 	require.NoError(t, err)
@@ -273,7 +273,8 @@ func createUnixPath(t *testing.T) string {
 
 func TestUnixSocket(t *testing.T) {
 	router := xconn.NewRouter()
-	router.AddRealm("unix")
+	err := router.AddRealm("unix")
+	require.NoError(t, err)
 	server := xconn.NewServer(router, nil, nil)
 
 	t.Run("websocket-over-unix", func(t *testing.T) {
@@ -305,4 +306,14 @@ func TestUnixSocket(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, session)
 	})
+}
+
+func TestAddRealm(t *testing.T) {
+	router := xconn.NewRouter()
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
+
+	// adding same realm twice should return error
+	err = router.AddRealm(realmName)
+	require.EqualError(t, err, fmt.Sprintf("realm '%s' already registered", realmName))
 }

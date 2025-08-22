@@ -19,7 +19,8 @@ const realmName = "test"
 
 func TestRouterMetaKill(t *testing.T) {
 	router := xconn.NewRouter()
-	router.AddRealm(realmName)
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	session1, err := xconn.ConnectInMemory(router, realmName)
@@ -60,7 +61,8 @@ func TestRouterMetaKill(t *testing.T) {
 
 func TestAuthorization(t *testing.T) {
 	router := xconn.NewRouter()
-	router.AddRealm(realmName)
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
 
 	addRole := func(name string, permissions []xconn.Permission) {
 		err := router.AddRealmRole(realmName, xconn.RealmRole{
@@ -154,12 +156,13 @@ func TestAuthorization(t *testing.T) {
 
 func TestRealmAlias(t *testing.T) {
 	r := xconn.NewRouter()
-	r.AddRealm("hello")
+	err := r.AddRealm("hello")
+	require.NoError(t, err)
 
 	require.True(t, r.HasRealm("hello"))
 	require.False(t, r.HasRealm("alias"))
 
-	err := r.AddRealmAlias("hello", "alias")
+	err = r.AddRealmAlias("hello", "alias")
 	require.NoError(t, err)
 	require.True(t, r.HasRealm("hello"))
 	require.True(t, r.HasRealm("alias"))
@@ -167,7 +170,8 @@ func TestRealmAlias(t *testing.T) {
 
 func TestAutoDiscloseCallerAndPublisher(t *testing.T) {
 	router := xconn.NewRouter()
-	router.AddRealm(realmName)
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
 
 	callee, err := xconn.ConnectInMemory(router, realmName)
 	require.NoError(t, err)
