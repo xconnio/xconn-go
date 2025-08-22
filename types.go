@@ -248,7 +248,7 @@ func (s *Subscription) unsubscribe() error {
 	}
 }
 
-type SendProgress func(args []any, kwArgs map[string]any) error
+type SendProgress func(args []any, kwargs map[string]any) error
 
 type InvocationResult struct {
 	Args    []any
@@ -400,7 +400,7 @@ type CallRequest struct {
 
 	procedure string
 	args      []any
-	kwArgs    map[string]any
+	kwargs    map[string]any
 	options   map[string]any
 
 	progressReceiver ProgressReceiver
@@ -443,17 +443,17 @@ func (c *CallRequest) Args(args ...any) *CallRequest {
 	return c
 }
 
-func (c *CallRequest) KWArg(key string, value any) *CallRequest {
-	if c.kwArgs == nil {
-		c.kwArgs = make(map[string]any)
+func (c *CallRequest) Kwarg(key string, value any) *CallRequest {
+	if c.kwargs == nil {
+		c.kwargs = make(map[string]any)
 	}
 
-	c.kwArgs[key] = value
+	c.kwargs[key] = value
 	return c
 }
 
-func (c *CallRequest) KWArgs(kwArgs map[string]any) *CallRequest {
-	c.kwArgs = kwArgs
+func (c *CallRequest) Kwargs(kwargs map[string]any) *CallRequest {
+	c.kwargs = kwargs
 	return c
 }
 
@@ -468,7 +468,7 @@ func (c *CallRequest) ProgressSender(handler ProgressSender) *CallRequest {
 }
 
 func (c *CallRequest) ToCall(requestID uint64) *messages.Call {
-	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwArgs)
+	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwargs)
 }
 
 type SubscribeRequest struct {
@@ -515,12 +515,12 @@ type PublishRequest struct {
 
 	topic   string
 	args    []any
-	kwArgs  map[string]any
+	kwargs  map[string]any
 	options map[string]any
 }
 
 func (p *PublishRequest) Do() PublishResponse {
-	return p.session.publish(p.topic, p.args, p.kwArgs, p.options)
+	return p.session.publish(p.topic, p.args, p.kwargs, p.options)
 }
 
 func (p *PublishRequest) Option(key string, value any) *PublishRequest {
@@ -569,22 +569,22 @@ func (p *PublishRequest) Args(args ...any) *PublishRequest {
 	return p
 }
 
-func (p *PublishRequest) KWArg(key string, value any) *PublishRequest {
-	if p.kwArgs == nil {
-		p.kwArgs = make(map[string]any)
+func (p *PublishRequest) Kwarg(key string, value any) *PublishRequest {
+	if p.kwargs == nil {
+		p.kwargs = make(map[string]any)
 	}
 
-	p.kwArgs[key] = value
+	p.kwargs[key] = value
 	return p
 }
 
-func (p *PublishRequest) KWArgs(kwArgs map[string]any) *PublishRequest {
-	p.kwArgs = kwArgs
+func (p *PublishRequest) Kwargs(kwArgs map[string]any) *PublishRequest {
+	p.kwargs = kwArgs
 	return p
 }
 
 func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
-	return messages.NewPublish(requestID, p.options, p.topic, p.args, p.kwArgs)
+	return messages.NewPublish(requestID, p.options, p.topic, p.args, p.kwargs)
 }
 
 type CallResponse struct {
