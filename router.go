@@ -106,6 +106,16 @@ func (r *Router) AddRealmRole(realm string, role RealmRole) error {
 	return realmObj.AddRole(role)
 }
 
+func (r *Router) SetRealmAuthorizer(realm string, authorizer Authorizer) error {
+	realmObj, ok := r.realms.Load(realm)
+	if !ok {
+		return fmt.Errorf("could not find realm: %s", realm)
+	}
+
+	realmObj.SetAuthorizer(authorizer)
+	return nil
+}
+
 func (r *Router) HasRealmRole(realm string, roleName string) (bool, error) {
 	realmObj, ok := r.realms.Load(realm)
 	if !ok {
