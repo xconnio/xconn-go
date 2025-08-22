@@ -19,7 +19,12 @@ func NewRouter() *Router {
 	}
 }
 
-func (r *Router) AddRealm(name string) {
+func (r *Router) AddRealm(name string) error {
+	_, ok := r.realms.Load(name)
+	if ok {
+		return fmt.Errorf("realm '%s' already registered", name)
+	}
+
 	realm := NewRealm()
 
 	perms := []Permission{{
@@ -31,10 +36,15 @@ func (r *Router) AddRealm(name string) {
 		AllowSubscribe: true,
 	}}
 
-	_ = realm.AddRole(RealmRole{Name: "trusted", Permissions: perms})
-	_ = realm.AddRole(RealmRole{Name: "anonymous", Permissions: perms})
+	if err := realm.AddRole(RealmRole{Name: "trusted", Permissions: perms}); err != nil {
+		return err
+	}
+	if err := realm.AddRole(RealmRole{Name: "anonymous", Permissions: perms}); err != nil {
+		return err
+	}
 
 	r.realms.Store(name, realm)
+	return nil
 }
 
 func (r *Router) AddRealmAlias(realm, alias string) error {
