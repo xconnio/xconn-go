@@ -27,14 +27,14 @@ func main() {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
-	publishResponse = publisher.Publish(testTopic).KWArg("Hello World!", "I love WAMP").Do()
+	publishResponse = publisher.Publish(testTopic).Kwarg("Hello World!", "I love WAMP").Do()
 	if publishResponse.Err != nil {
 		log.Fatalf("Failed to publish: %s", err)
 	}
 
 	publishResponse = publisher.Publish(testTopic).
 		Args("Hello", "World").
-		KWArg("Hello World!", "I love WAMP").
+		Kwarg("Hello World!", "I love WAMP").
 		Do()
 	if publishResponse.Err != nil {
 		log.Fatalf("Failed to publish: %s", err)

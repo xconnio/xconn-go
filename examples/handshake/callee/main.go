@@ -25,10 +25,10 @@ func main() {
 	var hexPublicKey string
 
 	handler := func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-		isProgress, _ := invocation.Details[wampproto.OptionProgress].(bool)
+		isProgress, _ := invocation.Details()[wampproto.OptionProgress].(bool)
 
 		if isProgress {
-			hexPublicKey = util.ToString(invocation.Args[0])
+			hexPublicKey = util.ToString(invocation.Args()[0])
 			challenge, _ := auth.GenerateCryptoSignChallenge()
 
 			if err := invocation.SendProgress([]any{challenge}, nil); err != nil {
@@ -38,7 +38,7 @@ func main() {
 			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}
 
-		signature := util.ToString(invocation.Args[0])
+		signature := util.ToString(invocation.Args()[0])
 		publicKeyBytes, err := hex.DecodeString(hexPublicKey)
 		if err != nil {
 			return xconn.NewInvocationError(wampproto.ErrInvalidArgument, "invalid public key format")
