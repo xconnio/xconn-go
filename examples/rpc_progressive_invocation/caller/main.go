@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -28,24 +27,18 @@ func main() {
 
 	callResponse := caller.Call(procedureProgressUpload).
 		ProgressSender(func(ctx context.Context) *xconn.Progress {
-			options := map[string]any{}
-
-			// Mark the last chunk as non-progressive
-			if chunkIndex == totalChunks-1 {
-				options[wampproto.OptionProgress] = false
-			} else {
-				options[wampproto.OptionProgress] = true
-			}
-
 			// Simulate sending each chunk of the file
 			fmt.Printf("Uploading chunk %d...\n", chunkIndex)
-			args := []any{chunkIndex}
-			chunkIndex++
+			defer func() { chunkIndex++ }()
 
 			// Simulate network delay between chunks
 			time.Sleep(500 * time.Millisecond)
 
-			return &xconn.Progress{Args: args, Options: options}
+			if chunkIndex == totalChunks-1 {
+				return xconn.NewFinalProgress(chunkIndex)
+			} else {
+				return xconn.NewProgress(chunkIndex)
+			}
 		}).Do()
 	if callResponse.Err != nil {
 		log.Fatalf("Failed to upload data: %s", callResponse.Err)

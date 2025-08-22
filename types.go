@@ -285,6 +285,19 @@ type Progress struct {
 	Err     error
 }
 
+func NewProgress(args ...any) *Progress {
+	return &Progress{
+		Args:    args,
+		Options: map[string]any{wampproto.OptionProgress: true},
+	}
+}
+
+func NewFinalProgress(args ...any) *Progress {
+	return &Progress{
+		Args: args,
+	}
+}
+
 type Error struct {
 	URI    string
 	Args   []any

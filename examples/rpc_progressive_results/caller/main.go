@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -27,27 +26,21 @@ func main() {
 
 	callResponse := caller.Call(procedureProgressUpload).
 		ProgressSender(func(ctx context.Context) *xconn.Progress {
-			options := map[string]any{}
-
-			// Mark the last chunk as non-progressive
-			if chunkIndex == totalChunks-1 {
-				options[wampproto.OptionProgress] = false
-			} else {
-				options[wampproto.OptionProgress] = true
-			}
-
 			// Simulate uploading chunk
 			fmt.Printf("Sending chunk %d\n", chunkIndex)
-			args := []any{chunkIndex}
-			chunkIndex++
+			defer func() { chunkIndex++ }()
 
 			// Simulate delay for each chunk
 			time.Sleep(500 * time.Millisecond)
 
-			return &xconn.Progress{Args: args, Options: options}
+			if chunkIndex == totalChunks-1 {
+				return xconn.NewFinalProgress(chunkIndex)
+			} else {
+				return xconn.NewProgress(chunkIndex)
+			}
 		}).ProgressReceiver(func(result *xconn.InvocationResult) {
 		// Handle progress updates mirrored by the callee
-		chunkProgress := result.Args[0].(float64)
+		chunkProgress := result.Args[0].(uint64)
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)
 	}).Do()
 

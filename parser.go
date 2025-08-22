@@ -3,6 +3,9 @@ package xconn
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/xconnio/wampproto-go"
+	"github.com/xconnio/wampproto-go/util"
 )
 
 type Value struct {
@@ -559,6 +562,10 @@ func (inv *Invocation) CallerAuthID() string {
 
 func (inv *Invocation) CallerAuthRole() string {
 	return inv.details.StringOr("caller_authrole", "")
+}
+
+func (inv *Invocation) Progress() bool {
+	return util.ToBool(inv.Details()[wampproto.OptionProgress])
 }
 
 type Event struct {

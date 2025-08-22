@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -22,11 +21,9 @@ func main() {
 	defer func() { _ = callee.Leave() }()
 
 	invocationHandler := func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-		isProgress, _ := invocation.Details()[wampproto.OptionProgress].(bool)
-
 		// Handle the progressive chunk
-		if isProgress {
-			chunkIndex, _ := invocation.ArgFloat64(0)
+		if invocation.Progress() {
+			chunkIndex, _ := invocation.ArgUInt64(0)
 			fmt.Printf("Received chunk %v\n", chunkIndex)
 			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}
