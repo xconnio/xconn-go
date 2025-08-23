@@ -12,7 +12,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/xconnio/wampproto-go v0.0.0-20250820111356-1ebf798b6d92
 	github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3
-	github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250820111704-ec53fb132bce
+	github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250823081023-3328f7ff47d5
 	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
 )
 

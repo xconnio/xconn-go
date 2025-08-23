@@ -54,8 +54,8 @@ github.com/xconnio/wampproto-go v0.0.0-20250820111356-1ebf798b6d92 h1:ZJGhlI+Cs5
 github.com/xconnio/wampproto-go v0.0.0-20250820111356-1ebf798b6d92/go.mod h1:LONo5ncxniaMNsvdQ0YKUT2lsSchu9Y/NeGvfQgUSiI=
 github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3 h1:AmvYzzmvHfRsJDLmBNwqDsm06k37NG5A7AQjQ0IOxC0=
 github.com/xconnio/wampproto-protobuf/go v0.0.0-20250731141149-3680ec1f2cd3/go.mod h1:JK4nus2F4v1zFydyuxii7yFlicDXrKhzBFSkk7y9/gQ=
-github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250820111704-ec53fb132bce h1:EnJZ9nllp80x5Hl/gDCIPZ5QxMljS9JimyOvTbwT2Uo=
-github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250820111704-ec53fb132bce/go.mod h1:HorxIFH0Cmxo6qBpohucup8tfvmheKfdnbETmcisvTI=
+github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250823081023-3328f7ff47d5 h1:8mjBOa4kUSeUrkzYXheSisx5wDOJzJEi8AMVhiQORw0=
+github.com/xconnio/wampproto-serializer-capnproto/go v0.0.0-20250823081023-3328f7ff47d5/go.mod h1:HorxIFH0Cmxo6qBpohucup8tfvmheKfdnbETmcisvTI=
 go.uber.org/goleak v1.2.1 h1:NBol2c7O1ZokfZ0LEU9K6Whx/KnwvepVetCUhtKja4A=
 go.uber.org/goleak v1.2.1/go.mod h1:qlT2yGI9QafXHhZZLxlSuNsMw3FFLxBr+tBRlmO1xH4=
 golang.org/x/crypto v0.40.0 h1:r4x+VvoG5Fm+eJcxMaY8CQM7Lb0l1lsmjGBQ6s8BfKM=
