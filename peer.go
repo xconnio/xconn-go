@@ -261,7 +261,7 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 	}
 
 	payload := make([]byte, header.Length())
-	_, err = r.conn.Read(payload)
+	_, err = io.ReadFull(r.conn, payload)
 	if err != nil {
 		return nil, err
 	}
