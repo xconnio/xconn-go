@@ -2,10 +2,12 @@ package xconn_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -302,4 +304,55 @@ func TestAddRealm(t *testing.T) {
 	// adding same realm twice should return error
 	err = router.AddRealm(realmName)
 	require.EqualError(t, err, fmt.Sprintf("realm '%s' already registered", realmName))
+}
+
+func TestPerformance(t *testing.T) {
+	router := xconn.NewRouter()
+	err := router.AddRealm("realm1")
+	require.NoError(t, err)
+
+	server := xconn.NewServer(router, nil, nil)
+	closer, err := server.ListenAndServeRawSocket("tcp", "127.0.0.1:9000")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closer.Close() })
+
+	data := make([]byte, 1024*1024)
+	_, err = rand.Read(data)
+	require.NoError(t, err)
+
+	callerClient := xconn.Client{
+		SerializerSpec: xconn.CapnprotoSplitSerializerSpec,
+	}
+
+	caller, err := callerClient.Connect(context.Background(), "rs://localhost:9000", "realm1")
+	require.NoError(t, err)
+	require.NotNil(t, caller)
+
+	calleeClient := xconn.Client{
+		SerializerSpec: xconn.CapnprotoSplitSerializerSpec,
+	}
+
+	callee, err := calleeClient.Connect(context.Background(), "rs://localhost:9000", "realm1")
+	require.NoError(t, err)
+	require.NotNil(t, caller)
+
+	response := callee.Register(
+		"io.xconn.proto",
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+			return xconn.NewInvocationResult(invocation.Args()...)
+		},
+	).Do()
+	require.NoError(t, response.Err)
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			caller.Call("io.xconn.proto").Arg(data).Option("x_payload_raw", true).Do()
+		}()
+	}
+
+	wg.Wait()
 }
