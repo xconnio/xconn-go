@@ -12,6 +12,7 @@ import (
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/util"
 )
 
 const ErrNoResult = "io.xconn.no_result"
@@ -418,7 +419,25 @@ func (s *Session) Call(procedure string) *CallRequest {
 func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwArgs map[string]any,
 	options map[string]any) CallResponse {
 
-	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
+	var call *messages.Call
+	rawPayload, _ := util.AsBool(options["x_payload_raw"])
+	if rawPayload {
+		delete(options, "x_payload_raw")
+
+		if len(args) > 1 || len(kwArgs) > 0 {
+			return CallResponse{Err: fmt.Errorf("must provide at most one argument when x_payload_raw is set")}
+		}
+
+		payload, ok := args[0].([]byte)
+		if !ok {
+			return CallResponse{Err: fmt.Errorf("argument must be a byte array when x_payload_raw is set")}
+		}
+
+		call = messages.NewCallBinary(s.idGen.NextID(), options, procedure, payload, 0)
+	} else {
+		call = messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
+	}
+
 	return s.call(ctx, call)
 }
 

@@ -480,10 +480,6 @@ func (c *CallRequest) ProgressSender(handler ProgressSender) *CallRequest {
 	return c
 }
 
-func (c *CallRequest) ToCall(requestID uint64) *messages.Call {
-	return messages.NewCall(requestID, c.options, c.procedure, c.args, c.kwargs)
-}
-
 type SubscribeRequest struct {
 	session *Session
 
