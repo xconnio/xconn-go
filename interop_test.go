@@ -46,7 +46,7 @@ func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer x
 	callResponse := session.Call(procedureAdd).Args(2, 2).Do()
 	require.NoError(t, callResponse.Err)
 
-	sumResult, ok := util.AsUInt64(callResponse.Args[0])
+	sumResult, ok := util.AsUInt64(callResponse.Args.Raw()[0])
 	require.True(t, ok)
 	require.Equal(t, 4, int(sumResult))
 }
@@ -63,7 +63,7 @@ func testRPC(t *testing.T, authenticator auth.ClientAuthenticator, serializer xc
 	args := []any{"Hello", "wamp"}
 	callResponse := session.Call("io.xconn.test").Args(args...).Do()
 	require.NoError(t, callResponse.Err)
-	require.Equal(t, args, callResponse.Args)
+	require.Equal(t, args, callResponse.Args.Raw())
 
 	err := registerResponse.Unregister()
 	require.NoError(t, err)

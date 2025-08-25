@@ -597,8 +597,8 @@ func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 }
 
 type CallResponse struct {
-	Args    []any
-	Kwargs  map[string]any
+	Args    List
+	Kwargs  Dict
 	Details map[string]any
 	Err     error
 }

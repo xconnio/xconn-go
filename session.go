@@ -578,8 +578,8 @@ func (s *Session) waitForCallResult(ctx context.Context, channel chan *callRespo
 		}
 
 		r := CallResponse{
-			Args:    response.msg.Args(),
-			Kwargs:  response.msg.KwArgs(),
+			Args:    NewList(response.msg.Args()),
+			Kwargs:  NewDict(response.msg.KwArgs()),
 			Details: response.msg.Details(),
 		}
 		return r

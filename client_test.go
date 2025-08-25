@@ -61,7 +61,7 @@ func TestRegisterCall(t *testing.T) {
 				callResponse := session.Call("foo.bar").Do()
 				require.NoError(t, callResponse.Err)
 				require.NotNil(t, callResponse)
-				require.Equal(t, "hello", callResponse.Args[0])
+				require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
 			})
 		}
 
@@ -123,7 +123,7 @@ func TestProgressiveCallResults(t *testing.T) {
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Args[0])
+		require.Equal(t, "done", callResponse.Args.StringOr(0, ""))
 	})
 }
 
@@ -166,7 +166,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Args[0])
+		require.Equal(t, "done", callResponse.Args.StringOr(0, ""))
 	})
 }
 
@@ -215,7 +215,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 
 		require.NoError(t, callResponse.Err)
 
-		finalResult := int(callResponse.Args[0].(float64))
+		finalResult := int(callResponse.Args.Float64Or(0, 1))
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly
