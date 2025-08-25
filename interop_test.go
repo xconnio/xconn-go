@@ -102,13 +102,16 @@ func TestInteroperability(t *testing.T) {
 		"CryptosignAuth":    cryptosignAuthenticator,
 	}
 
-	serializers := map[string]xconn.SerializerSpec{
-		"JSON":    xconn.JSONSerializerSpec,
-		"CBOR":    xconn.CBORSerializerSpec,
-		"MsgPack": xconn.MsgPackSerializerSpec,
-	}
-
 	for serverName, url := range serverURLs {
+		serializers := map[string]xconn.SerializerSpec{
+			"JSON":    xconn.JSONSerializerSpec,
+			"CBOR":    xconn.CBORSerializerSpec,
+			"MsgPack": xconn.MsgPackSerializerSpec,
+		}
+
+		if url == xconnURL {
+			serializers["Capnproto"] = xconn.CapnprotoSplitSerializerSpec
+		}
 		for authName, authenticator := range authenticators {
 			for serializerName, serializer := range serializers {
 				t.Run(serverName+"With"+authName+"And"+serializerName, func(t *testing.T) {
