@@ -423,17 +423,24 @@ func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwA
 	rawPayload, _ := util.AsBool(options["x_payload_raw"])
 	if rawPayload {
 		delete(options, "x_payload_raw")
-
-		if len(args) > 1 || len(kwArgs) > 0 {
+		if len(args) > 1 {
 			return CallResponse{Err: fmt.Errorf("must provide at most one argument when x_payload_raw is set")}
 		}
 
-		payload, ok := args[0].([]byte)
-		if !ok {
-			return CallResponse{Err: fmt.Errorf("argument must be a byte array when x_payload_raw is set")}
+		if len(kwArgs) != 0 {
+			return CallResponse{Err: fmt.Errorf("must not provide kwargs when x_payload_raw is set")}
 		}
 
-		call = messages.NewCallBinary(s.idGen.NextID(), options, procedure, payload, 0)
+		if len(args) == 0 {
+			call = messages.NewCallBinary(s.idGen.NextID(), options, procedure, nil, 0)
+		} else {
+			payload, ok := args[0].([]byte)
+			if !ok {
+				return CallResponse{Err: fmt.Errorf("argument must be a byte array when x_payload_raw is set")}
+			}
+
+			call = messages.NewCallBinary(s.idGen.NextID(), options, procedure, payload, 0)
+		}
 	} else {
 		call = messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
 	}
