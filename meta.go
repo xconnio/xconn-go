@@ -2,6 +2,7 @@ package xconn
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/xconnio/wampproto-go/messages"
 )
@@ -9,6 +10,7 @@ import (
 const (
 	MetaProcedureSessionKill  = "wamp.session.kill"
 	MetaProcedureSessionCount = "wamp.session.count"
+	MetaProcedureSessionList  = "wamp.session.list"
 
 	MetaTopicSessionJoin  = "wamp.session.on_join"
 	MetaTopicSessionLeave = "wamp.session.on_leave"
@@ -37,6 +39,7 @@ func (m *meta) start() error {
 	for uri, handler := range map[string]InvocationHandler{
 		MetaProcedureSessionKill:  m.handleSessionKill,
 		MetaProcedureSessionCount: m.handleSessionCount,
+		MetaProcedureSessionList:  m.handleSessionList,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -107,30 +110,51 @@ func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *Inv
 	return &InvocationResult{}
 }
 
-func (m *meta) handleSessionCount(_ context.Context, invocation *Invocation) *InvocationResult {
+func (m *meta) forEachSession(invocation *Invocation, fn func(sess BaseSession)) error {
 	var roles []any
 	if len(invocation.Args()) > 0 {
 		r, err := invocation.ArgList(0)
 		if err != nil {
-			return NewInvocationError("wamp.error.invalid_argument", err.Error())
+			return fmt.Errorf("wamp.error.invalid_argument")
 		}
 		roles = r
 	}
 
 	rlm, ok := m.router.realms.Load(m.realm)
 	if !ok {
-		return NewInvocationError("wamp.error.not_found")
+		return fmt.Errorf("wamp.error.not_found")
 	}
 
-	var count uint64
 	rlm.clients.Range(func(_ uint64, sess BaseSession) bool {
 		if len(roles) == 0 || contains(roles, sess.AuthRole()) {
-			count++
+			fn(sess)
 		}
 		return true
 	})
 
+	return nil
+}
+
+func (m *meta) handleSessionCount(_ context.Context, invocation *Invocation) *InvocationResult {
+	var count uint64
+	err := m.forEachSession(invocation, func(sess BaseSession) {
+		count++
+	})
+	if err != nil {
+		return NewInvocationError(err.Error())
+	}
 	return NewInvocationResult(count)
+}
+
+func (m *meta) handleSessionList(_ context.Context, invocation *Invocation) *InvocationResult {
+	var sessionIDs []uint64
+	err := m.forEachSession(invocation, func(sess BaseSession) {
+		sessionIDs = append(sessionIDs, sess.ID())
+	})
+	if err != nil {
+		return NewInvocationError(err.Error())
+	}
+	return NewInvocationResult(sessionIDs)
 }
 
 func contains(slice []any, val string) bool {
