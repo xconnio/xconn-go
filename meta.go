@@ -11,6 +11,7 @@ const (
 	MetaProcedureSessionKill  = "wamp.session.kill"
 	MetaProcedureSessionCount = "wamp.session.count"
 	MetaProcedureSessionList  = "wamp.session.list"
+	MetaProcedureSessionGet   = "wamp.session.get"
 
 	MetaTopicSessionJoin  = "wamp.session.on_join"
 	MetaTopicSessionLeave = "wamp.session.on_leave"
@@ -40,6 +41,7 @@ func (m *meta) start() error {
 		MetaProcedureSessionKill:  m.handleSessionKill,
 		MetaProcedureSessionCount: m.handleSessionCount,
 		MetaProcedureSessionList:  m.handleSessionList,
+		MetaProcedureSessionGet:   m.handleSessionGet,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -155,6 +157,36 @@ func (m *meta) handleSessionList(_ context.Context, invocation *Invocation) *Inv
 		return NewInvocationError(err.Error())
 	}
 	return NewInvocationResult(sessionIDs)
+}
+
+func (m *meta) handleSessionGet(_ context.Context, invocation *Invocation) *InvocationResult {
+	if invocation.ArgsLen() != 1 {
+		return NewInvocationError("wamp.error.invalid_argument")
+	}
+
+	sessionID, err := invocation.ArgUInt64(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument")
+	}
+
+	rlm, ok := m.router.realms.Load(m.realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found")
+	}
+
+	client, ok := rlm.clients.Load(sessionID)
+	if !ok {
+		return NewInvocationError("wamp.error.no_such_session")
+	}
+
+	details := map[string]any{
+		"session":      client.ID(),
+		"authid":       client.AuthID(),
+		"authrole":     client.AuthRole(),
+		"authmethod":   "",
+		"authprovider": "",
+	}
+	return NewInvocationResult(details)
 }
 
 func contains(slice []any, val string) bool {
