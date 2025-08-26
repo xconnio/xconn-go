@@ -78,38 +78,48 @@ func (m *meta) onLeave(base BaseSession) {
 	}()
 }
 
-func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *InvocationResult {
-	if invocation.ArgsLen() != 1 {
-		return &InvocationResult{Err: "wamp.error.invalid_argument"}
+func killSession(invocation *Invocation, client BaseSession) error {
+	reason := invocation.KwargStringOr("reason", "wamp.close.killed")
+	goodByeDetails := map[string]any{}
+
+	if msg, err := invocation.KwargString("message"); err == nil {
+		goodByeDetails["message"] = msg
 	}
 
+	goodbye := messages.NewGoodBye(reason, goodByeDetails)
+	if err := client.WriteMessage(goodbye); err != nil {
+		return fmt.Errorf("wamp.error.internal_error")
+	}
+
+	_ = client.Close()
+	return nil
+}
+
+func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *InvocationResult {
 	sessionID, err := invocation.ArgUInt64(0)
 	if err != nil {
-		return &InvocationResult{Err: "wamp.error.invalid_argument"}
+		return NewInvocationError("wamp.error.invalid_argument")
 	}
 
-	if sessionID == m.session.ID() {
-		return &InvocationResult{Err: "wamp.error.invalid_session"}
+	if sessionID == m.session.ID() || sessionID == invocation.Caller() {
+		return NewInvocationError("wamp.error.no_such_session")
 	}
 
 	rlm, ok := m.router.realms.Load(m.realm)
 	if !ok {
-		return &InvocationResult{Err: "wamp.error.not_found"}
+		return NewInvocationError("wamp.error.not_found")
 	}
 
 	client, ok := rlm.clients.Load(sessionID)
 	if !ok {
-		return &InvocationResult{Err: "wamp.error.not_found"}
+		return NewInvocationError("wamp.error.not_found")
 	}
 
-	goodbye := messages.NewGoodBye("wamp.error.abort", nil)
-	if err := client.WriteMessage(goodbye); err != nil {
-		return &InvocationResult{Err: "wamp.error.internal_error"}
+	if err := killSession(invocation, client); err != nil {
+		return NewInvocationError(err.Error())
 	}
 
-	_ = client.Close()
-
-	return &InvocationResult{}
+	return NewInvocationResult()
 }
 
 func (m *meta) forEachSession(invocation *Invocation, fn func(sess BaseSession)) error {
