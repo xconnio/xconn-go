@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	MetaProcedureSessionKill  = "wamp.session.kill"
-	MetaProcedureSessionCount = "wamp.session.count"
-	MetaProcedureSessionList  = "wamp.session.list"
-	MetaProcedureSessionGet   = "wamp.session.get"
+	MetaProcedureSessionKill         = "wamp.session.kill"
+	MetaProcedureSessionCount        = "wamp.session.count"
+	MetaProcedureSessionList         = "wamp.session.list"
+	MetaProcedureSessionGet          = "wamp.session.get"
+	MetaProcedureSessionKillByAuthID = "wamp.session.kill_by_authid"
 
 	MetaTopicSessionJoin  = "wamp.session.on_join"
 	MetaTopicSessionLeave = "wamp.session.on_leave"
@@ -38,10 +39,11 @@ func newMetAPI(realm string, router *Router) (*meta, error) {
 
 func (m *meta) start() error {
 	for uri, handler := range map[string]InvocationHandler{
-		MetaProcedureSessionKill:  m.handleSessionKill,
-		MetaProcedureSessionCount: m.handleSessionCount,
-		MetaProcedureSessionList:  m.handleSessionList,
-		MetaProcedureSessionGet:   m.handleSessionGet,
+		MetaProcedureSessionKill:         m.handleSessionKill,
+		MetaProcedureSessionCount:        m.handleSessionCount,
+		MetaProcedureSessionList:         m.handleSessionList,
+		MetaProcedureSessionGet:          m.handleSessionGet,
+		MetaProcedureSessionKillByAuthID: m.handleSessionKillByAuthID,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -120,6 +122,29 @@ func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *Inv
 	}
 
 	return NewInvocationResult()
+}
+
+func (m *meta) handleSessionKillByAuthID(_ context.Context, invocation *Invocation) *InvocationResult {
+	authID, err := invocation.ArgString(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument")
+	}
+
+	rlm, ok := m.router.realms.Load(m.realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found")
+	}
+
+	sessionIDs := make([]uint64, 0)
+	rlm.clients.Range(func(_ uint64, client BaseSession) bool {
+		if client.AuthID() == authID && client.ID() != m.session.ID() && client.ID() != invocation.Caller() {
+			_ = killSession(invocation, client)
+			sessionIDs = append(sessionIDs, client.ID())
+		}
+		return true
+	})
+
+	return NewInvocationResult(sessionIDs)
 }
 
 func (m *meta) forEachSession(invocation *Invocation, fn func(sess BaseSession)) error {
