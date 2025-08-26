@@ -148,6 +148,25 @@ func TestRouterMetaSessionList(t *testing.T) {
 	})
 }
 
+func TestRouterMetaSessionGet(t *testing.T) {
+	router := xconn.NewRouter()
+	require.NoError(t, router.AddRealm(realmName))
+	require.NoError(t, router.EnableMetaAPI(realmName))
+
+	session, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	expectedDetails := map[string]any{"authid": session.Details().AuthID(), "authmethod": "", "authprovider": "",
+		"authrole": "trusted", "session": session.ID()}
+	resp := session.Call(xconn.MetaProcedureSessionGet).Arg(session.ID()).Do()
+	require.NoError(t, resp.Err)
+	require.Equal(t, expectedDetails, resp.Args.Raw()[0])
+
+	// test err
+	respErr := session.Call(xconn.MetaProcedureSessionGet).Arg(uint64(2152454520)).Do()
+	require.Equal(t, "wamp.error.no_such_session", respErr.Err.Error())
+}
+
 func TestAuthorization(t *testing.T) {
 	router := xconn.NewRouter()
 	err := router.AddRealm(realmName)
