@@ -151,6 +151,20 @@ func (v Value) Decode(out any) error {
 	return nil
 }
 
+func (v Value) List() ([]any, error) {
+	if b, ok := v.data.([]any); ok {
+		return b, nil
+	}
+	return nil, fmt.Errorf("value is not data []any, got %T", v.data)
+}
+
+func (v Value) ListOr(def []any) []any {
+	if b, err := v.List(); err == nil {
+		return b
+	}
+	return def
+}
+
 type List []Value
 
 func NewList(values []any) List {
@@ -267,6 +281,18 @@ func (l List) Decode(out any) error {
 	}
 
 	return nil
+}
+
+func (l List) List(i int) ([]any, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return nil, err
+	}
+	return v.List()
+}
+
+func (l List) ListOr(i int, def []any) []any {
+	return l.GetOr(i, def).ListOr(def)
 }
 
 func (l List) Raw() []any {
@@ -478,6 +504,14 @@ func (inv *Invocation) ArgBytesOr(index int, def []byte) []byte {
 
 func (inv *Invocation) ArgsLen() int {
 	return inv.args.Len()
+}
+
+func (inv *Invocation) ArgList(index int) ([]any, error) {
+	return inv.args.List(index)
+}
+
+func (inv *Invocation) ArgListOr(index int, def []any) []any {
+	return inv.args.ListOr(index, def)
 }
 
 func (inv *Invocation) Args() []any {
