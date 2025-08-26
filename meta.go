@@ -14,6 +14,7 @@ const (
 	MetaProcedureSessionGet            = "wamp.session.get"
 	MetaProcedureSessionKillByAuthID   = "wamp.session.kill_by_authid"
 	MetaProcedureSessionKillByAuthRole = "wamp.session.kill_by_authrole"
+	MetaProcedureSessionKillAll        = "wamp.session.kill_all"
 
 	MetaTopicSessionJoin  = "wamp.session.on_join"
 	MetaTopicSessionLeave = "wamp.session.on_leave"
@@ -46,6 +47,7 @@ func (m *meta) start() error {
 		MetaProcedureSessionGet:            m.handleSessionGet,
 		MetaProcedureSessionKillByAuthID:   m.handleSessionKillByAuthID,
 		MetaProcedureSessionKillByAuthRole: m.handleSessionKillByAuthRole,
+		MetaProcedureSessionKillAll:        m.handleSessionKillAll,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -163,6 +165,24 @@ func (m *meta) handleSessionKillByAuthRole(_ context.Context, invocation *Invoca
 	sessionIDs := make([]uint64, 0)
 	rlm.clients.Range(func(_ uint64, client BaseSession) bool {
 		if client.AuthRole() == authrole && client.ID() != m.session.ID() && client.ID() != invocation.Caller() {
+			_ = killSession(invocation, client)
+			sessionIDs = append(sessionIDs, client.ID())
+		}
+		return true
+	})
+
+	return NewInvocationResult(sessionIDs)
+}
+
+func (m *meta) handleSessionKillAll(_ context.Context, invocation *Invocation) *InvocationResult {
+	rlm, ok := m.router.realms.Load(m.realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found")
+	}
+
+	sessionIDs := make([]uint64, 0)
+	rlm.clients.Range(func(_ uint64, client BaseSession) bool {
+		if client.ID() != m.session.ID() && client.ID() != invocation.Caller() {
 			_ = killSession(invocation, client)
 			sessionIDs = append(sessionIDs, client.ID())
 		}

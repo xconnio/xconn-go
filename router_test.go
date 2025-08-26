@@ -145,6 +145,41 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 	require.EqualError(t, resp.Err, "wamp.error.invalid_argument")
 }
 
+func TestRouterMetaKillAll(t *testing.T) {
+	router := xconn.NewRouter()
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
+	require.NoError(t, router.AutoDiscloseCaller(realmName, true))
+	require.NoError(t, router.EnableMetaAPI(realmName))
+
+	session, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	session1, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+	session2, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	// Kill all sessions
+	resp := session.Call(xconn.MetaProcedureSessionKillAll).Do()
+	require.NoError(t, resp.Err)
+	sessionList, err := resp.Args.List(0)
+	require.NoError(t, err)
+	require.Contains(t, sessionList, session1.ID())
+	require.Contains(t, sessionList, session2.ID())
+
+	// Verify both sessions are disconnected
+	require.Eventually(t, func() bool {
+		return !session1.Connected()
+	}, 1*time.Second, 50*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return !session2.Connected()
+	}, 1*time.Second, 50*time.Millisecond)
+
+	// Caller session should remain connected
+	require.True(t, session.Connected())
+}
+
 func TestRouterMetaSessionCount(t *testing.T) {
 	router := xconn.NewRouter()
 	require.NoError(t, router.AddRealm(realmName))
