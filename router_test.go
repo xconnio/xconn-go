@@ -102,6 +102,49 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 	require.EqualError(t, resp.Err, "wamp.error.invalid_argument")
 }
 
+func TestRouterMetaKillByAuthRole(t *testing.T) {
+	router := xconn.NewRouter()
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
+	require.NoError(t, router.AutoDiscloseCaller(realmName, true))
+	require.NoError(t, router.EnableMetaAPI(realmName))
+
+	session, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	// Create sessions with authrole "test"
+	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "test", &serializers.JSONSerializer{})
+	require.NoError(t, err)
+	session1 := xconn.NewSession(baseSession, baseSession.Serializer())
+
+	baseSession1, err := xconn.ConnectInMemoryBase(router, realmName, "test", "test", &serializers.JSONSerializer{})
+	require.NoError(t, err)
+	session2 := xconn.NewSession(baseSession1, baseSession.Serializer())
+
+	// Kill all sessions with authrole "test"
+	resp := session.Call(xconn.MetaProcedureSessionKillByAuthRole).Arg(baseSession.AuthRole()).Do()
+	require.NoError(t, resp.Err)
+	sessionList, err := resp.Args.List(0)
+	require.NoError(t, err)
+	require.Contains(t, sessionList, session1.ID())
+	require.Contains(t, sessionList, session2.ID())
+
+	// Verify both sessions are disconnected
+	require.Eventually(t, func() bool {
+		return !session1.Connected()
+	}, 1*time.Second, 50*time.Millisecond)
+	require.Eventually(t, func() bool {
+		return !session2.Connected()
+	}, 1*time.Second, 50*time.Millisecond)
+
+	// Session with different authrole should remain connected
+	require.True(t, session.Connected())
+
+	// Test error case
+	resp = session.Call(xconn.MetaProcedureSessionKillByAuthRole).Do()
+	require.EqualError(t, resp.Err, "wamp.error.invalid_argument")
+}
+
 func TestRouterMetaSessionCount(t *testing.T) {
 	router := xconn.NewRouter()
 	require.NoError(t, router.AddRealm(realmName))
