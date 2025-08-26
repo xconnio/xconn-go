@@ -59,6 +59,48 @@ func TestRouterMetaKill(t *testing.T) {
 	}, 1*time.Second, 50*time.Millisecond)
 }
 
+func TestRouterMetaSessionCount(t *testing.T) {
+	router := xconn.NewRouter()
+	require.NoError(t, router.AddRealm(realmName))
+	require.NoError(t, router.EnableMetaAPI(realmName))
+
+	// Connect first session
+	session, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	t.Run("CountSessionWithRoleTrusted", func(t *testing.T) {
+		resp := session.Call(xconn.MetaProcedureSessionCount).Arg([]any{"trusted"}).Do()
+		require.NoError(t, resp.Err)
+		require.Equal(t, uint64(2), resp.Args.UInt64Or(0, 0))
+	})
+
+	// Connect second session with role=admin
+	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "admin", &serializers.JSONSerializer{})
+	require.NoError(t, err)
+	session2 := xconn.NewSession(baseSession, baseSession.Serializer())
+
+	t.Run("CountAllSessions", func(t *testing.T) {
+		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
+		require.NoError(t, resp.Err)
+		require.Equal(t, uint64(3), resp.Args.UInt64Or(0, 0))
+	})
+
+	t.Run("CountOnlyAdminSessions", func(t *testing.T) {
+		resp := session.Call(xconn.MetaProcedureSessionCount).Arg([]any{"admin"}).Do()
+		require.NoError(t, resp.Err)
+		require.Equal(t, uint64(1), resp.Args.UInt64Or(0, 0))
+	})
+
+	// Disconnect admin session
+	require.NoError(t, session2.Leave())
+
+	t.Run("CountAfterAdminSessionLeaves", func(t *testing.T) {
+		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
+		require.NoError(t, resp.Err)
+		require.Equal(t, uint64(2), resp.Args.UInt64Or(0, 0))
+	})
+}
+
 func TestAuthorization(t *testing.T) {
 	router := xconn.NewRouter()
 	err := router.AddRealm(realmName)

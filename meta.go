@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	MetaProcedureSessionKill = "wamp.session.kill"
+	MetaProcedureSessionKill  = "wamp.session.kill"
+	MetaProcedureSessionCount = "wamp.session.count"
 
 	MetaTopicSessionJoin  = "wamp.session.on_join"
 	MetaTopicSessionLeave = "wamp.session.on_leave"
@@ -34,7 +35,8 @@ func newMetAPI(realm string, router *Router) (*meta, error) {
 
 func (m *meta) start() error {
 	for uri, handler := range map[string]InvocationHandler{
-		MetaProcedureSessionKill: m.handleSessionKill,
+		MetaProcedureSessionKill:  m.handleSessionKill,
+		MetaProcedureSessionCount: m.handleSessionCount,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -103,4 +105,39 @@ func (m *meta) handleSessionKill(_ context.Context, invocation *Invocation) *Inv
 	_ = client.Close()
 
 	return &InvocationResult{}
+}
+
+func (m *meta) handleSessionCount(_ context.Context, invocation *Invocation) *InvocationResult {
+	var roles []any
+	if len(invocation.Args()) > 0 {
+		r, err := invocation.ArgList(0)
+		if err != nil {
+			return NewInvocationError("wamp.error.invalid_argument", err.Error())
+		}
+		roles = r
+	}
+
+	rlm, ok := m.router.realms.Load(m.realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found")
+	}
+
+	var count uint64
+	rlm.clients.Range(func(_ uint64, sess BaseSession) bool {
+		if len(roles) == 0 || contains(roles, sess.AuthRole()) {
+			count++
+		}
+		return true
+	})
+
+	return NewInvocationResult(count)
+}
+
+func contains(slice []any, val string) bool {
+	for _, s := range slice {
+		if s == val {
+			return true
+		}
+	}
+	return false
 }
