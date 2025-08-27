@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
@@ -67,7 +68,34 @@ func (s *Server) RegisterSpec(spec SerializerSpec) error {
 	return s.wsAcceptor.RegisterSpec(spec)
 }
 
+func ensureUnixSocketAvailable(address string) error {
+	conn, err := net.DialTimeout("unix", address, time.Second)
+	if err == nil {
+		_ = conn.Close()
+		return fmt.Errorf("socket at %s is already in use", address)
+	}
+
+	fileInfo, err := os.Lstat(address)
+	if err == nil {
+		if fileInfo.Mode()&os.ModeSocket == 0 {
+			return fmt.Errorf("file at %s exists and is not a UDS file", address)
+		}
+		if err := os.Remove(address); err != nil {
+			return fmt.Errorf("failed to remove old UDS file: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("error checking UDS path: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Server) ListenAndServeWebSocket(network Network, address string) (io.Closer, error) {
+	if network == NetworkUnix {
+		if err := ensureUnixSocketAvailable(address); err != nil {
+			return nil, err
+		}
+	}
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -175,6 +203,11 @@ func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
 }
 
 func (s *Server) ListenAndServeRawSocket(network Network, address string) (io.Closer, error) {
+	if network == NetworkUnix {
+		if err := ensureUnixSocketAvailable(address); err != nil {
+			return nil, err
+		}
+	}
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -184,6 +217,11 @@ func (s *Server) ListenAndServeRawSocket(network Network, address string) (io.Cl
 }
 
 func (s *Server) ListenAndServeUniversal(network Network, address string) (io.Closer, error) {
+	if network == NetworkUnix {
+		if err := ensureUnixSocketAvailable(address); err != nil {
+			return nil, err
+		}
+	}
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
