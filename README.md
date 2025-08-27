@@ -59,7 +59,7 @@ func examplePublish(session *xconn.Session) {
     if publishResponse.Err != nil {
         log.Fatalf("Failed to publish: %v", publishResponse.Err)
     }
-    log.Printf("Publsihed to topic io.xconn.example")
+    log.Printf("Published to topic io.xconn.example")
 }
 ```
 
@@ -93,8 +93,7 @@ func exampleCall(session *xconn.Session) {
 
 ### Authentication
 
-Authentication is straightforward. Simply create the desired authenticator and pass it
-to the Client.
+Authentication is straightforward.
 
 **Ticket Auth**
 
