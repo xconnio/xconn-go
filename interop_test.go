@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	xconnURL     = "ws://localhost:8080/ws"
-	crossbarURL  = "ws://localhost:8081/ws"
-	realm        = "realm1"
-	procedureAdd = "io.xconn.backend.add2"
+	xconnURL          = "ws://localhost:8080/ws"
+	xconnRawSockerURI = "unix:///tmp/nxt.sock"
+	crossbarURL       = "ws://localhost:8081/ws"
+	realm             = "realm1"
+	procedureAdd      = "io.xconn.backend.add2"
 
 	ticketUserAuthID = "ticket-user"
 	ticket           = "ticket-pass"
@@ -87,8 +88,9 @@ func testPubSub(t *testing.T, authenticator auth.ClientAuthenticator, serializer
 
 func TestInteroperability(t *testing.T) {
 	serverURLs := map[string]string{
-		"XConn":    xconnURL,
-		"Crossbar": crossbarURL,
+		"XConn":          xconnURL,
+		"XconnRawSocket": xconnRawSockerURI,
+		"Crossbar":       crossbarURL,
 	}
 
 	cryptosignAuthenticator, err := auth.NewCryptoSignAuthenticator(cryptosignUserAuthID, privateKey, map[string]any{})
