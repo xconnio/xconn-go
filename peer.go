@@ -232,6 +232,8 @@ func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
 	}
 }
 
+const maxRawSocketPayload = 16 * 1024 * 1024 // 16 MB
+
 type RawSocketPeer struct {
 	transportType TransportType
 	conn          net.Conn
@@ -260,6 +262,10 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 		return nil, err
 	}
 
+	if header.Length() > maxRawSocketPayload {
+		return nil, fmt.Errorf("rawsocket payload too large: %d bytes (max %d)", header.Length(), maxRawSocketPayload)
+	}
+
 	payload := make([]byte, header.Length())
 	_, err = io.ReadFull(r.conn, payload)
 	if err != nil {
@@ -283,6 +289,10 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 }
 
 func (r *RawSocketPeer) write(kind transports.Message, bytes []byte) error {
+	if len(bytes) > maxRawSocketPayload {
+		return fmt.Errorf("rawsocket payload too large: %d bytes (max %d)", len(bytes), maxRawSocketPayload)
+	}
+
 	r.Lock()
 	defer r.Unlock()
 	header := transports.NewMessageHeader(kind, len(bytes))
