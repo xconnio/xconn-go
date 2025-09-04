@@ -143,7 +143,7 @@ func TestInteroperability(t *testing.T) {
 		})
 
 		t.Run("CRAAuthWith"+serverName, func(t *testing.T) {
-			session, err := xconn.ConnectWAMPCRA(context.Background(), uri, realm, craUserAuthID, secret)
+			session, err := xconn.ConnectCRA(context.Background(), uri, realm, craUserAuthID, secret)
 			require.NoError(t, err)
 			require.NotNil(t, session)
 
