@@ -94,8 +94,8 @@ func ConnectTicket(ctx context.Context, uri, realm, authid, ticket string) (*Ses
 	return connect(ctx, uri, realm, ticketAuthenticator)
 }
 
-func ConnectCRA(ctx context.Context, uri, realm, authid, secret string) (*Session, error) {
-	craAuthenticator := auth.NewCRAAuthenticator(authid, secret, nil)
+func ConnectWAMPCRA(ctx context.Context, uri, realm, authid, secret string) (*Session, error) {
+	craAuthenticator := auth.NewWAMPCRAAuthenticator(authid, secret, nil)
 
 	return connect(ctx, uri, realm, craAuthenticator)
 }

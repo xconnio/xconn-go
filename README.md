@@ -107,7 +107,7 @@ if err != nil {
 **Challenge Response Auth**
 
 ```go
-session, err := xconn.ConnectCRA(context.Background(), "ws://localhost:8080/ws", "realm1", "authID", "secret")
+session, err := xconn.connectWAMPCRA(context.Background(), "ws://localhost:8080/ws", "realm1", "authID", "secret")
 if err != nil {
 	log.Fatalf("Failed to connect: %v", err)
 }
