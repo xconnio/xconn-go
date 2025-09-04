@@ -19,8 +19,8 @@ func connectTicket(url, realm, authid, ticket string, serializerSpec xconn.Seria
 	return connect(url, realm, ticketAuthenticator, serializerSpec)
 }
 
-func connectCRA(url, realm, authid, secret string, serializerSpec xconn.SerializerSpec) (*xconn.Session, error) {
-	ticketAuthenticator := auth.NewCRAAuthenticator(authid, secret, map[string]any{})
+func connectWAMPCRA(url, realm, authid, secret string, serializerSpec xconn.SerializerSpec) (*xconn.Session, error) {
+	ticketAuthenticator := auth.NewWAMPCRAAuthenticator(authid, secret, map[string]any{})
 
 	return connect(url, realm, ticketAuthenticator, serializerSpec)
 }

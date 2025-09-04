@@ -99,8 +99,8 @@ func TestInteroperability(t *testing.T) {
 	authenticators := map[string]auth.ClientAuthenticator{
 		"AnonymousAuth":     auth.NewAnonymousAuthenticator("", map[string]any{}),
 		"TicketAuth":        auth.NewTicketAuthenticator(ticketUserAuthID, ticket, map[string]any{}),
-		"WAMPCRAAuth":       auth.NewCRAAuthenticator(craUserAuthID, secret, map[string]any{}),
-		"WAMPCRAAuthSalted": auth.NewCRAAuthenticator("wamp-cra-salt-user", "cra-salt-secret", map[string]any{}),
+		"WAMPCRAAuth":       auth.NewWAMPCRAAuthenticator(craUserAuthID, secret, map[string]any{}),
+		"WAMPCRAAuthSalted": auth.NewWAMPCRAAuthenticator("wamp-cra-salt-user", "cra-salt-secret", map[string]any{}),
 		"CryptosignAuth":    cryptosignAuthenticator,
 	}
 
@@ -143,7 +143,7 @@ func TestInteroperability(t *testing.T) {
 		})
 
 		t.Run("CRAAuthWith"+serverName, func(t *testing.T) {
-			session, err := xconn.ConnectCRA(context.Background(), uri, realm, craUserAuthID, secret)
+			session, err := xconn.ConnectWAMPCRA(context.Background(), uri, realm, craUserAuthID, secret)
 			require.NoError(t, err)
 			require.NotNil(t, session)
 
