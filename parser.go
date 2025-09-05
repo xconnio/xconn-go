@@ -181,7 +181,7 @@ func (l List) Len() int {
 
 func (l List) Get(i int) (Value, error) {
 	if i < 0 || i >= len(l) {
-		return Value{}, fmt.Errorf("index %d out of range [0, %d)", i, len(l))
+		return Value{}, fmt.Errorf("index %d out of range [0, %d]", i, len(l))
 	}
 	return l[i], nil
 }
