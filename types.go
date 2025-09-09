@@ -42,7 +42,7 @@ var (
 	MsgPackSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
 		MsgpackWebsocketProtocol, &serializers.MsgPackSerializer{}, MsgPackSerializerID)
 	ProtobufSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
-		ProtobufSubProtocol, &wampprotobuf.ProtobufSerializer{}, ProtobufSerializerID)
+		ProtobufSplitSubProtocol, &wampprotobuf.ProtobufSerializer{}, ProtobufSerializerID)
 	CapnprotoSplitSerializerSpec = NewSerializerSpec( //nolint:gochecknoglobals
 		CapnprotoSplitSubProtocol, &wampprotocapnp.CapnprotoSerializer{}, CapnprotoSplitSerializerID)
 )
@@ -115,7 +115,7 @@ func DefaultWebSocketServerConfig() *WebSocketServerConfig {
 			JsonWebsocketProtocol,
 			MsgpackWebsocketProtocol,
 			CborWebsocketProtocol,
-			ProtobufSubProtocol,
+			ProtobufSplitSubProtocol,
 			CapnprotoSplitSubProtocol,
 		},
 	}

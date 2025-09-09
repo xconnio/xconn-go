@@ -22,7 +22,7 @@ var compiledWSProtocols = [][]byte{ //nolint:gochecknoglobals
 	[]byte(JsonWebsocketProtocol),
 	[]byte(MsgpackWebsocketProtocol),
 	[]byte(CborWebsocketProtocol),
-	[]byte(ProtobufSubProtocol),
+	[]byte(ProtobufSplitSubProtocol),
 	[]byte(CapnprotoSplitSubProtocol),
 }
 
@@ -30,7 +30,7 @@ var serializersByWSSubProtocol = map[string]serializers.Serializer{ //nolint:goc
 	JsonWebsocketProtocol:     &serializers.JSONSerializer{},
 	MsgpackWebsocketProtocol:  &serializers.MsgPackSerializer{},
 	CborWebsocketProtocol:     &serializers.CBORSerializer{},
-	ProtobufSubProtocol:       &wampprotobuf.ProtobufSerializer{},
+	ProtobufSplitSubProtocol:  &wampprotobuf.ProtobufSerializer{},
 	CapnprotoSplitSubProtocol: &wampprotocapnp.CapnprotoSerializer{},
 }
 
