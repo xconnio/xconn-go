@@ -111,9 +111,6 @@ func TestInteroperability(t *testing.T) {
 			"MsgPack": xconn.MsgPackSerializerSpec,
 		}
 
-		if url == xconnURL {
-			serializers["Capnproto"] = xconn.CapnprotoSplitSerializerSpec
-		}
 		for authName, authenticator := range authenticators {
 			for serializerName, serializer := range serializers {
 				t.Run(serverName+"With"+authName+"And"+serializerName, func(t *testing.T) {

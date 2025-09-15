@@ -321,7 +321,7 @@ func TestPerformance(t *testing.T) {
 	require.NoError(t, err)
 
 	callerClient := xconn.Client{
-		SerializerSpec: xconn.CapnprotoSplitSerializerSpec,
+		SerializerSpec: xconn.CBORSerializerSpec,
 	}
 
 	caller, err := callerClient.Connect(context.Background(), "rs://localhost:9000", "realm1")
@@ -329,7 +329,7 @@ func TestPerformance(t *testing.T) {
 	require.NotNil(t, caller)
 
 	calleeClient := xconn.Client{
-		SerializerSpec: xconn.CapnprotoSplitSerializerSpec,
+		SerializerSpec: xconn.CBORSerializerSpec,
 	}
 
 	callee, err := calleeClient.Connect(context.Background(), "rs://localhost:9000", "realm1")

@@ -23,9 +23,3 @@ func connectMsgPack(url, realm string) (*xconn.Session, error) {
 
 	return client.Connect(context.Background(), url, realm)
 }
-
-func connectProtobuf(url, realm string) (*xconn.Session, error) {
-	client := xconn.Client{SerializerSpec: xconn.ProtobufSerializerSpec}
-
-	return client.Connect(context.Background(), url, realm)
-}
