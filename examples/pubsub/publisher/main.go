@@ -37,7 +37,7 @@ func main() {
 		Kwarg("Hello World!", "I love WAMP").
 		Do()
 	if publishResponse.Err != nil {
-		log.Fatalf("Failed to publish: %s", err)
+		log.Fatalf("Failed to publish: %s", publishResponse.Err)
 	}
 
 	log.Printf("Published events to %s", testTopic)

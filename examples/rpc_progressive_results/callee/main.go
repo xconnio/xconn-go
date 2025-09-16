@@ -38,8 +38,8 @@ func main() {
 	}
 
 	registerResponse := callee.Register(procedureProgressUpload, invocationHandler).Do()
-	if err != nil {
-		log.Fatalf("Failed to register method: %s", err)
+	if registerResponse.Err != nil {
+		log.Fatalf("Failed to register method: %s", registerResponse.Err)
 	}
 	defer func() { _ = registerResponse.Unregister() }()
 
