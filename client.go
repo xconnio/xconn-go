@@ -26,13 +26,14 @@ type Client struct {
 }
 
 func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Session, error) {
-	if c.SerializerSpec == nil {
-		c.SerializerSpec = CBORSerializerSpec
-	}
-
 	if strings.HasPrefix(uri, "ws://") || strings.HasPrefix(uri, "wss://") || strings.HasPrefix(uri, "unix+ws://") {
+		subprotocols := wsProtocols
+		if c.SerializerSpec != nil {
+			subprotocols = []string{c.SerializerSpec.SubProtocol()}
+		}
+
 		dialerConfig := &WSDialerConfig{
-			SubProtocol:       c.SerializerSpec.SubProtocol(),
+			SubProtocols:      subprotocols,
 			DialTimeout:       c.DialTimeout,
 			NetDial:           c.NetDial,
 			KeepAliveInterval: c.KeepAliveInterval,
@@ -49,9 +50,13 @@ func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Sessio
 			return nil, err
 		}
 
-		return NewSession(base, c.SerializerSpec.Serializer()), nil // nolint: contextcheck
+		return NewSession(base, base.Serializer()), nil // nolint: contextcheck
 	} else if strings.HasPrefix(uri, "rs://") || strings.HasPrefix(uri, "rss://") ||
 		strings.HasPrefix(uri, "unix://") || strings.HasPrefix(uri, "unix+rs://") {
+		if c.SerializerSpec == nil {
+			c.SerializerSpec = CBORSerializerSpec
+		}
+
 		dialerConfig := &RawSocketDialerConfig{
 			Serializer:        transports.Serializer(c.SerializerSpec.SerializerID()),
 			DialTimeout:       c.DialTimeout,

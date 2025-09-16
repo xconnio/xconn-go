@@ -38,7 +38,7 @@ func TestJoin(t *testing.T) {
 
 	var joiner xconn.WebSocketJoiner
 	base, err := joiner.Join(context.Background(), address, "realm1", &xconn.WSDialerConfig{
-		SubProtocol: xconn.JsonWebsocketProtocol,
+		SubProtocols: []string{xconn.JsonWebsocketProtocol},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, base)

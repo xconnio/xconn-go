@@ -22,6 +22,12 @@ var compiledWSProtocols = [][]byte{ //nolint:gochecknoglobals
 	[]byte(CborWebsocketProtocol),
 }
 
+var wsProtocols = []string{ //nolint:gochecknoglobals
+	CborWebsocketProtocol,
+	MsgpackWebsocketProtocol,
+	JsonWebsocketProtocol,
+}
+
 var serializersByWSSubProtocol = map[string]serializers.Serializer{ //nolint:gochecknoglobals
 	JsonWebsocketProtocol:    &serializers.JSONSerializer{},
 	MsgpackWebsocketProtocol: &serializers.MsgPackSerializer{},

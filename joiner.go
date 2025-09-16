@@ -31,29 +31,32 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *W
 		return nil, err
 	}
 
-	if w.SerializerSpec == nil {
-		w.SerializerSpec = JSONSerializerSpec
-	}
-
 	if w.Authenticator == nil {
 		w.Authenticator = auth.NewAnonymousAuthenticator("", nil)
 	}
 
-	peer, err := DialWebSocket(ctx, parsedURL, config)
+	peer, subprotocol, err := DialWebSocket(ctx, parsedURL, config)
 	if err != nil {
 		return nil, err
 	}
 
-	return Join(peer, realm, w.SerializerSpec.Serializer(), w.Authenticator)
+	var serializer serializers.Serializer
+	if w.SerializerSpec != nil {
+		serializer = w.SerializerSpec.Serializer()
+	} else {
+		serializer = serializersByWSSubProtocol[subprotocol]
+	}
+
+	return Join(peer, realm, serializer, w.Authenticator)
 }
 
-func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig) (Peer, error) {
+func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig) (Peer, string, error) {
 	if config == nil {
-		config = &WSDialerConfig{SubProtocol: JsonWebsocketProtocol}
+		config = &WSDialerConfig{SubProtocols: wsProtocols}
 	}
 
 	wsDialer := ws.Dialer{
-		Protocols: []string{config.SubProtocol},
+		Protocols: config.SubProtocols,
 	}
 
 	if config.DialTimeout == 0 {
@@ -76,21 +79,26 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 		wsDialer.NetDial = config.NetDial
 	}
 
-	conn, _, _, err := wsDialer.Dial(ctx, url.String())
+	conn, _, hs, err := wsDialer.Dial(ctx, url.String())
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	isBinary := config.SubProtocol != JsonWebsocketProtocol
+	isBinary := hs.Protocol != JsonWebsocketProtocol
 
 	peerConfig := WSPeerConfig{
-		Protocol:          config.SubProtocol,
+		Protocol:          hs.Protocol,
 		Binary:            isBinary,
 		Server:            false,
 		KeepAliveInterval: config.KeepAliveInterval,
 		KeepAliveTimeout:  config.KeepAliveTimeout,
 	}
-	return NewWebSocketPeer(conn, peerConfig)
+	wsPeer, err := NewWebSocketPeer(conn, peerConfig)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return wsPeer, hs.Protocol, nil
 }
 
 func (r *RawSocketJoiner) Join(ctx context.Context, uri, realm string,

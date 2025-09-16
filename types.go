@@ -64,7 +64,7 @@ type Peer interface {
 }
 
 type WSDialerConfig struct {
-	SubProtocol       string
+	SubProtocols      []string
 	DialTimeout       time.Duration
 	NetDial           func(ctx context.Context, network, addr string) (net.Conn, error)
 	KeepAliveInterval time.Duration
