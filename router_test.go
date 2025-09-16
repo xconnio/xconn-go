@@ -63,7 +63,6 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 	router := xconn.NewRouter()
 	err := router.AddRealm(realmName)
 	require.NoError(t, err)
-	require.NoError(t, router.AutoDiscloseCaller(realmName, true))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	session, err := xconn.ConnectInMemory(router, realmName)
@@ -106,7 +105,6 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 	router := xconn.NewRouter()
 	err := router.AddRealm(realmName)
 	require.NoError(t, err)
-	require.NoError(t, router.AutoDiscloseCaller(realmName, true))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	session, err := xconn.ConnectInMemory(router, realmName)
@@ -149,7 +147,6 @@ func TestRouterMetaKillAll(t *testing.T) {
 	router := xconn.NewRouter()
 	err := router.AddRealm(realmName)
 	require.NoError(t, err)
-	require.NoError(t, router.AutoDiscloseCaller(realmName, true))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	session, err := xconn.ConnectInMemory(router, realmName)

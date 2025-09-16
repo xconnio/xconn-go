@@ -164,7 +164,7 @@ func (r *Router) EnableMetaAPI(realm string) error {
 	}
 
 	r.metaAPI.Store(realm, metaAPI)
-	return nil
+	return r.AutoDiscloseCaller(realm, true)
 }
 
 func (r *Router) AutoDiscloseCaller(realm string, disclose bool) error {
