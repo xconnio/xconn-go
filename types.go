@@ -292,6 +292,7 @@ type Error struct {
 	URI    string
 	Args   []any
 	Kwargs map[string]any
+	Err    error
 }
 
 func (e *Error) Error() string {
@@ -310,6 +311,10 @@ func (e *Error) Error() string {
 			kwargs = append(kwargs, fmt.Sprintf("%s=%v", key, value))
 		}
 		errStr += ": " + strings.Join(kwargs, ", ")
+	}
+
+	if e.Err != nil {
+		errStr += e.Err.Error()
 	}
 
 	return errStr
@@ -590,29 +595,61 @@ type CallResponse struct {
 	Args    List
 	Kwargs  Dict
 	Details map[string]any
-	Err     error
+	err     *Error
+}
+
+func (r *CallResponse) IsError() bool {
+	return r.err != nil
+}
+
+func (r *CallResponse) Error() *Error {
+	return r.err
 }
 
 type RegisterResponse struct {
 	registration *Registration
-	Err          error
+	err          *Error
 }
 
-func (r RegisterResponse) Unregister() error {
+func (r *RegisterResponse) Unregister() error {
 	return r.registration.unregister()
+}
+
+func (r *RegisterResponse) IsError() bool {
+	return r.err != nil
+}
+
+func (r *RegisterResponse) Error() *Error {
+	return r.err
 }
 
 type SubscribeResponse struct {
 	subscription *Subscription
-	Err          error
+	err          *Error
 }
 
-func (r SubscribeResponse) Unsubscribe() error {
+func (r *SubscribeResponse) Unsubscribe() error {
 	return r.subscription.unsubscribe()
 }
 
+func (r *SubscribeResponse) IsError() bool {
+	return r.err != nil
+}
+
+func (r *SubscribeResponse) Error() *Error {
+	return r.err
+}
+
 type PublishResponse struct {
-	Err error
+	err *Error
+}
+
+func (r *PublishResponse) IsError() bool {
+	return r.err != nil
+}
+
+func (r *PublishResponse) Error() *Error {
+	return r.err
 }
 
 type Strategy int

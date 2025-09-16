@@ -44,8 +44,8 @@ func main() {
 		fmt.Printf("Progress update: chunk %v acknowledged by server\n", chunkProgress)
 	}).Do()
 
-	if callResponse.Err != nil {
-		log.Fatalf("Failed to upload data: %s", callResponse.Err)
+	if callResponse.IsError() {
+		log.Fatalf("Failed to upload data: %s", callResponse.Error().Error())
 	}
 
 	fmt.Printf("Upload complete: %s\n", callResponse.Args[0])

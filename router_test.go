@@ -30,13 +30,13 @@ func TestRouterMetaKill(t *testing.T) {
 	subResponse := session1.Subscribe(xconn.MetaTopicSessionJoin, func(event *xconn.Event) {
 		joinChan <- event
 	}).Do()
-	require.NoError(t, subResponse.Err)
+	require.False(t, subResponse.IsError())
 
 	leaveChan := make(chan *xconn.Event)
 	subResponse = session1.Subscribe(xconn.MetaTopicSessionLeave, func(event *xconn.Event) {
 		leaveChan <- event
 	}).Do()
-	require.NoError(t, subResponse.Err)
+	require.False(t, subResponse.IsError())
 
 	session2, err := xconn.ConnectInMemory(router, realmName)
 	require.NoError(t, err)
@@ -47,7 +47,7 @@ func TestRouterMetaKill(t *testing.T) {
 	}, 1*time.Second, 50*time.Millisecond)
 
 	response := session1.Call(xconn.MetaProcedureSessionKill).Args(session2.ID()).Do()
-	require.NoError(t, response.Err)
+	require.False(t, response.IsError())
 
 	require.Eventually(t, func() bool {
 		<-leaveChan
@@ -79,7 +79,7 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 
 	// Kill all sessions with authid "test"
 	resp := session.Call(xconn.MetaProcedureSessionKillByAuthID).Arg(baseSession.AuthID()).Do()
-	require.NoError(t, resp.Err)
+	require.False(t, resp.IsError())
 	sessionList, err := resp.Args.List(0)
 	require.NoError(t, err)
 	require.Contains(t, sessionList, session1.ID())
@@ -98,7 +98,7 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 
 	// Test error case
 	resp = session.Call(xconn.MetaProcedureSessionKillByAuthID).Do()
-	require.EqualError(t, resp.Err, "wamp.error.invalid_argument: index 0 out of range [0, 0]")
+	require.EqualError(t, resp.Error(), "wamp.error.invalid_argument: index 0 out of range [0, 0]")
 }
 
 func TestRouterMetaKillByAuthRole(t *testing.T) {
@@ -121,7 +121,7 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 
 	// Kill all sessions with authrole "test"
 	resp := session.Call(xconn.MetaProcedureSessionKillByAuthRole).Arg(baseSession.AuthRole()).Do()
-	require.NoError(t, resp.Err)
+	require.False(t, resp.IsError())
 	sessionList, err := resp.Args.List(0)
 	require.NoError(t, err)
 	require.Contains(t, sessionList, session1.ID())
@@ -140,7 +140,7 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 
 	// Test error case
 	resp = session.Call(xconn.MetaProcedureSessionKillByAuthRole).Do()
-	require.EqualError(t, resp.Err, "wamp.error.invalid_argument: index 0 out of range [0, 0]")
+	require.EqualError(t, resp.Error(), "wamp.error.invalid_argument: index 0 out of range [0, 0]")
 }
 
 func TestRouterMetaKillAll(t *testing.T) {
@@ -159,7 +159,7 @@ func TestRouterMetaKillAll(t *testing.T) {
 
 	// Kill all sessions
 	resp := session.Call(xconn.MetaProcedureSessionKillAll).Do()
-	require.NoError(t, resp.Err)
+	require.False(t, resp.IsError())
 	sessionList, err := resp.Args.List(0)
 	require.NoError(t, err)
 	require.Contains(t, sessionList, session1.ID())
@@ -188,7 +188,7 @@ func TestRouterMetaSessionCount(t *testing.T) {
 
 	t.Run("CountSessionWithRoleTrusted", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Arg([]any{"trusted"}).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		require.Equal(t, uint64(2), resp.Args.UInt64Or(0, 0))
 	})
 
@@ -199,13 +199,13 @@ func TestRouterMetaSessionCount(t *testing.T) {
 
 	t.Run("CountAllSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		require.Equal(t, uint64(3), resp.Args.UInt64Or(0, 0))
 	})
 
 	t.Run("CountOnlyAdminSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Arg([]any{"admin"}).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		require.Equal(t, uint64(1), resp.Args.UInt64Or(0, 0))
 	})
 
@@ -214,7 +214,7 @@ func TestRouterMetaSessionCount(t *testing.T) {
 
 	t.Run("CountAfterAdminSessionLeaves", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		require.Equal(t, uint64(2), resp.Args.UInt64Or(0, 0))
 	})
 }
@@ -230,7 +230,7 @@ func TestRouterMetaSessionList(t *testing.T) {
 
 	t.Run("ListSessionsWithRoleTrusted", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Arg([]any{"trusted"}).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		ids := resp.Args.ListOr(0, nil)
 		require.Len(t, ids, 2)
 	})
@@ -242,14 +242,14 @@ func TestRouterMetaSessionList(t *testing.T) {
 
 	t.Run("ListAllSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		ids := resp.Args.ListOr(0, nil)
 		require.Len(t, ids, 3)
 	})
 
 	t.Run("ListOnlyAdminSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Arg([]any{"admin"}).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		ids := resp.Args.ListOr(0, nil)
 		require.Len(t, ids, 1)
 		require.Equal(t, session2.ID(), ids[0])
@@ -260,7 +260,7 @@ func TestRouterMetaSessionList(t *testing.T) {
 
 	t.Run("ListAfterAdminSessionLeaves", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 		ids := resp.Args.ListOr(0, nil)
 		require.Len(t, ids, 2)
 	})
@@ -277,12 +277,12 @@ func TestRouterMetaSessionGet(t *testing.T) {
 	expectedDetails := map[string]any{"authid": session.Details().AuthID(), "authmethod": "", "authprovider": "",
 		"authrole": "trusted", "session": session.ID()}
 	resp := session.Call(xconn.MetaProcedureSessionGet).Arg(session.ID()).Do()
-	require.NoError(t, resp.Err)
+	require.False(t, resp.IsError())
 	require.Equal(t, expectedDetails, resp.Args.Raw()[0])
 
 	// test err
 	respErr := session.Call(xconn.MetaProcedureSessionGet).Arg(uint64(2152454520)).Do()
-	require.Equal(t, "wamp.error.no_such_session: invalid session id", respErr.Err.Error())
+	require.Equal(t, "wamp.error.no_such_session: invalid session id", respErr.Error().Error())
 }
 
 func TestAuthorization(t *testing.T) {
@@ -318,16 +318,16 @@ func TestAuthorization(t *testing.T) {
 			func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 				return &xconn.InvocationResult{}
 			}).Do()
-		require.NoError(t, registerResp.Err)
+		require.False(t, registerResp.IsError())
 
 		callResp := session.Call("io.xconn.test").Do()
-		require.NoError(t, callResp.Err)
+		require.False(t, callResp.IsError())
 
 		publishResp := session.Publish("io.xconn.test").Acknowledge(true).Do()
-		require.EqualError(t, publishResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, publishResp.Error().Error(), "wamp.error.authorization_failed")
 
 		subscribeResp := session.Subscribe("io.xconn.test", func(event *xconn.Event) {}).Do()
-		require.EqualError(t, subscribeResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, subscribeResp.Error().Error(), "wamp.error.authorization_failed")
 	})
 
 	t.Run("AllowPublish", func(t *testing.T) {
@@ -339,19 +339,19 @@ func TestAuthorization(t *testing.T) {
 		session := createSession("publishOnly")
 
 		callResp := session.Call("io.xconn.test").Do()
-		require.EqualError(t, callResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, callResp.Error().URI, "wamp.error.authorization_failed")
 
 		publishResp := session.Publish("io.xconn.test").Do()
-		require.NoError(t, publishResp.Err)
+		require.False(t, publishResp.IsError())
 
 		subscribeResp := session.Subscribe("io.xconn.test", func(event *xconn.Event) {}).Do()
-		require.EqualError(t, subscribeResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, subscribeResp.Error().Error(), "wamp.error.authorization_failed")
 
 		registerResp := session.Register("io.xconn.test",
 			func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 				return &xconn.InvocationResult{}
 			}).Do()
-		require.EqualError(t, registerResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, registerResp.Error().Error(), "wamp.error.authorization_failed")
 	})
 
 	t.Run("AllowSubscribeAndPublish", func(t *testing.T) {
@@ -367,16 +367,16 @@ func TestAuthorization(t *testing.T) {
 			func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 				return &xconn.InvocationResult{}
 			}).Do()
-		require.EqualError(t, registerResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, registerResp.Error().Error(), "wamp.error.authorization_failed")
 
 		callResp := session.Call("io.xconn.test").Do()
-		require.EqualError(t, callResp.Err, "wamp.error.authorization_failed")
+		require.Equal(t, callResp.Error().URI, "wamp.error.authorization_failed")
 
 		subscribeResp := session.Subscribe("io.xconn.test", func(event *xconn.Event) {}).Do()
-		require.NoError(t, subscribeResp.Err)
+		require.False(t, subscribeResp.IsError())
 
 		publishResp := session.Publish("io.xconn.test").Acknowledge(true).Do()
-		require.NoError(t, publishResp.Err)
+		require.False(t, publishResp.IsError())
 	})
 }
 
@@ -492,7 +492,7 @@ func TestCustomAuthorizer(t *testing.T) {
 		resp := s.Register("io.xconn.test", func(ctx context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
 			return xconn.NewInvocationResult()
 		}).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 	})
 
 	t.Run("DenyRegister", func(t *testing.T) {
@@ -500,42 +500,42 @@ func TestCustomAuthorizer(t *testing.T) {
 		resp := s.Register("io.xconn.test", func(ctx context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
 			return xconn.NewInvocationResult()
 		}).Do()
-		require.EqualError(t, resp.Err, "wamp.error.authorization_failed")
+		require.EqualError(t, resp.Error(), "wamp.error.authorization_failed")
 	})
 
 	t.Run("AllowCall", func(t *testing.T) {
 		s := createSession("callRole")
 		resp := s.Call("io.xconn.test").Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 	})
 
 	t.Run("DenyCall", func(t *testing.T) {
 		s := createSession("denied")
 		resp := s.Call("io.xconn.test").Do()
-		require.EqualError(t, resp.Err, "wamp.error.authorization_failed")
+		require.EqualError(t, resp.Error(), "wamp.error.authorization_failed")
 	})
 
 	t.Run("AllowSubscribe", func(t *testing.T) {
 		s := createSession("subscribeRole")
 		resp := s.Subscribe("io.xconn.test", func(e *xconn.Event) {}).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 	})
 
 	t.Run("DenySubscribe", func(t *testing.T) {
 		s := createSession("denied")
 		resp := s.Subscribe("io.xconn.test", func(e *xconn.Event) {}).Do()
-		require.EqualError(t, resp.Err, "wamp.error.authorization_failed")
+		require.EqualError(t, resp.Error(), "wamp.error.authorization_failed")
 	})
 
 	t.Run("AllowPublish", func(t *testing.T) {
 		s := createSession("publishRole")
 		resp := s.Publish("io.xconn.test").Acknowledge(true).Do()
-		require.NoError(t, resp.Err)
+		require.False(t, resp.IsError())
 	})
 
 	t.Run("DenyPublish", func(t *testing.T) {
 		s := createSession("denied")
 		resp := s.Publish("io.xconn.test").Acknowledge(true).Do()
-		require.EqualError(t, resp.Err, "wamp.error.authorization_failed")
+		require.EqualError(t, resp.Error(), "wamp.error.authorization_failed")
 	})
 }

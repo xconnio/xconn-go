@@ -19,16 +19,16 @@ func main() {
 
 	// Call procedure "io.xconn.echo"
 	echoResponse := caller.Call(testProcedureEcho).Do()
-	if echoResponse.Err != nil {
-		log.Fatalf("Failed to call %s: %s", testProcedureEcho, echoResponse.Err)
+	if echoResponse.IsError() {
+		log.Fatalf("Failed to call %s: %s", testProcedureEcho, echoResponse.Error().Error())
 	}
 	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResponse.Args,
 		echoResponse.Kwargs, echoResponse.Details)
 
 	// Call procedure "io.xconn.sum"
 	sumResponse := caller.Call(testProcedureSum).Arg(1).Arg(2).Do()
-	if sumResponse.Err != nil {
-		log.Fatalf("Failed to call %s: %s", testProcedureSum, sumResponse.Err)
+	if sumResponse.IsError() {
+		log.Fatalf("Failed to call %s: %s", testProcedureSum, sumResponse.Error().Error())
 	}
 	log.Printf("Sum=%s", sumResponse.Args[0])
 

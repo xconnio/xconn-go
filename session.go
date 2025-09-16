@@ -358,13 +358,14 @@ func (s *Session) Register(procedure string, handler InvocationHandler) *Registe
 func (s *Session) register(procedure string, handler InvocationHandler,
 	options map[string]any) RegisterResponse {
 	if !s.Connected() {
-		return RegisterResponse{Err: fmt.Errorf("cannot register procedure: session not established")}
+		return RegisterResponse{err: &Error{Err: fmt.Errorf("cannot register procedure: session not established")}}
+
 	}
 
 	register := messages.NewRegister(s.idGen.NextID(), options, procedure)
 	toSend, err := s.proto.SendMessage(register)
 	if err != nil {
-		return RegisterResponse{Err: err}
+		return RegisterResponse{err: &Error{Err: err}}
 	}
 
 	channel := make(chan *registerResponse, 1)
@@ -372,13 +373,13 @@ func (s *Session) register(procedure string, handler InvocationHandler,
 	defer s.registerRequests.Delete(register.RequestID())
 
 	if err = s.base.Write(toSend); err != nil {
-		return RegisterResponse{Err: err}
+		return RegisterResponse{err: &Error{Err: err}}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return RegisterResponse{Err: response.error}
+			return RegisterResponse{err: response.error}
 		}
 
 		s.registrations.Store(response.msg.RegistrationID(), handler)
@@ -388,25 +389,25 @@ func (s *Session) register(procedure string, handler InvocationHandler,
 		}
 		return RegisterResponse{registration: registration}
 	case <-time.After(10 * time.Second):
-		return RegisterResponse{Err: fmt.Errorf("register request timed out")}
+		return RegisterResponse{err: &Error{Err: fmt.Errorf("register request timed out")}}
 	}
 }
 
 func (s *Session) call(ctx context.Context, call *messages.Call) CallResponse {
 	if !s.Connected() {
-		return CallResponse{Err: fmt.Errorf("cannot call procedure: session not established")}
+		return CallResponse{err: &Error{Err: fmt.Errorf("cannot call procedure: session not established")}}
 	}
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
-		return CallResponse{Err: err}
+		return CallResponse{err: &Error{Err: err}}
 	}
 
 	channel := make(chan *callResponse, 1)
 	s.callRequests.Store(call.RequestID(), channel)
 	defer s.callRequests.Delete(call.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return CallResponse{Err: err}
+		return CallResponse{err: &Error{Err: err}}
 	}
 
 	return s.waitForCallResult(ctx, channel)
@@ -424,11 +425,17 @@ func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwA
 	if rawPayload {
 		delete(options, "x_payload_raw")
 		if len(args) > 1 {
-			return CallResponse{Err: fmt.Errorf("must provide at most one argument when x_payload_raw is set")}
+			return CallResponse{err: &Error{
+				URI:  wampproto.ErrInvalidArgument,
+				Args: []any{"must provide at most one argument when x_payload_raw is set"},
+			}}
 		}
 
 		if len(kwArgs) != 0 {
-			return CallResponse{Err: fmt.Errorf("must not provide kwargs when x_payload_raw is set")}
+			return CallResponse{err: &Error{
+				URI:  wampproto.ErrInvalidArgument,
+				Args: []any{"must not provide kwargs when x_payload_raw is set"},
+			}}
 		}
 
 		if len(args) == 0 {
@@ -436,7 +443,10 @@ func (s *Session) callRaw(ctx context.Context, procedure string, args []any, kwA
 		} else {
 			payload, ok := args[0].([]byte)
 			if !ok {
-				return CallResponse{Err: fmt.Errorf("argument must be a byte array when x_payload_raw is set")}
+				return CallResponse{err: &Error{
+					URI:  wampproto.ErrInvalidArgument,
+					Args: []any{"argument must be a byte array when x_payload_raw is set"},
+				}}
 			}
 
 			call = messages.NewCallBinary(s.idGen.NextID(), options, procedure, payload, 0)
@@ -465,20 +475,20 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 	progressFunc ProgressSender) CallResponse {
 	progress := progressFunc(ctx)
 	if progress.Err != nil {
-		return CallResponse{Err: progress.Err}
+		return CallResponse{err: &Error{Err: progress.Err}}
 	}
 	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.Kwargs)
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
-		return CallResponse{Err: err}
+		return CallResponse{err: &Error{Err: err}}
 	}
 
 	channel := make(chan *callResponse, 1)
 	s.callRequests.Store(call.RequestID(), channel)
 	defer s.callRequests.Delete(call.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return CallResponse{Err: err}
+		return CallResponse{err: &Error{Err: err}}
 	}
 
 	callInProgress, _ := progress.Options[wampproto.OptionProgress].(bool)
@@ -514,7 +524,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 
 	progress := progressFunc(ctx)
 	if progress.Err != nil {
-		return CallResponse{Err: progress.Err}
+		return CallResponse{err: &Error{Err: progress.Err}}
 	}
 	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.Kwargs)
 	s.progressHandlers.Store(call.RequestID(), progressHandler)
@@ -522,14 +532,14 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 
 	toSend, err := s.proto.SendMessage(call)
 	if err != nil {
-		return CallResponse{Err: err}
+		return CallResponse{err: &Error{Err: err}}
 	}
 
 	channel := make(chan *callResponse, 1)
 	s.callRequests.Store(call.RequestID(), channel)
 	defer s.callRequests.Delete(call.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return CallResponse{Err: err}
+		return CallResponse{err: &Error{Err: err}}
 	}
 
 	callInProgress, _ := progress.Options[wampproto.OptionProgress].(bool)
@@ -574,7 +584,7 @@ func (s *Session) waitForCallResult(ctx context.Context, channel chan *callRespo
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return CallResponse{Err: response.error}
+			return CallResponse{err: response.error}
 		}
 
 		r := CallResponse{
@@ -584,9 +594,9 @@ func (s *Session) waitForCallResult(ctx context.Context, channel chan *callRespo
 		}
 		return r
 	case <-ctx.Done():
-		return CallResponse{Err: fmt.Errorf("call request timed out")}
+		return CallResponse{err: &Error{Err: fmt.Errorf("call request timed out")}}
 	case <-s.leaveChan:
-		return CallResponse{Err: fmt.Errorf("connection closed unexpectedly")}
+		return CallResponse{err: &Error{Err: fmt.Errorf("connection closed unexpectedly")}}
 	}
 }
 
@@ -597,25 +607,25 @@ func (s *Session) Subscribe(topic string, handler EventHandler) *SubscribeReques
 func (s *Session) subscribe(topic string, handler EventHandler, options map[string]any) SubscribeResponse {
 	subscribe := messages.NewSubscribe(s.idGen.NextID(), options, topic)
 	if !s.Connected() {
-		return SubscribeResponse{Err: fmt.Errorf("cannot subscribe to topic: session not established")}
+		return SubscribeResponse{err: &Error{Err: fmt.Errorf("cannot subscribe to topic: session not established")}}
 	}
 
 	toSend, err := s.proto.SendMessage(subscribe)
 	if err != nil {
-		return SubscribeResponse{Err: err}
+		return SubscribeResponse{err: &Error{Err: err}}
 	}
 
 	channel := make(chan *subscribeResponse, 1)
 	s.subscribeRequests.Store(subscribe.RequestID(), channel)
 	defer s.subscribeRequests.Delete(subscribe.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return SubscribeResponse{Err: err}
+		return SubscribeResponse{err: &Error{Err: err}}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return SubscribeResponse{Err: response.error}
+			return SubscribeResponse{err: response.error}
 		}
 
 		sub := &Subscription{
@@ -634,26 +644,26 @@ func (s *Session) subscribe(topic string, handler EventHandler, options map[stri
 		}
 		return SubscribeResponse{subscription: sub}
 	case <-time.After(10 * time.Second):
-		return SubscribeResponse{Err: fmt.Errorf("subscribe request timed")}
+		return SubscribeResponse{err: &Error{Err: fmt.Errorf("subscribe request timed")}}
 	}
 }
 
 func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
 	options map[string]any) PublishResponse {
 	if !s.Connected() {
-		return PublishResponse{Err: fmt.Errorf("cannot publish to topic: session not established")}
+		return PublishResponse{err: &Error{Err: fmt.Errorf("cannot publish to topic: session not established")}}
 	}
 
 	publish := messages.NewPublish(s.idGen.NextID(), options, topic, args, kwArgs)
 	toSend, err := s.proto.SendMessage(publish)
 	if err != nil {
-		return PublishResponse{Err: err}
+		return PublishResponse{err: &Error{Err: err}}
 	}
 
 	ack, exists := publish.Options()["acknowledge"].(bool)
 	if !exists || !ack {
 		if err = s.base.Write(toSend); err != nil {
-			return PublishResponse{Err: err}
+			return PublishResponse{err: &Error{Err: err}}
 		}
 
 		return PublishResponse{}
@@ -663,18 +673,18 @@ func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
 	s.publishRequests.Store(publish.RequestID(), channel)
 	defer s.publishRequests.Delete(publish.RequestID())
 	if err = s.base.Write(toSend); err != nil {
-		return PublishResponse{Err: err}
+		return PublishResponse{err: &Error{Err: err}}
 	}
 
 	select {
 	case response := <-channel:
 		if response.error != nil {
-			return PublishResponse{Err: response.error}
+			return PublishResponse{err: response.error}
 		}
 
 		return PublishResponse{}
 	case <-time.After(10 * time.Second):
-		return PublishResponse{Err: fmt.Errorf("publish request timed")}
+		return PublishResponse{err: &Error{Err: fmt.Errorf("publish request timed")}}
 	}
 }
 

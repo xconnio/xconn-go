@@ -25,8 +25,8 @@ func main() {
 	}
 
 	subscribeResponse := subscriber.Subscribe(testTopic, eventHandler).Do()
-	if subscribeResponse.Err != nil {
-		log.Fatalf("Failed to subscribe: %s", subscribeResponse.Err)
+	if subscribeResponse.IsError() {
+		log.Fatalf("Failed to subscribe: %s", subscribeResponse.Error())
 	}
 	log.Printf("Subscribed to topic: %s", testTopic)
 

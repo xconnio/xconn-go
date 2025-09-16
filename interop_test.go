@@ -45,7 +45,7 @@ func testCall(t *testing.T, authenticator auth.ClientAuthenticator, serializer x
 	session := connectSession(t, authenticator, serializer, url)
 
 	callResponse := session.Call(procedureAdd).Args(2, 2).Do()
-	require.NoError(t, callResponse.Err)
+	require.False(t, callResponse.IsError())
 
 	sumResult, ok := util.AsUInt64(callResponse.Args.Raw()[0])
 	require.True(t, ok)
@@ -59,11 +59,11 @@ func testRPC(t *testing.T, authenticator auth.ClientAuthenticator, serializer xc
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 			return &xconn.InvocationResult{Args: invocation.Args(), Kwargs: invocation.Kwargs()}
 		}).Do()
-	require.NoError(t, registerResponse.Err)
+	require.False(t, registerResponse.IsError())
 
 	args := []any{"Hello", "wamp"}
 	callResponse := session.Call("io.xconn.test").Args(args...).Do()
-	require.NoError(t, callResponse.Err)
+	require.False(t, callResponse.IsError())
 	require.Equal(t, args, callResponse.Args.Raw())
 
 	err := registerResponse.Unregister()
@@ -77,10 +77,10 @@ func testPubSub(t *testing.T, authenticator auth.ClientAuthenticator, serializer
 	subscribeResponse := session.Subscribe("io.xconn.test", func(event *xconn.Event) {
 		require.Equal(t, args, event.Args())
 	}).Do()
-	require.NoError(t, subscribeResponse.Err)
+	require.False(t, subscribeResponse.IsError())
 
 	publishResponse := session.Publish("io.xconn.test").Args(args...).Option("acknowledge", true).Do()
-	require.NoError(t, publishResponse.Err)
+	require.False(t, publishResponse.IsError())
 
 	err := subscribeResponse.Unsubscribe()
 	require.NoError(t, err)
