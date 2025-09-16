@@ -34,8 +34,8 @@ func main() {
 	}
 
 	registerResponse := callee.Register(procedureProgressUpload, invocationHandler).Do()
-	if registerResponse.Err != nil {
-		log.Fatalf("Failed to register procedure: %s", registerResponse.Err)
+	if registerResponse.IsError() {
+		log.Fatalf("Failed to register procedure: %s", registerResponse.Error())
 	}
 	defer func() { _ = registerResponse.Unregister() }()
 

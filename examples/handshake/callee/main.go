@@ -56,8 +56,8 @@ func main() {
 	}
 
 	reg := callee.Register(procedureHandshake, handler).Do()
-	if reg.Err != nil {
-		log.Fatalf("Failed to register procedure: %v", reg.Err)
+	if reg.IsError() {
+		log.Fatalf("Failed to register procedure: %v", reg.Error())
 	}
 	defer func() { _ = reg.Unregister() }()
 

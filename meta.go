@@ -50,8 +50,8 @@ func (m *meta) start() error {
 		MetaProcedureSessionKillAll:        m.handleSessionKillAll,
 	} {
 		response := m.session.Register(uri, handler).Do()
-		if response.Err != nil {
-			return response.Err
+		if response.IsError() {
+			return response.Error()
 		}
 	}
 

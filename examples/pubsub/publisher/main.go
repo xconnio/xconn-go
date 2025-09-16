@@ -18,26 +18,26 @@ func main() {
 	}
 
 	publishResponse := publisher.Publish(testTopic).Do()
-	if publishResponse.Err != nil {
-		log.Fatalf("Failed to publish: %s", err)
+	if publishResponse.IsError() {
+		log.Fatalf("Failed to publish: %s", publishResponse.Error().Error())
 	}
 
 	publishResponse = publisher.Publish(testTopic).Args("Hello", "World").Do()
-	if publishResponse.Err != nil {
-		log.Fatalf("Failed to publish: %s", err)
+	if publishResponse.IsError() {
+		log.Fatalf("Failed to publish: %s", publishResponse.Error().Error())
 	}
 
 	publishResponse = publisher.Publish(testTopic).Kwarg("Hello World!", "I love WAMP").Do()
-	if publishResponse.Err != nil {
-		log.Fatalf("Failed to publish: %s", err)
+	if publishResponse.IsError() {
+		log.Fatalf("Failed to publish: %s", publishResponse.Error().Error())
 	}
 
 	publishResponse = publisher.Publish(testTopic).
 		Args("Hello", "World").
 		Kwarg("Hello World!", "I love WAMP").
 		Do()
-	if publishResponse.Err != nil {
-		log.Fatalf("Failed to publish: %s", publishResponse.Err)
+	if publishResponse.IsError() {
+		log.Fatalf("Failed to publish: %s", publishResponse.Error().Error())
 	}
 
 	log.Printf("Published events to %s", testTopic)

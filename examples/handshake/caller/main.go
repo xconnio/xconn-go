@@ -64,8 +64,8 @@ func main() {
 		}).
 		Do()
 
-	if callResponse.Err != nil {
-		log.Fatalf("Authentication failed: %v", callResponse.Err)
+	if callResponse.IsError() {
+		log.Fatalf("Authentication failed: %v", callResponse.Error())
 	}
 
 	log.Println("Signature verified.")
