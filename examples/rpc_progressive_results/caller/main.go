@@ -48,5 +48,5 @@ func main() {
 		log.Fatalf("Failed to upload data: %s", callResponse.Err)
 	}
 
-	fmt.Printf("Upload complete: %s\n", callResponse.Args[0])
+	fmt.Printf("Upload complete: %s\n", callResponse.Args()[0])
 }
