@@ -20,7 +20,7 @@ const ErrNoResult = "io.xconn.no_result"
 
 type InvocationHandler func(ctx context.Context, invocation *Invocation) *InvocationResult
 type EventHandler func(event *Event)
-type ProgressReceiver func(result *InvocationResult)
+type ProgressReceiver func(result *ProgressResult)
 type ProgressSender func(ctx context.Context) *Progress
 
 type Session struct {
@@ -144,10 +144,10 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			progressHandler, exists := s.progressHandlers.Load(result.RequestID())
 			if exists {
 				progHandler := progressHandler.(ProgressReceiver)
-				progHandler(&InvocationResult{
-					Args:    result.Args(),
-					Kwargs:  result.KwArgs(),
-					Details: result.Details(),
+				progHandler(&ProgressResult{
+					args:    NewList(result.Args()),
+					kwargs:  NewDict(result.KwArgs()),
+					details: NewDict(result.Details()),
 				})
 			}
 		} else {
@@ -454,7 +454,7 @@ func (s *Session) callProgress(ctx context.Context, procedure string, args []any
 
 	call := messages.NewCall(s.idGen.NextID(), options, procedure, args, kwArgs)
 	if progressHandler == nil {
-		progressHandler = func(result *InvocationResult) {}
+		progressHandler = func(result *ProgressResult) {}
 	}
 	s.progressHandlers.Store(call.RequestID(), progressHandler)
 	call.Options()[wampproto.OptionReceiveProgress] = true
@@ -510,7 +510,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	progressFunc ProgressSender, progressHandler ProgressReceiver) CallResponse {
 
 	if progressHandler == nil {
-		progressHandler = func(result *InvocationResult) {}
+		progressHandler = func(result *ProgressResult) {}
 	}
 
 	progress := progressFunc(ctx)

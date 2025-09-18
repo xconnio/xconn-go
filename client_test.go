@@ -205,8 +205,8 @@ func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
-			progress, _ := util.AsInt(progressiveResult.Args[0])
+		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.ProgressResult) {
+			progress, _ := util.AsInt(progressiveResult.Args()[0])
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		}).Do()
@@ -335,8 +335,8 @@ func testCallProgressiveProgress(t *testing.T, callee, caller *xconn.Session) {
 					return xconn.NewProgress(chunkIndex)
 				}
 			}).
-			ProgressReceiver(func(result *xconn.InvocationResult) {
-				progress, _ := util.AsInt(result.Args[0])
+			ProgressReceiver(func(result *xconn.ProgressResult) {
+				progress, _ := util.AsInt(result.Args()[0])
 				receivedProgressBack = append(receivedProgressBack, progress)
 			}).Do()
 

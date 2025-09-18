@@ -38,9 +38,9 @@ func main() {
 			} else {
 				return xconn.NewProgress(chunkIndex)
 			}
-		}).ProgressReceiver(func(result *xconn.InvocationResult) {
+		}).ProgressReceiver(func(result *xconn.ProgressResult) {
 		// Handle progress updates mirrored by the callee
-		chunkProgress := result.Args[0].(uint64)
+		chunkProgress := result.ArgUInt64Or(0, 0)
 		log.Printf("Progress update: chunk %v acknowledged by server", chunkProgress)
 	}).Do()
 
