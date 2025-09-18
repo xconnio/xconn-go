@@ -64,7 +64,11 @@ func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *S
 }
 
 func (s *Server) RegisterSpec(spec SerializerSpec) error {
-	return s.wsAcceptor.RegisterSpec(spec)
+	if err := s.wsAcceptor.RegisterSpec(spec); err != nil {
+		return err
+	}
+
+	return s.rsAcceptor.RegisterSpec(spec)
 }
 
 func (s *Server) ListenAndServeWebSocket(network Network, address string) (io.Closer, error) {
