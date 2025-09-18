@@ -19,8 +19,8 @@ func main() {
 	}
 	defer func() { _ = caller.Leave() }()
 
-	callResponse := caller.Call(procedureProgressDownload).ProgressReceiver(func(result *xconn.InvocationResult) {
-		progress := result.Args[0]
+	callResponse := caller.Call(procedureProgressDownload).ProgressReceiver(func(result *xconn.ProgressResult) {
+		progress := result.ArgUInt64Or(0, 0)
 		fmt.Printf("Download progress: %v%%\n", progress)
 	}).Do()
 	if callResponse.Err != nil {
