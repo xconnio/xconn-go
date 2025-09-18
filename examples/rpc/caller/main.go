@@ -23,15 +23,15 @@ func main() {
 	if echoResponse.Err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureEcho, echoResponse.Err)
 	}
-	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResponse.Args,
-		echoResponse.Kwargs, echoResponse.Details)
+	log.Printf("Result of procedure %s: args=%s, kwargs=%s, details=%s", testProcedureEcho, echoResponse.Args(),
+		echoResponse.Kwargs(), echoResponse.Details())
 
 	// Call procedure "io.xconn.sum"
 	sumResponse := caller.Call(testProcedureSum).Arg(1).Arg(2).Do()
 	if sumResponse.Err != nil {
 		log.Fatalf("Failed to call %s: %s", testProcedureSum, sumResponse.Err)
 	}
-	log.Printf("Sum=%s", sumResponse.Args[0])
+	log.Printf("Sum=%v", sumResponse.ArgUInt64Or(0, 0))
 
 	// Close connection to the server
 	err = caller.Leave()

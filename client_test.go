@@ -106,7 +106,7 @@ func testRegisterCall(t *testing.T, callee, caller *xconn.Session) {
 			callResponse := caller.Call("io.xconn.test").Do()
 			require.NoError(t, callResponse.Err)
 			require.NotNil(t, callResponse)
-			require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
+			require.Equal(t, "hello", callResponse.ArgStringOr(0, ""))
 		}()
 	}
 	wg.Wait()
@@ -216,7 +216,7 @@ func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Args.StringOr(0, ""))
+		require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
 	})
 }
 
@@ -276,7 +276,7 @@ func testProgressiveCallInvocation(t *testing.T, callee, caller *xconn.Session) 
 		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Args.StringOr(0, ""))
+		require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
 	})
 }
 
@@ -342,7 +342,7 @@ func testCallProgressiveProgress(t *testing.T, callee, caller *xconn.Session) {
 
 		require.NoError(t, callResponse.Err)
 
-		finalResult, _ := util.AsInt(callResponse.Args.Raw()[0])
+		finalResult, _ := util.AsInt(callResponse.Args()[0])
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly

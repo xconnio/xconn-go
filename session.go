@@ -579,9 +579,9 @@ func (s *Session) waitForCallResult(ctx context.Context, channel chan *callRespo
 		}
 
 		r := CallResponse{
-			Args:    NewList(response.msg.Args()),
-			Kwargs:  NewDict(response.msg.KwArgs()),
-			Details: response.msg.Details(),
+			args:    NewList(response.msg.Args()),
+			kwargs:  NewDict(response.msg.KwArgs()),
+			details: NewDict(response.msg.Details()),
 		}
 		return r
 	case <-ctx.Done():

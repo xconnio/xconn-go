@@ -27,5 +27,5 @@ func main() {
 		log.Fatalf("CallRaw failed: %s", callResponse.Err)
 	}
 
-	log.Println(callResponse.Args[0])
+	log.Println(callResponse.ArgStringOr(0, ""))
 }
