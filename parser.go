@@ -165,6 +165,20 @@ func (v Value) ListOr(def []any) []any {
 	return def
 }
 
+func (v Value) Map() (map[string]any, error) {
+	if b, ok := v.data.(map[string]any); ok {
+		return b, nil
+	}
+	return nil, fmt.Errorf("value is not data []any, got %T", v.data)
+}
+
+func (v Value) MapOr(def map[string]any) map[string]any {
+	if b, err := v.Map(); err == nil {
+		return b
+	}
+	return def
+}
+
 type List []Value
 
 func NewList(values []any) List {
@@ -293,6 +307,18 @@ func (l List) List(i int) ([]any, error) {
 
 func (l List) ListOr(i int, def []any) []any {
 	return l.GetOr(i, def).ListOr(def)
+}
+
+func (l List) Map(i int) (map[string]any, error) {
+	v, err := l.Get(i)
+	if err != nil {
+		return nil, err
+	}
+	return v.Map()
+}
+
+func (l List) MapOr(i int, def map[string]any) map[string]any {
+	return l.GetOr(i, def).MapOr(def)
 }
 
 func (l List) Raw() []any {
