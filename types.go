@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"path"
 	"strings"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
 
+	"github.com/xconnio/spooled-temporary-file-go"
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/wampproto-go/transports"
+	"github.com/xconnio/wampproto-go/util"
 )
 
 type (
@@ -398,6 +401,54 @@ func (r *RegisterRequest) ToRegister(requestID uint64) *messages.Register {
 	return messages.NewRegister(requestID, r.options, r.procedure)
 }
 
+func DownloadInvocationHandler(_ context.Context, invocation *Invocation) *InvocationResult {
+	filepath, err := invocation.ArgString(0)
+	if err != nil {
+		return NewInvocationError(wampproto.ErrInvalidArgument, []error{err})
+	}
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		return NewInvocationError("wamp.error.operation_failed", err.Error())
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		return NewInvocationError("wamp.error.operation_failed", err.Error())
+	}
+
+	// Create buffer for chunks
+	const chunkSize = 1024 * 64 // 64KB per chunk
+	buf := make([]byte, chunkSize)
+
+	for {
+		n, readErr := file.Read(buf)
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+			return NewInvocationError("wamp.error.operation_failed", readErr.Error())
+		}
+		if n > 0 {
+			chunk := buf[:n]
+
+			// Send chunk as progress
+			if err := invocation.SendProgress([]any{chunk}, nil); err != nil {
+				return NewInvocationError("wamp.error.canceled", err.Error())
+			}
+		}
+	}
+
+	metadata := map[string]any{
+		"name": info.Name(),
+		"size": info.Size(),
+		"mode": uint32(info.Mode()),
+	}
+
+	return NewInvocationResult(metadata)
+}
+
 type CallRequest struct {
 	session *Session
 
@@ -408,6 +459,7 @@ type CallRequest struct {
 
 	progressReceiver ProgressReceiver
 	progressSender   ProgressSender
+	spooled          *spooledtempfile.SpooledTemporaryFile
 }
 
 func (c *CallRequest) Do() CallResponse {
@@ -415,7 +467,43 @@ func (c *CallRequest) Do() CallResponse {
 }
 
 func (c *CallRequest) DoContext(ctx context.Context) CallResponse {
-	return c.session.callWithRequest(ctx, c)
+	resp := c.session.callWithRequest(ctx, c)
+	if c.spooled != nil {
+		metadata := resp.Args.MapOr(0, map[string]any{})
+		fileName := util.ToString(metadata["name"])
+		fileMode, _ := util.AsUInt64(metadata["mode"])
+
+		_ = c.spooled.Done()
+
+		out, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(fileMode)) // nolint:gosec
+		if err != nil {
+			return CallResponse{Err: err}
+		}
+		defer out.Close()
+
+		_, err = io.Copy(out, c.spooled)
+		if err != nil {
+			return CallResponse{Err: err}
+		}
+	}
+	return resp
+}
+
+func (c *CallRequest) Download() CallResponse {
+	if len(c.args) == 0 {
+		return CallResponse{Err: fmt.Errorf("please pass the name of the file to download as first argument")}
+	}
+	c.spooled = spooledtempfile.NewSpooledTemporaryFile(5*1024*1024, nil)
+	c.ProgressReceiver(func(result *InvocationResult) {
+		progressBytes, ok := result.Args[0].([]byte)
+		if ok {
+			_, err := c.spooled.Write(progressBytes)
+			if err != nil {
+				fmt.Printf("Failed to write to spooled temp file: %v\n", err)
+			}
+		}
+	})
+	return c.Do()
 }
 
 func (c *CallRequest) Option(key string, value any) *CallRequest {
