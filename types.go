@@ -12,6 +12,7 @@ import (
 
 	"github.com/projectdiscovery/ratelimit"
 
+	"github.com/xconnio/spooled-temporary-file-go"
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
@@ -458,7 +459,7 @@ type CallRequest struct {
 
 	progressReceiver ProgressReceiver
 	progressSender   ProgressSender
-	receivedProgress []byte
+	spooled          *spooledtempfile.SpooledTemporaryFile
 }
 
 func (c *CallRequest) Do() CallResponse {
@@ -467,13 +468,22 @@ func (c *CallRequest) Do() CallResponse {
 
 func (c *CallRequest) DoContext(ctx context.Context) CallResponse {
 	resp := c.session.callWithRequest(ctx, c)
-	if c.receivedProgress != nil {
+	if c.spooled != nil {
 		metadata := resp.Args.MapOr(0, map[string]any{})
 		fileName := util.ToString(metadata["name"])
-		fileMode, _ := metadata["mode"].(uint32)
+		fileMode, _ := util.AsUInt64(metadata["mode"])
 
-		if err := os.WriteFile(fileName, c.receivedProgress, os.FileMode(fileMode)); err != nil {
-			resp = CallResponse{Err: err}
+		_ = c.spooled.Done()
+
+		out, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(fileMode)) // nolint:gosec
+		if err != nil {
+			return CallResponse{Err: err}
+		}
+		defer out.Close()
+
+		_, err = io.Copy(out, c.spooled)
+		if err != nil {
+			return CallResponse{Err: err}
 		}
 	}
 	return resp
@@ -483,10 +493,14 @@ func (c *CallRequest) Download() CallResponse {
 	if len(c.args) == 0 {
 		return CallResponse{Err: fmt.Errorf("please pass the name of the file to download as first argument")}
 	}
+	c.spooled = spooledtempfile.NewSpooledTemporaryFile(5*1024*1024, nil)
 	c.ProgressReceiver(func(result *InvocationResult) {
 		progressBytes, ok := result.Args[0].([]byte)
 		if ok {
-			c.receivedProgress = append(c.receivedProgress, progressBytes...)
+			_, err := c.spooled.Write(progressBytes)
+			if err != nil {
+				fmt.Printf("Failed to write to spooled temp file: %v\n", err)
+			}
 		}
 	})
 	return c.Do()

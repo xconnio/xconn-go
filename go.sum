@@ -38,6 +38,8 @@ github.com/vmihailenco/tagparser/v2 v2.0.0 h1:y09buUbR+b5aycVFQs/g70pqKVZNBmxwAh
 github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV6mEfg5OIWRZA9qds=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
+github.com/xconnio/spooled-temporary-file-go v0.0.0-20250920124819-bece76aa4254 h1:Czw6o3UJT1aJpBZvvB26oeUPoL3xn5+ayK3AOfK/48E=
+github.com/xconnio/spooled-temporary-file-go v0.0.0-20250920124819-bece76aa4254/go.mod h1:eo67ctzbadfxuZ/dDxzuFKbobuo8on2MIBtfW9hbIvo=
 github.com/xconnio/wampproto-go v0.0.0-20250904095518-e79af763bcae h1:vq9ZEUQMlj1hc8QW0Cff/dR9HQD2/8qnamcFi+6oJKs=
 github.com/xconnio/wampproto-go v0.0.0-20250904095518-e79af763bcae/go.mod h1:LONo5ncxniaMNsvdQ0YKUT2lsSchu9Y/NeGvfQgUSiI=
 go.uber.org/goleak v1.2.1 h1:NBol2c7O1ZokfZ0LEU9K6Whx/KnwvepVetCUhtKja4A=

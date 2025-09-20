@@ -10,6 +10,7 @@ require (
 	github.com/gobwas/ws v1.4.0
 	github.com/projectdiscovery/ratelimit v0.0.81
 	github.com/stretchr/testify v1.10.0
+	github.com/xconnio/spooled-temporary-file-go v0.0.0-20250920124819-bece76aa4254
 	github.com/xconnio/wampproto-go v0.0.0-20250904095518-e79af763bcae
 	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
 )
