@@ -311,6 +311,16 @@ func TestPerformance(t *testing.T) {
 	err := router.AddRealm("realm1")
 	require.NoError(t, err)
 
+	err = router.AddRealmRole("realm1", xconn.RealmRole{Name: "anonymous", Permissions: []xconn.Permission{{
+		URI:            "",
+		MatchPolicy:    "prefix",
+		AllowCall:      true,
+		AllowRegister:  true,
+		AllowPublish:   true,
+		AllowSubscribe: true,
+	}}})
+	require.NoError(t, err)
+
 	server := xconn.NewServer(router, nil, nil)
 	closer, err := server.ListenAndServeRawSocket("tcp", "127.0.0.1:9000")
 	require.NoError(t, err)

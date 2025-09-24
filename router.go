@@ -39,9 +39,6 @@ func (r *Router) AddRealm(name string) error {
 	if err := realm.AddRole(RealmRole{Name: "trusted", Permissions: perms}); err != nil {
 		return err
 	}
-	if err := realm.AddRole(RealmRole{Name: "anonymous", Permissions: perms}); err != nil {
-		return err
-	}
 
 	r.realms.Store(name, realm)
 	return nil
