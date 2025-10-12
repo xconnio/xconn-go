@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/wampproto-go/transports"
@@ -139,9 +139,11 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 	}
 
 	if err = s.router.AttachClient(base); err != nil {
-		log.Println(err)
+		log.Debugf("failed to attach client: %v\n", err)
 		return
 	}
+
+	log.Debugf("attached client %d", base.ID())
 
 	var limiter *ratelimit.Limiter
 	if s.throttle != nil {
@@ -151,6 +153,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 	for {
 		msg, err := base.ReadMessage()
 		if err != nil {
+			log.Debugf("failed to read client message: %v\n", err)
 			_ = s.router.DetachClient(base)
 			break
 		}
@@ -160,10 +163,13 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 		}
 
 		if err = s.router.ReceiveMessage(base, msg); err != nil {
-			log.Println(err)
-			return
+			log.Debugf("error feeding client message to router: %v\n", err)
+			_ = s.router.DetachClient(base)
+			break
 		}
 	}
+
+	log.Debugf("detached client %d\n", base.ID())
 }
 
 func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
