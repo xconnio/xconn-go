@@ -11,7 +11,7 @@ require (
 	github.com/projectdiscovery/ratelimit v0.0.81
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
-	github.com/xconnio/wampproto-go v0.0.0-20250904095518-e79af763bcae
+	github.com/xconnio/wampproto-go v0.0.0-20251011120321-89fe729001d1
 	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
 )
 
