@@ -209,13 +209,17 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		}
 
 		for _, recipientID := range publication.Recipients {
-			client, _ := r.clients.Load(recipientID)
-			_ = client.WriteMessage(publication.Event)
+			client, ok := r.clients.Load(recipientID)
+			if ok {
+				_ = client.WriteMessage(publication.Event)
+			}
 		}
 
 		if publication.Ack != nil {
-			client, _ := r.clients.Load(publication.Ack.Recipient)
-			_ = client.WriteMessage(publication.Ack.Message)
+			client, ok := r.clients.Load(publication.Ack.Recipient)
+			if ok {
+				_ = client.WriteMessage(publication.Ack.Message)
+			}
 		}
 
 		return nil
