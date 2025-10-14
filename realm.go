@@ -161,7 +161,10 @@ func (r *Realm) handleBrokerBoundMessage(baseSession BaseSession, msg messages.M
 		return err
 	}
 
-	client, _ := r.clients.Load(msgWithRecipient.Recipient)
+	client, exists := r.clients.Load(msgWithRecipient.Recipient)
+	if !exists {
+		return fmt.Errorf("could not find client for recipient: %d", msgWithRecipient.Recipient)
+	}
 	return client.WriteMessage(msgWithRecipient.Message)
 }
 
