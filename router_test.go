@@ -2,17 +2,24 @@ package xconn_test
 
 import (
 	"context"
+	crand "crypto/rand"
 	"fmt"
+	"io"
 	"math/rand"
+	"net"
+	netURL "net/url"
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/transports"
 	"github.com/xconnio/xconn-go"
+	"github.com/xconnio/xconn-go/auth"
 )
 
 const realmName = "test"
@@ -537,5 +544,87 @@ func TestCustomAuthorizer(t *testing.T) {
 		s := createSession("denied")
 		resp := s.Publish("io.xconn.test").Acknowledge(true).Do()
 		require.EqualError(t, resp.Err, "wamp.error.authorization_failed")
+	})
+}
+
+func getFreePort(t *testing.T) int {
+	l, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	defer func() { _ = l.Close() }()
+	return l.Addr().(*net.TCPAddr).Port
+}
+
+func testBlockedClient(
+	t *testing.T,
+	scheme string,
+	startServer func(*xconn.Server, string) (io.Closer, error),
+	dial func(context.Context, *netURL.URL) (xconn.Peer, error),
+) {
+	t.Helper()
+
+	// start server
+	router := xconn.NewRouter()
+	require.NoError(t, router.AddRealm("realm1"))
+	server := xconn.NewServer(router, nil, nil)
+
+	address := fmt.Sprintf("localhost:%d", getFreePort(t))
+	closer, err := startServer(server, address)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closer.Close() })
+
+	logrus.SetLevel(logrus.DebugLevel)
+
+	// subscribe to topic 'io.xconn.test'
+	parsedURL, err := netURL.Parse(fmt.Sprintf("%s://%s", scheme, address))
+	require.NoError(t, err)
+
+	peer, err := dial(context.Background(), parsedURL)
+	require.NoError(t, err)
+
+	baseSession, err := xconn.Join(peer, "realm1", &serializers.CBORSerializer{},
+		auth.NewAnonymousAuthenticator("", nil))
+	require.NoError(t, err)
+
+	require.NoError(t, baseSession.WriteMessage(messages.NewSubscribe(1, nil, "io.xconn.test")))
+
+	msg, err := baseSession.ReadMessage()
+	require.NoError(t, err)
+	_, ok := msg.(*messages.Subscribed)
+	require.True(t, ok)
+
+	// publisher client
+	session, err := xconn.ConnectAnonymous(context.Background(),
+		fmt.Sprintf("%s://%s", scheme, address), "realm1")
+	require.NoError(t, err)
+
+	// publish large data payload 100 times
+	data := make([]byte, 1024*1024)
+	_, err = crand.Read(data)
+	require.NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		resp := session.Publish("io.xconn.test").Acknowledge(true).Arg(data).Do()
+		require.NoError(t, resp.Err)
+	}
+}
+
+func TestBlockedRawSocketClient(t *testing.T) {
+	testBlockedClient(t, "rs", func(server *xconn.Server, address string) (io.Closer, error) {
+		return server.ListenAndServeRawSocket(xconn.NetworkTCP, address)
+	}, func(ctx context.Context, url *netURL.URL) (xconn.Peer, error) {
+		return xconn.DialRawSocket(ctx, url, &xconn.RawSocketDialerConfig{
+			Serializer: transports.SerializerCbor,
+		})
+	})
+}
+
+func TestBlockedWebSocketClient(t *testing.T) {
+	testBlockedClient(t, "ws", func(server *xconn.Server, address string) (io.Closer, error) {
+		return server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
+	}, func(ctx context.Context, url *netURL.URL) (xconn.Peer, error) {
+		peer, _, err := xconn.DialWebSocket(ctx, url, &xconn.WSDialerConfig{
+			SubProtocols: []string{xconn.CBORSerializerSpec.SubProtocol()},
+		})
+		return peer, err
 	})
 }
