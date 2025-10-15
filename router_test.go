@@ -606,6 +606,9 @@ func testBlockedClient(
 		resp := session.Publish("io.xconn.test").Acknowledge(true).Arg(data).Do()
 		require.NoError(t, resp.Err)
 	}
+
+	err = session.Leave()
+	require.NoError(t, err)
 }
 
 func TestBlockedRawSocketClient(t *testing.T) {

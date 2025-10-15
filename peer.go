@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/serializers"
@@ -109,7 +109,7 @@ func (b *baseSession) TryWrite(bytes []byte) (bool, error) {
 }
 
 func (b *baseSession) Close() error {
-	return b.client.NetConn().Close()
+	return b.client.Close()
 }
 
 type wsMsg struct {
@@ -123,6 +123,7 @@ type WebSocketPeer struct {
 	conn          net.Conn
 	writeChan     chan []byte
 	ctrlChan      chan wsMsg
+	doneWriting   chan struct{}
 
 	pingCh  chan struct{}
 	wsMsgOp ws.OpCode
@@ -147,6 +148,7 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 		server:        peerConfig.Server,
 		writeChan:     make(chan []byte, 64),
 		ctrlChan:      make(chan wsMsg, 2),
+		doneWriting:   make(chan struct{}),
 	}
 
 	if peerConfig.KeepAliveInterval != 0 {
@@ -175,10 +177,13 @@ func (c *WebSocketPeer) TryWrite(data []byte) (bool, error) {
 }
 
 func (c *WebSocketPeer) writer() {
+	defer close(c.doneWriting)
+
 	for {
 		select {
 		case data := <-c.writeChan:
 			if err := c.writeOpFunc(c.conn, c.wsMsgOp, data); err != nil {
+				log.Debugf("failed to write websocket message: %v", err)
 				_ = c.Close()
 				return
 			}
@@ -284,6 +289,7 @@ func (c *WebSocketPeer) Write(bytes []byte) error {
 	}
 
 	c.writeChan <- bytes
+
 	return nil
 }
 
@@ -307,6 +313,12 @@ func (c *WebSocketPeer) Close() error {
 		return nil
 	}
 
+	select {
+	case <-c.doneWriting:
+	case <-time.After(1000 * time.Millisecond):
+		// writer still busy, timeout
+	}
+
 	c.closed = true
 	return c.conn.Close()
 }
@@ -324,6 +336,7 @@ type RawSocketPeer struct {
 	serializer    transports.Serializer
 	writeChan     chan []byte
 	ctrlChan      chan rsMsg
+	doneWriting   chan struct{}
 	closed        bool
 
 	sync.Mutex
@@ -336,6 +349,7 @@ func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
 		serializer:    peerConfig.Serializer,
 		writeChan:     make(chan []byte, 64),
 		ctrlChan:      make(chan rsMsg, 2),
+		doneWriting:   make(chan struct{}),
 	}
 
 	go peer.writer()
@@ -363,6 +377,8 @@ func (r *RawSocketPeer) TryWrite(data []byte) (bool, error) {
 }
 
 func (r *RawSocketPeer) writer() {
+	defer close(r.doneWriting)
+
 	for {
 		select {
 		case payload := <-r.writeChan:
@@ -457,6 +473,12 @@ func (r *RawSocketPeer) Close() error {
 
 	if r.closed {
 		return nil
+	}
+
+	select {
+	case <-r.doneWriting:
+	case <-time.After(1000 * time.Millisecond):
+		// writer still busy, timeout
 	}
 
 	r.closed = true
