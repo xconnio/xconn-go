@@ -3,6 +3,8 @@ package xconn
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/wampproto-go/util"
@@ -211,7 +213,15 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		for _, recipientID := range publication.Recipients {
 			client, ok := r.clients.Load(recipientID)
 			if ok {
-				_ = client.WriteMessage(publication.Event)
+				success, err := client.TryWriteMessage(publication.Event)
+				if err != nil {
+					// likely the client disconnected, lets not bother here.
+					continue
+				}
+
+				if !success {
+					log.Debugf("dropped EVENT message for blocked peer: %d", recipientID)
+				}
 			}
 		}
 

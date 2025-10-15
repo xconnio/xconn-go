@@ -3,6 +3,7 @@ package xconn
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -66,6 +67,15 @@ func (b *baseSession) WriteMessage(message messages.Message) error {
 	return b.Write(payload)
 }
 
+func (b *baseSession) TryWriteMessage(message messages.Message) (bool, error) {
+	payload, err := b.serializer.Serialize(message)
+	if err != nil {
+		return false, err
+	}
+
+	return b.TryWrite(payload)
+}
+
 func (b *baseSession) ID() uint64 {
 	return b.id
 }
@@ -94,18 +104,49 @@ func (b *baseSession) Write(payload []byte) error {
 	return b.client.Write(payload)
 }
 
+func (b *baseSession) TryWrite(bytes []byte) (bool, error) {
+	return b.client.TryWrite(bytes)
+}
+
 func (b *baseSession) Close() error {
 	return b.client.NetConn().Close()
 }
 
+type wsMsg struct {
+	opCode  ws.OpCode
+	payload []byte
+}
+
+type WebSocketPeer struct {
+	transportType TransportType
+	protocol      string
+	conn          net.Conn
+	writeChan     chan []byte
+	ctrlChan      chan wsMsg
+
+	pingCh  chan struct{}
+	wsMsgOp ws.OpCode
+	server  bool
+	closed  bool
+
+	sync.Mutex
+}
+
 func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
+	msgOpCode := ws.OpBinary
+	if !peerConfig.Binary {
+		msgOpCode = ws.OpText
+	}
+
 	peer := &WebSocketPeer{
 		transportType: TransportWebSocket,
 		protocol:      peerConfig.Protocol,
 		conn:          conn,
 		pingCh:        make(chan struct{}, 1),
-		binary:        peerConfig.Binary,
+		wsMsgOp:       msgOpCode,
 		server:        peerConfig.Server,
+		writeChan:     make(chan []byte, 64),
+		ctrlChan:      make(chan wsMsg, 2),
 	}
 
 	if peerConfig.KeepAliveInterval != 0 {
@@ -113,19 +154,41 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 		go peer.startPinger(peerConfig.KeepAliveInterval, peerConfig.KeepAliveTimeout)
 	}
 
+	go peer.writer()
 	return peer, nil
 }
 
-type WebSocketPeer struct {
-	transportType TransportType
-	protocol      string
-	conn          net.Conn
+func (c *WebSocketPeer) TryWrite(data []byte) (bool, error) {
+	c.Lock()
+	defer c.Unlock()
 
-	pingCh chan struct{}
-	binary bool
-	server bool
+	if c.closed {
+		return false, io.ErrClosedPipe
+	}
 
-	sync.Mutex
+	select {
+	case c.writeChan <- data:
+		return true, nil // successfully queued
+	default:
+		return false, nil // channel full => would block
+	}
+}
+
+func (c *WebSocketPeer) writer() {
+	for {
+		select {
+		case data := <-c.writeChan:
+			if err := c.writeOpFunc(c.conn, c.wsMsgOp, data); err != nil {
+				_ = c.Close()
+				return
+			}
+		case ctrlMsg := <-c.ctrlChan:
+			if err := c.writeOpFunc(c.conn, ctrlMsg.opCode, ctrlMsg.payload); err != nil {
+				_ = c.Close()
+				return
+			}
+		}
+	}
 }
 
 func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTimeout time.Duration) {
@@ -133,8 +196,9 @@ func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTi
 	defer ticker.Stop()
 
 	if keepaliveTimeout == 0 {
-		keepaliveTimeout = 10 * time.Second
+		keepaliveTimeout = 30 * time.Second
 	}
+
 	for {
 		<-ticker.C
 		// Send a ping
@@ -143,9 +207,12 @@ func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTi
 		if err != nil {
 			fmt.Println("failed to generate random bytes:", err)
 		}
-		if err := c.writeOpFunc(c.conn, ws.OpPing, randomBytes); err != nil {
+
+		select {
+		case c.ctrlChan <- wsMsg{payload: randomBytes, opCode: ws.OpPing}:
+		default:
 			log.Printf("failed to send ping: %v\n", err)
-			_ = c.conn.Close()
+			_ = c.Close()
 			return
 		}
 
@@ -153,7 +220,7 @@ func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTi
 		case <-c.pingCh:
 		case <-time.After(keepaliveTimeout):
 			log.Println("ping timeout, closing connection")
-			_ = c.conn.Close()
+			_ = c.Close()
 			return
 		}
 	}
@@ -163,6 +230,7 @@ func (c *WebSocketPeer) peerState() ws.State {
 	if c.server {
 		return ws.StateServerSide
 	}
+
 	return ws.StateClientSide
 }
 
@@ -189,13 +257,18 @@ func (c *WebSocketPeer) Read() ([]byte, error) {
 	case ws.OpText, ws.OpBinary:
 		return payload, nil
 	case ws.OpPing:
-		if err = c.writeOpFunc(c.conn, ws.OpPong, payload); err != nil {
-			return nil, fmt.Errorf("failed to send pong: %w", err)
+		select {
+		case c.ctrlChan <- wsMsg{payload: payload, opCode: ws.OpPong}:
+		default:
+			return nil, errors.New("failed to send pong: channel is full")
 		}
 	case ws.OpPong:
-		c.pingCh <- struct{}{}
+		select {
+		case c.pingCh <- struct{}{}:
+		default:
+		}
 	case ws.OpClose:
-		_ = c.conn.Close()
+		_ = c.Close()
 		return nil, fmt.Errorf("connection closed")
 	}
 
@@ -205,11 +278,13 @@ func (c *WebSocketPeer) Read() ([]byte, error) {
 func (c *WebSocketPeer) Write(bytes []byte) error {
 	c.Lock()
 	defer c.Unlock()
-	if c.binary {
-		return c.writeOpFunc(c.conn, ws.OpBinary, bytes)
+
+	if c.closed {
+		return io.ErrClosedPipe
 	}
 
-	return c.writeOpFunc(c.conn, ws.OpText, bytes)
+	c.writeChan <- bytes
+	return nil
 }
 
 func (c *WebSocketPeer) Type() TransportType {
@@ -224,22 +299,96 @@ func (c *WebSocketPeer) NetConn() net.Conn {
 	return c.conn
 }
 
-func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
-	return &RawSocketPeer{
-		transportType: TransportRawSocket,
-		conn:          conn,
-		serializer:    peerConfig.Serializer,
+func (c *WebSocketPeer) Close() error {
+	c.Lock()
+	defer c.Unlock()
+
+	if c.closed {
+		return nil
 	}
+
+	c.closed = true
+	return c.conn.Close()
 }
 
 const maxRawSocketPayload = 16 * 1024 * 1024 // 16 MB
+
+type rsMsg struct {
+	msgType transports.Message
+	payload []byte
+}
 
 type RawSocketPeer struct {
 	transportType TransportType
 	conn          net.Conn
 	serializer    transports.Serializer
+	writeChan     chan []byte
+	ctrlChan      chan rsMsg
+	closed        bool
 
 	sync.Mutex
+}
+
+func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
+	peer := &RawSocketPeer{
+		transportType: TransportRawSocket,
+		conn:          conn,
+		serializer:    peerConfig.Serializer,
+		writeChan:     make(chan []byte, 64),
+		ctrlChan:      make(chan rsMsg, 2),
+	}
+
+	go peer.writer()
+	return peer
+}
+
+func (r *RawSocketPeer) TryWrite(data []byte) (bool, error) {
+	if len(data) > maxRawSocketPayload {
+		return false, fmt.Errorf("rawsocket payload too large: %d bytes (max %d)", len(data), maxRawSocketPayload)
+	}
+
+	r.Lock()
+	defer r.Unlock()
+
+	if r.closed {
+		return false, io.ErrClosedPipe
+	}
+
+	select {
+	case r.writeChan <- data:
+		return true, nil // successfully queued
+	default:
+		return false, nil // channel full => would block
+	}
+}
+
+func (r *RawSocketPeer) writer() {
+	for {
+		select {
+		case payload := <-r.writeChan:
+			header := transports.NewMessageHeader(transports.MessageWamp, len(payload))
+			if _, err := r.conn.Write(transports.SendMessageHeader(header)); err != nil {
+				_ = r.Close()
+				return
+			}
+
+			if _, err := r.conn.Write(payload); err != nil {
+				_ = r.Close()
+				return
+			}
+		case ctrlMsg := <-r.ctrlChan:
+			header := transports.NewMessageHeader(ctrlMsg.msgType, len(ctrlMsg.payload))
+			if _, err := r.conn.Write(transports.SendMessageHeader(header)); err != nil {
+				_ = r.Close()
+				return
+			}
+
+			if _, err := r.conn.Write(ctrlMsg.payload); err != nil {
+				_ = r.Close()
+				return
+			}
+		}
+	}
 }
 
 func (r *RawSocketPeer) Type() TransportType {
@@ -275,9 +424,7 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 	if header.Kind() == transports.MessageWamp {
 		return payload, nil
 	} else if header.Kind() == transports.MessagePing {
-		if err = r.write(transports.MessagePong, payload); err != nil {
-			return nil, err
-		}
+		r.ctrlChan <- rsMsg{payload: payload, msgType: transports.MessagePong}
 
 		return r.Read()
 	} else if header.Kind() == transports.MessagePong {
@@ -288,29 +435,32 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 	}
 }
 
-func (r *RawSocketPeer) write(kind transports.Message, bytes []byte) error {
-	if len(bytes) > maxRawSocketPayload {
-		return fmt.Errorf("rawsocket payload too large: %d bytes (max %d)", len(bytes), maxRawSocketPayload)
+func (r *RawSocketPeer) Write(data []byte) error {
+	if len(data) > maxRawSocketPayload {
+		return fmt.Errorf("rawsocket payload too large: %d bytes (max %d)", len(data), maxRawSocketPayload)
 	}
 
 	r.Lock()
 	defer r.Unlock()
-	header := transports.NewMessageHeader(kind, len(bytes))
-	_, err := r.conn.Write(transports.SendMessageHeader(header))
-	if err != nil {
-		return err
+
+	if r.closed {
+		return io.ErrClosedPipe
 	}
 
-	_, err = r.conn.Write(bytes)
-	if err != nil {
-		return err
-	}
-
+	r.writeChan <- data
 	return nil
 }
 
-func (r *RawSocketPeer) Write(bytes []byte) error {
-	return r.write(transports.MessageWamp, bytes)
+func (r *RawSocketPeer) Close() error {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.closed {
+		return nil
+	}
+
+	r.closed = true
+	return r.conn.Close()
 }
 
 type localPeer struct {
@@ -383,6 +533,18 @@ func (l *localPeer) Write(data []byte) error {
 	}
 
 	return nil
+}
+
+func (l *localPeer) TryWrite(bytes []byte) (bool, error) {
+	if err := l.Write(bytes); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (l *localPeer) Close() error {
+	return l.conn.Close()
 }
 
 func newLocalPeer(conn, otherSide net.Conn) *localPeer {

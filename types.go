@@ -51,8 +51,10 @@ type BaseSession interface {
 	NetConn() net.Conn
 	Read() ([]byte, error)
 	Write([]byte) error
+	TryWrite([]byte) (bool, error)
 	ReadMessage() (messages.Message, error)
 	WriteMessage(messages.Message) error
+	TryWriteMessage(messages.Message) (bool, error)
 	Close() error
 }
 
@@ -61,6 +63,8 @@ type Peer interface {
 	NetConn() net.Conn
 	Read() ([]byte, error)
 	Write([]byte) error
+	TryWrite([]byte) (bool, error)
+	Close() error
 }
 
 type WSDialerConfig struct {
