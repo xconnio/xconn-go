@@ -631,3 +631,112 @@ func TestBlockedWebSocketClient(t *testing.T) {
 		return peer, err
 	})
 }
+
+func blockedCaller(t *testing.T, publishCount int) xconn.BaseSession {
+	t.Helper()
+
+	router := xconn.NewRouter()
+	require.NoError(t, router.AddRealm("realm1"))
+	server := xconn.NewServer(router, nil, nil)
+
+	address := fmt.Sprintf("localhost:%d", getFreePort(t))
+	closer, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = closer.Close() })
+
+	logrus.SetLevel(logrus.DebugLevel)
+
+	parsedURL, err := netURL.Parse(fmt.Sprintf("ws://%s", address))
+	require.NoError(t, err)
+
+	// --- CLIENT 1 SETUP (Publisher + Callee) ---
+	client1, err := xconn.ConnectAnonymous(context.Background(), parsedURL.String(), "realm1")
+	require.NoError(t, err)
+	require.NotNil(t, client1)
+
+	callReceived := make(chan struct{})
+	response := client1.Register(
+		"io.xconn.get", func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+			defer func() {
+				callReceived <- struct{}{}
+			}()
+			return xconn.NewInvocationResult()
+		}).Do()
+	require.NoError(t, response.Err)
+
+	// --- CLIENT 2 SETUP (Subscriber + Caller) ---
+
+	// Establish a low-level WebSocket connection for Client 2.
+	// We use a raw baseSession here to simulate a "dumb" client
+	// with no backpressure handling (it won't read messages fast enough).
+
+	peer, _, err := xconn.DialWebSocket(context.Background(), parsedURL, &xconn.WSDialerConfig{
+		SubProtocols: []string{xconn.CBORSerializerSpec.SubProtocol()},
+	})
+	require.NoError(t, err)
+
+	baseSession, err := xconn.Join(peer, "realm1", &serializers.CBORSerializer{},
+		auth.NewAnonymousAuthenticator("", nil))
+	require.NoError(t, err)
+
+	require.NoError(t, baseSession.WriteMessage(messages.NewSubscribe(1, nil, "io.xconn.test")))
+
+	msg, err := baseSession.ReadMessage()
+	require.NoError(t, err)
+	_, ok := msg.(*messages.Subscribed)
+	require.True(t, ok)
+
+	data := make([]byte, 1024)
+	_, err = crand.Read(data)
+	require.NoError(t, err)
+
+	for i := 0; i < publishCount; i++ {
+		resp := client1.Publish("io.xconn.test").Acknowledge(true).Arg(data).Do()
+		require.NoError(t, resp.Err)
+	}
+
+	require.NoError(t, baseSession.WriteMessage(messages.NewCall(2, nil, "io.xconn.get", nil, nil)))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	select {
+	case <-callReceived:
+	case <-ctx.Done():
+		t.Fatal("timeout waiting for call")
+	}
+
+	return baseSession
+}
+
+func TestBlockedCaller(t *testing.T) {
+	t.Run("blocked", func(t *testing.T) {
+		baseSessionClient2 := blockedCaller(t, 64)
+
+		// now read all pending messages from the router, we know "RESULT" won't be there as it got dropped
+		for i := 0; i < 64; i++ {
+			msg, err := baseSessionClient2.ReadMessage()
+			require.NoError(t, err)
+
+			_, ok := msg.(*messages.Event)
+			require.True(t, ok)
+		}
+	})
+
+	t.Run("notblocked", func(t *testing.T) {
+		baseSessionClient2 := blockedCaller(t, 63)
+
+		// now read all pending messages from the router, we know "RESULT" won't be there as it got dropped
+		for i := 0; i < 64; i++ {
+			msg, err := baseSessionClient2.ReadMessage()
+			require.NoError(t, err)
+			if i == 63 {
+				_, ok := msg.(*messages.Result)
+				require.True(t, ok)
+			} else {
+				_, ok := msg.(*messages.Event)
+				require.True(t, ok)
+			}
+		}
+	})
+}
