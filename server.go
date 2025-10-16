@@ -98,7 +98,8 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 		reader := bufio.NewReader(conn)
 		magicArray, err := reader.Peek(1)
 		if err != nil {
-			fmt.Printf("failed to peek header from client: %v\n", err)
+			fmt.Printf("failed to peek header from client: %v", err)
+			_ = conn.Close()
 			return
 		}
 
@@ -127,11 +128,13 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 		config.KeepAliveTimeout = s.keepAliveTimeout
 		base, err = s.wsAcceptor.Accept(conn, s.router, config)
 		if err != nil {
+			log.Debugf("failed to accept websocket connection: %v", err)
 			return
 		}
 	case ListenerRawSocket:
 		base, err = s.rsAcceptor.Accept(conn)
 		if err != nil {
+			log.Debugf("failed to accept rawsocket connection: %v", err)
 			return
 		}
 	default:
@@ -139,7 +142,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 	}
 
 	if err = s.router.AttachClient(base); err != nil {
-		log.Debugf("failed to attach client: %v\n", err)
+		log.Debugf("failed to attach client: %v", err)
 		return
 	}
 
