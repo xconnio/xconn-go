@@ -23,7 +23,7 @@ transports:
 
   - type: rawsocket
     listener: tcp
-    address: localhost:8022
+    address: localhost:8082
     serializers:
       - json
       - cbor
