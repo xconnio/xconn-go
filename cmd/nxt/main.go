@@ -2,12 +2,12 @@ package main
 
 import (
 	_ "embed" // nolint:gci
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 
-	"github.com/alecthomas/kingpin/v2"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go/internal/util"
@@ -19,60 +19,84 @@ var (
 )
 
 const (
-	versionString = "0.1.0"
-
+	versionString   = "0.1.0"
 	DirectoryConfig = ".nxt"
 )
 
-type cmd struct {
-	parsedCommand string
+func printUsage(cwd string) {
+	usage := fmt.Sprintf(`usage: nxt [<flags>] <command> [<args> ...]
 
-	init *kingpin.CmdClause
+NXT
 
-	start     *kingpin.CmdClause
-	configDir *string
+Flags:
+      --help             Show context-sensitive help.
+  -v, --version          Show application version.
+  -c, --config="%s"
+                         Set config directory.
+
+Commands:
+help [<command>...]
+    Show help.
+
+init
+    Initialize sample router config.
+
+start
+    Start the router.
+
+
+`, cwd)
+	fmt.Print(usage)
 }
 
-func parseCommand(args []string) (*cmd, error) {
-	cwd, _ := os.Getwd()
-
-	app := kingpin.New(args[0], "NXT")
-	app.Version(versionString).VersionFlag.Short('v')
-
-	c := &cmd{
-		init:      app.Command("init", "Initialize sample router config."),
-		start:     app.Command("start", "Start the router."),
-		configDir: app.Flag("config", "Set config directory").Default(cwd).Short('c').String(),
+func handleGlobalFlags(args []string) error {
+	for _, arg := range args {
+		switch arg {
+		case "-v", "--version":
+			fmt.Println(versionString)
+			return nil
+		case "-h", "--help", "help":
+			cwd, _ := os.Getwd()
+			printUsage(cwd)
+			return nil
+		}
 	}
-
-	parsedCommand, err := app.Parse(args[1:])
-	if err != nil {
-		return nil, err
-	}
-	c.parsedCommand = parsedCommand
-
-	return c, nil
+	return nil
 }
 
 func Run(args []string) error {
-	c, err := parseCommand(args)
-	if err != nil {
+	cwd, _ := os.Getwd()
+
+	if len(args) < 2 {
+		printUsage(cwd)
+		return nil
+	}
+
+	if err := handleGlobalFlags(args[1:]); err != nil {
 		return err
 	}
-	configDir := filepath.Join(*c.configDir, DirectoryConfig)
-	configFile := filepath.Join(configDir, "config.yaml")
 
-	switch c.parsedCommand {
-	case c.init.FullCommand():
-		if err := os.MkdirAll(configDir, os.ModePerm); err != nil {
+	cmd := args[1]
+
+	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
+	configDir := fs.String("config", cwd, "Set config directory")
+	fs.StringVar(configDir, "c", cwd, "Set config directory (shorthand)")
+	if err := fs.Parse(args[2:]); err != nil {
+		return err
+	}
+
+	configDirPath := filepath.Join(*configDir, DirectoryConfig)
+	configFile := filepath.Join(configDirPath, "config.yaml")
+
+	switch cmd {
+	case "init":
+		if err := os.MkdirAll(configDirPath, os.ModePerm); err != nil {
 			return err
 		}
-
-		if err = os.WriteFile(configFile, sampleConfig, 0600); err != nil {
+		if err := os.WriteFile(configFile, sampleConfig, 0600); err != nil {
 			return fmt.Errorf("unable to write config: %w", err)
 		}
-
-	case c.start.FullCommand():
+	case "start":
 		closers, err := util.StartServerFromConfigFile(configFile)
 		if err != nil {
 			return err
@@ -86,6 +110,8 @@ func Run(args []string) error {
 		for _, closer := range closers {
 			_ = closer.Close()
 		}
+	default:
+		printUsage(cwd)
 	}
 
 	return nil
