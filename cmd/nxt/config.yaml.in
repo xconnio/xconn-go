@@ -1,5 +1,8 @@
 version: '1'
 
+config:
+  loglevel: debug
+
 realms:
   - name: realm1
     roles:

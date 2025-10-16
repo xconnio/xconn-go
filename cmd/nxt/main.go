@@ -92,8 +92,6 @@ func Run(args []string) error {
 }
 
 func main() {
-	log.SetLevel(log.DebugLevel)
-
 	if err := Run(os.Args); err != nil {
 		log.Fatalln(err)
 	}
