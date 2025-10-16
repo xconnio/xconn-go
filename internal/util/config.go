@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
 	"github.com/xconnio/wampproto-go"
@@ -30,13 +31,24 @@ const (
 var URIRegex = regexp.MustCompile(`^([^\s.#]+\.)*([^\s.#]+)$`)
 
 type Config struct {
-	Version        string         `yaml:"version"`
+	Version string `yaml:"version"`
+	Config  struct {
+		Loglevel string `yaml:"loglevel"`
+	} `yaml:"config"`
 	Realms         []Realm        `yaml:"realms"`
 	Transports     []Transport    `yaml:"transports"`
 	Authenticators Authenticators `yaml:"authenticators"`
 }
 
 func (c Config) Validate() error {
+	if c.Config.Loglevel != "" {
+		level, err := logrus.ParseLevel(strings.ToLower(c.Config.Loglevel))
+		if err != nil {
+			return fmt.Errorf("invalid log level %q: %w", c.Config.Loglevel, err)
+		}
+		logrus.SetLevel(level)
+	}
+
 	for _, realm := range c.Realms {
 		if !URIRegex.MatchString(realm.Name) {
 			return fmt.Errorf("invalid realm %s: must be a valid URI", realm.Name)
