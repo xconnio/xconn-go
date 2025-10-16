@@ -29,6 +29,14 @@ transports:
       - cbor
       - msgpack
 
+  - type: rawsocket
+    listener: unix
+    address: ~/nxt.sock
+    serializers:
+      - json
+      - cbor
+      - msgpack
+
 authenticators:
   cryptosign:
     - authid: john
