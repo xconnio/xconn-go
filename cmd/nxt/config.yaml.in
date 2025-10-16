@@ -23,7 +23,15 @@ transports:
 
   - type: rawsocket
     listener: tcp
-    address: localhost:8022
+    address: localhost:8082
+    serializers:
+      - json
+      - cbor
+      - msgpack
+
+  - type: rawsocket
+    listener: unix
+    address: ~/nxt.sock
     serializers:
       - json
       - cbor
