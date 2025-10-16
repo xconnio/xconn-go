@@ -435,7 +435,7 @@ func (r *RawSocketPeer) NetConn() net.Conn {
 
 func (r *RawSocketPeer) Read() ([]byte, error) {
 	headerRaw := make([]byte, 4)
-	_, err := r.conn.Read(headerRaw)
+	_, err := io.ReadFull(r.conn, headerRaw)
 	if err != nil {
 		return nil, err
 	}
