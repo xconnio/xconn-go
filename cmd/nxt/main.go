@@ -3,12 +3,12 @@ package main
 import (
 	_ "embed" // nolint:gci
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 
 	"github.com/alecthomas/kingpin/v2"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go/internal/util"
 )
@@ -92,6 +92,8 @@ func Run(args []string) error {
 }
 
 func main() {
+	log.SetLevel(log.DebugLevel)
+
 	if err := Run(os.Args); err != nil {
 		log.Fatalln(err)
 	}
