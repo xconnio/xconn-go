@@ -527,6 +527,8 @@ func (r *RawSocketPeer) Close() error {
 type localPeer struct {
 	conn  net.Conn
 	other net.Conn
+	rmu   sync.Mutex
+	wmu   sync.Mutex
 }
 
 func (l *localPeer) Type() TransportType {
@@ -538,6 +540,9 @@ func (l *localPeer) NetConn() net.Conn {
 }
 
 func (l *localPeer) read() ([]byte, error) {
+	l.rmu.Lock()
+	defer l.rmu.Unlock()
+
 	var length uint32
 
 	if err := binary.Read(l.conn, binary.BigEndian, &length); err != nil {
@@ -564,27 +569,16 @@ func (l *localPeer) Read() ([]byte, error) {
 }
 
 func (l *localPeer) write(data []byte) error {
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
+
 	length := uint32(len(data)) // #nosec
 
 	if err := binary.Write(l.conn, binary.BigEndian, length); err != nil {
 		return err
 	}
 
-	written := 0
-	for written < len(data) {
-		n, err := l.conn.Write(data[written:])
-		if err != nil {
-			return err
-		}
-
-		if n == 0 {
-			return io.ErrShortWrite
-		}
-
-		written += n
-	}
-
-	return nil
+	return writeFull(l.conn, data)
 }
 
 func (l *localPeer) Write(data []byte) error {
