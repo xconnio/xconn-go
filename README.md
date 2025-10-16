@@ -122,4 +122,15 @@ if err != nil {
 }
 ```
 
+## Standalone Router
+This repo contains a command-line tool to run the router with a static config.
+```bash
+git clone git@github.com:xconnio/xconn-go
+cd xconn-go
+make build
+./nxt init
+./nxt start
+```
+After running `nxt init` the static yaml config will appear at `.nxt/config.yaml`
+
 For more detailed examples or usage, refer to the [examples](./examples) folder of the project.
