@@ -22,3 +22,9 @@ release-local:
 
 release:
 	goreleaser release
+
+build:
+	go build ./cmd/nxt
+
+run:
+	go run ./cmd/nxt start
