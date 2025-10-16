@@ -288,7 +288,17 @@ func (c *WebSocketPeer) Write(bytes []byte) error {
 		return io.ErrClosedPipe
 	}
 
+	var now time.Time
+	if len(c.writeChan) == cap(c.writeChan) {
+		now = time.Now()
+		log.Debugf("websocket write channel blocked (full)")
+	}
+
 	c.writeChan <- bytes
+
+	if !now.IsZero() {
+		log.Debugf("websocket write channel unblocked. took=%s", time.Since(now))
+	}
 
 	return nil
 }
@@ -481,7 +491,18 @@ func (r *RawSocketPeer) Write(data []byte) error {
 		return io.ErrClosedPipe
 	}
 
+	var now time.Time
+	if len(r.writeChan) == cap(r.writeChan) {
+		now = time.Now()
+		log.Debugf("rawsocket write channel blocked (full)")
+	}
+
 	r.writeChan <- data
+
+	if !now.IsZero() {
+		log.Debugf("rawsocket write channel unblocked. took=%s", time.Since(now))
+	}
+
 	return nil
 }
 
