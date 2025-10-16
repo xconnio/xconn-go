@@ -47,3 +47,58 @@ func WriteMessage(peer Peer, message messages.Message, serializer serializers.Se
 
 	return nil
 }
+
+func messageNameByID(id uint64) string {
+	switch id {
+	case messages.MessageTypeHello:
+		return messages.MessageNameHello
+	case messages.MessageTypeWelcome:
+		return messages.MessageNameWelcome
+	case messages.MessageTypeAbort:
+		return messages.MessageNameAbort
+	case messages.MessageTypeChallenge:
+		return messages.MessageNameChallenge
+	case messages.MessageTypeAuthenticate:
+		return messages.MessageNameAuthenticate
+	case messages.MessageTypeGoodbye:
+		return messages.MessageNameGoodbye
+	case messages.MessageTypeError:
+		return messages.MessageNameError
+	case messages.MessageTypePublish:
+		return messages.MessageNamePublish
+	case messages.MessageTypePublished:
+		return messages.MessageNamePublished
+	case messages.MessageTypeSubscribe:
+		return messages.MessageNameSubscribe
+	case messages.MessageTypeSubscribed:
+		return messages.MessageNameSubscribed
+	case messages.MessageTypeUnsubscribe:
+		return messages.MessageNameUnsubscribe
+	case messages.MessageTypeUnsubscribed:
+		return messages.MessageNameUnsubscribed
+	case messages.MessageTypeEvent:
+		return messages.MessageNameEvent
+	case messages.MessageTypeCall:
+		return messages.MessageNameCall
+	case messages.MessageTypeCancel:
+		return messages.MessageNameCancel
+	case messages.MessageTypeResult:
+		return messages.MessageNameResult
+	case messages.MessageTypeRegister:
+		return messages.MessageNameRegister
+	case messages.MessageTypeRegistered:
+		return messages.MessageNameRegistered
+	case messages.MessageTypeUnregister:
+		return messages.MessageNameUnregister
+	case messages.MessageTypeUnregistered:
+		return messages.MessageNameUnregistered
+	case messages.MessageTypeInvocation:
+		return messages.MessageNameInvocation
+	case messages.MessageTypeInterrupt:
+		return messages.MessageNameInterrupt
+	case messages.MessageTypeYield:
+		return messages.MessageNameYield
+	default:
+		return "UNKNOWN"
+	}
+}

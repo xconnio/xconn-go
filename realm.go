@@ -140,7 +140,16 @@ func (r *Realm) authorize(baseSession BaseSession, msg messages.Message, uri str
 	errMsg := messages.NewError(msg.Type(), requestID, map[string]any{},
 		wampproto.ErrAuthorizationFailed, args, nil)
 
-	return false, baseSession.WriteMessage(errMsg)
+	success, err := baseSession.TryWriteMessage(errMsg)
+	if err != nil {
+		return false, err
+	}
+
+	if !success {
+		log.Debugf("dropped ERROR message (authz) for blocked peer: %d", baseSession.ID())
+	}
+
+	return false, nil
 }
 
 func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.Message) error {
@@ -154,7 +163,17 @@ func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.M
 		return fmt.Errorf("could not find client for recipient: %d", msgWithRecipient.Recipient)
 	}
 
-	return client.WriteMessage(msgWithRecipient.Message)
+	success, err := client.TryWriteMessage(msgWithRecipient.Message)
+	if err != nil {
+		return err
+	}
+
+	if !success {
+		messageName := messageNameByID(msgWithRecipient.Message.Type())
+		log.Debugf("dropped %s message for blocked peer: %d", messageName, baseSession.ID())
+	}
+
+	return nil
 }
 
 func (r *Realm) handleBrokerBoundMessage(baseSession BaseSession, msg messages.Message) error {
@@ -167,7 +186,18 @@ func (r *Realm) handleBrokerBoundMessage(baseSession BaseSession, msg messages.M
 	if !exists {
 		return fmt.Errorf("could not find client for recipient: %d", msgWithRecipient.Recipient)
 	}
-	return client.WriteMessage(msgWithRecipient.Message)
+
+	success, err := client.TryWriteMessage(msgWithRecipient.Message)
+	if err != nil {
+		return err
+	}
+
+	if !success {
+		messageName := messageNameByID(msgWithRecipient.Message.Type())
+		log.Debugf("dropped %s message for blocked peer: %d", messageName, baseSession.ID())
+	}
+
+	return nil
 }
 
 func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) error {
@@ -231,7 +261,15 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		if publication.Ack != nil {
 			client, ok := r.clients.Load(publication.Ack.Recipient)
 			if ok {
-				_ = client.WriteMessage(publication.Ack.Message)
+				success, err := client.TryWriteMessage(publication.Ack.Message)
+				if err != nil {
+					// likely the client disconnected, lets not bother here.
+					return nil // nolint nilerr
+				}
+
+				if !success {
+					log.Debugf("dropped PUBLISHED message for blocked peer: %d", publication.Ack.Recipient)
+				}
 			}
 		}
 
@@ -247,8 +285,13 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		}
 
 		goodbye := messages.NewGoodBye(CloseGoodByeAndOut, nil)
-		if err := client.WriteMessage(goodbye); err != nil {
+		success, err := client.TryWriteMessage(goodbye)
+		if err != nil {
 			return err
+		}
+
+		if !success {
+			log.Debugf("dropped GOODBYE message for blocked peer: %d", baseSession.ID())
 		}
 
 		_ = client.Close()
@@ -262,7 +305,7 @@ func (r *Realm) Close() {
 	goodbye := messages.NewGoodBye(CloseSystemShutdown, nil)
 
 	r.clients.Range(func(id uint64, client BaseSession) bool {
-		_ = client.WriteMessage(goodbye)
+		_, _ = client.TryWriteMessage(goodbye)
 
 		_ = client.Close()
 
