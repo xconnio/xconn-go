@@ -2,27 +2,45 @@ package xconn_test
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
+	"github.com/xconnio/wampproto-go/serializers"
+	"github.com/xconnio/wampproto-go/util"
 	"github.com/xconnio/xconn-go"
 )
 
-func connect(t *testing.T) *xconn.Session {
+const msgPackSerializer = "msgpack"
+
+func forEachSerializer(fn func(name string, spec xconn.SerializerSpec)) {
+	serializersToTest := []struct {
+		name string
+		spec xconn.SerializerSpec
+	}{
+		{"json", xconn.JSONSerializerSpec},
+		{"cbor", xconn.CBORSerializerSpec},
+		{"msgpack", xconn.MsgPackSerializerSpec},
+	}
+
+	for _, s := range serializersToTest {
+		fn(s.name, s.spec)
+	}
+}
+
+func connect(t *testing.T, serializerSpec xconn.SerializerSpec) *xconn.Session {
 	listener := startRouter(t, "realm1")
 	defer func() { _ = listener.Close() }()
 	address := fmt.Sprintf("ws://%s/ws", listener.Addr().String())
 
 	client := &xconn.Client{
-		SerializerSpec: xconn.JSONSerializerSpec,
+		SerializerSpec: serializerSpec,
 	}
 
 	session, err := client.Connect(context.Background(), address, "realm1")
@@ -32,70 +50,145 @@ func connect(t *testing.T) *xconn.Session {
 	return session
 }
 
-func TestCall(t *testing.T) {
-	session := connect(t)
-	t.Run("CallNoProc", func(t *testing.T) {
-		callResponse := session.Call("foo.bar").Do()
-		require.Error(t, callResponse.Err)
+func connectInMemory(t *testing.T, router *xconn.Router, realm string,
+	serializer serializers.Serializer) *xconn.Session {
+	authID := fmt.Sprintf("%012x", rand.Uint64())[:12]
+	authRole := "trusted"
 
-		var er *xconn.Error
-		errors.As(callResponse.Err, &er)
-		require.Equal(t, "wamp.error.no_such_procedure", er.URI)
+	base, err := xconn.ConnectInMemoryBase(router, realm, authID, authRole, serializer)
+	require.NoError(t, err)
+
+	return xconn.NewSession(base, base.Serializer())
+}
+
+func connectedLocalSessions(t *testing.T, serializer serializers.Serializer) (*xconn.Session, *xconn.Session) {
+	router := xconn.NewRouter()
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
+
+	callee := connectInMemory(t, router, realmName, serializer)
+
+	caller := connectInMemory(t, router, realmName, serializer)
+	return callee, caller
+}
+
+func TestCall(t *testing.T) {
+	forEachSerializer(func(name string, spec xconn.SerializerSpec) {
+		// msgpack is broken in nexus
+		if name == msgPackSerializer {
+			return
+		}
+		t.Run("NexusRouterWith"+name, func(t *testing.T) {
+			session := connect(t, spec)
+			t.Run("CallNoProc", func(t *testing.T) {
+				callResponse := session.Call("foo.bar").Do()
+				require.Error(t, callResponse.Err)
+
+				var er *xconn.Error
+				errors.As(callResponse.Err, &er)
+				require.Equal(t, "wamp.error.no_such_procedure", er.URI)
+			})
+		})
 	})
 }
 
-func TestRegisterCall(t *testing.T) {
-	session := connect(t)
-	registerResponse := session.Register("foo.bar",
+func testRegisterCall(t *testing.T, callee, caller *xconn.Session) {
+	regResp := callee.Register("io.xconn.test",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 			return xconn.NewInvocationResult("hello")
 		}).Do()
+	require.NoError(t, regResp.Err)
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			callResponse := caller.Call("io.xconn.test").Do()
+			require.NoError(t, callResponse.Err)
+			require.NotNil(t, callResponse)
+			require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
+		}()
+	}
+	wg.Wait()
 
-	require.NoError(t, registerResponse.Err)
+	require.NoError(t, regResp.Unregister())
 
-	t.Run("callRaw", func(t *testing.T) {
-		var wg sync.WaitGroup
-		for i := 0; i < 100; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				callResponse := session.Call("foo.bar").Do()
-				require.NoError(t, callResponse.Err)
-				require.NotNil(t, callResponse)
-				require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
-			}()
+	callResp := caller.Call("io.xconn.test").Do()
+	require.EqualError(t, callResp.Err, "wamp.error.no_such_procedure")
+}
+
+func TestRegisterCall(t *testing.T) {
+	forEachSerializer(func(name string, spec xconn.SerializerSpec) {
+		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+			callee, caller := connectedLocalSessions(t, spec.Serializer())
+			testRegisterCall(t, callee, caller)
+		})
+
+		// msgpack is broken in nexus
+		if name == msgPackSerializer {
+			return
 		}
-		wg.Wait()
+		t.Run("NexusRouterWith"+name, func(t *testing.T) {
+			session := connect(t, spec)
+			testRegisterCall(t, session, session)
+		})
 	})
+}
+
+func testPublishSubscribe(t *testing.T, subscriber, publisher *xconn.Session) {
+	eventCh := make(chan *xconn.Event, 100)
+
+	subResp := subscriber.Subscribe("foo.bar",
+		func(event *xconn.Event) {
+			eventCh <- event
+		}).Do()
+	require.NoError(t, subResp.Err)
+
+	for i := 0; i < 100; i++ {
+		go func() {
+			pubResp := publisher.Publish("foo.bar").ExcludeMe(false).Do()
+			require.NoError(t, pubResp.Err)
+		}()
+	}
+
+	for i := 0; i < 100; i++ {
+		ev := <-eventCh
+		require.NotNil(t, ev)
+	}
+
+	require.NoError(t, subResp.Unsubscribe())
+
+	pubResp := publisher.Publish("foo.bar").Do()
+	require.NoError(t, pubResp.Err)
+
+	select {
+	case <-eventCh:
+		t.Fatal("received event after unsubscribe")
+	case <-time.After(100 * time.Millisecond):
+	}
 }
 
 func TestPublishSubscribe(t *testing.T) {
-	session := connect(t)
-	event1 := make(chan *xconn.Event, 1)
-	subscribeResponse := session.Subscribe(
-		"foo.bar",
-		func(event *xconn.Event) {
-			event1 <- event
-		}).Do()
+	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
+		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+			subscriber, publisher := connectedLocalSessions(t, serializerSpec.Serializer())
+			testPublishSubscribe(t, subscriber, publisher)
+		})
 
-	require.NoError(t, subscribeResponse.Err)
-
-	t.Run("PublishWithRequest", func(t *testing.T) {
-		opt := map[string]any{
-			"exclude_me": false,
+		// msgpack is broken in nexus
+		if name == msgPackSerializer {
+			return
 		}
-		publishResponse := session.Publish("foo.bar").Options(opt).Do()
-		require.NoError(t, publishResponse.Err)
 
-		event := <-event1
-		log.Println(event)
+		t.Run("NexusRouterWith"+name, func(t *testing.T) {
+			session := connect(t, serializerSpec)
+			testPublishSubscribe(t, session, session)
+		})
 	})
 }
 
-func TestProgressiveCallResults(t *testing.T) {
-	session := connect(t)
-
-	registerResponse := session.Register("foo.bar.progress",
+func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
+	registerResponse := callee.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 			// Send progress
 			for i := 1; i <= 3; i++ {
@@ -112,8 +205,8 @@ func TestProgressiveCallResults(t *testing.T) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callResponse := session.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
-			progress := int(progressiveResult.Args[0].(float64))
+		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
+			progress, _ := util.AsInt(progressiveResult.Args[0])
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		}).Do()
@@ -127,15 +220,32 @@ func TestProgressiveCallResults(t *testing.T) {
 	})
 }
 
-func TestProgressiveCallInvocation(t *testing.T) {
-	session := connect(t)
+func TestProgressiveCallResults(t *testing.T) {
+	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
+		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+			callee, caller := connectedLocalSessions(t, serializerSpec.Serializer())
+			testProgressiveCallResults(t, callee, caller)
+		})
 
+		// msgpack is broken in nexus
+		if name == msgPackSerializer {
+			return
+		}
+
+		t.Run("NexusRouterWith"+name, func(t *testing.T) {
+			session := connect(t, serializerSpec)
+			testProgressiveCallResults(t, session, session)
+		})
+	})
+}
+
+func testProgressiveCallInvocation(t *testing.T, callee, caller *xconn.Session) {
 	// Store progress updates
 	progressUpdates := make([]int, 0)
-	registerResponse := session.Register("foo.bar.progress",
+	registerResponse := callee.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress, _ := invocation.ArgFloat64(0)
-			progressUpdates = append(progressUpdates, int(progress))
+			progress, _ := util.AsInt(invocation.Args()[0])
+			progressUpdates = append(progressUpdates, progress)
 			if invocation.Progress() {
 				return xconn.NewInvocationError(xconn.ErrNoResult)
 			}
@@ -148,7 +258,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		callResponse := session.Call("foo.bar.progress").
+		callResponse := caller.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				defer func() { chunkIndex++ }()
 
@@ -170,15 +280,32 @@ func TestProgressiveCallInvocation(t *testing.T) {
 	})
 }
 
-func TestCallProgressiveProgress(t *testing.T) {
-	session := connect(t)
+func TestProgressiveCallInvocation(t *testing.T) {
+	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
+		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+			callee, caller := connectedLocalSessions(t, serializerSpec.Serializer())
+			testProgressiveCallInvocation(t, callee, caller)
+		})
 
+		// msgpack is broken in nexus
+		if name == msgPackSerializer {
+			return
+		}
+
+		t.Run("NexusRouterWith"+name, func(t *testing.T) {
+			session := connect(t, serializerSpec)
+			testProgressiveCallInvocation(t, session, session)
+		})
+	})
+}
+
+func testCallProgressiveProgress(t *testing.T, callee, caller *xconn.Session) {
 	// Store progress updates
 	progressUpdates := make([]int, 0)
-	registerResponse := session.Register("foo.bar.progress",
+	registerResponse := callee.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress, _ := invocation.ArgFloat64(0)
-			progressUpdates = append(progressUpdates, int(progress))
+			progress, _ := util.AsInt(invocation.Args()[0])
+			progressUpdates = append(progressUpdates, progress)
 
 			if invocation.Progress() {
 				err := invocation.SendProgress([]any{progress}, nil)
@@ -196,7 +323,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		callResponse := session.Call("foo.bar.progress").
+		callResponse := caller.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				defer func() { chunkIndex++ }()
 
@@ -209,13 +336,13 @@ func TestCallProgressiveProgress(t *testing.T) {
 				}
 			}).
 			ProgressReceiver(func(result *xconn.InvocationResult) {
-				progress := int(result.Args[0].(float64))
+				progress, _ := util.AsInt(result.Args[0])
 				receivedProgressBack = append(receivedProgressBack, progress)
 			}).Do()
 
 		require.NoError(t, callResponse.Err)
 
-		finalResult := int(callResponse.Args.Float64Or(0, 1))
+		finalResult, _ := util.AsInt(callResponse.Args.Raw()[0])
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly
@@ -226,30 +353,53 @@ func TestCallProgressiveProgress(t *testing.T) {
 	})
 }
 
+func TestCallProgressiveProgress(t *testing.T) {
+	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
+		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+			callee, caller := connectedLocalSessions(t, serializerSpec.Serializer())
+			testCallProgressiveProgress(t, callee, caller)
+		})
+
+		// msgpack is broken in nexus
+		if name == "msgpack" {
+			return
+		}
+
+		t.Run("NexusRouterWith"+name, func(t *testing.T) {
+			session := connect(t, serializerSpec)
+			testCallProgressiveProgress(t, session, session)
+		})
+	})
+}
+
 func TestInMemorySession(t *testing.T) {
-	role := "trusted"
-	procedure := "com.hello"
+	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
+		t.Run(name, func(t *testing.T) {
+			role := "trusted"
+			procedure := "com.hello"
 
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
-	require.NoError(t, err)
+			router := xconn.NewRouter()
+			err := router.AddRealm(realmName)
+			require.NoError(t, err)
 
-	session, err := xconn.ConnectInMemory(router, realmName)
-	require.NoError(t, err)
+			session, err := xconn.ConnectInMemory(router, realmName)
+			require.NoError(t, err)
 
-	response := session.Register(
-		procedure,
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			return xconn.NewInvocationResult("hello")
-		},
-	).Do()
-	require.NoError(t, response.Err)
+			response := session.Register(
+				procedure,
+				func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+					return xconn.NewInvocationResult("hello")
+				},
+			).Do()
+			require.NoError(t, response.Err)
 
-	cResponse := session.Call(procedure).Do()
-	require.NoError(t, cResponse.Err)
+			cResponse := session.Call(procedure).Do()
+			require.NoError(t, cResponse.Err)
 
-	require.Equal(t, realmName, session.Details().Realm())
-	require.Equal(t, role, session.Details().AuthRole())
+			require.Equal(t, realmName, session.Details().Realm())
+			require.Equal(t, role, session.Details().AuthRole())
+		})
+	})
 }
 
 func createUnixPath(t *testing.T) string {
@@ -260,39 +410,43 @@ func createUnixPath(t *testing.T) string {
 }
 
 func TestUnixSocket(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm("unix")
-	require.NoError(t, err)
-	server := xconn.NewServer(router, nil, nil)
+	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
+		t.Run("UnixSocketWith"+name, func(t *testing.T) {
+			router := xconn.NewRouter()
+			err := router.AddRealm("unix")
+			require.NoError(t, err)
+			server := xconn.NewServer(router, nil, nil)
 
-	t.Run("websocket-over-unix", func(t *testing.T) {
-		tmpFile := createUnixPath(t)
-		path := "unix+ws://" + tmpFile
+			t.Run("websocket-over-unix", func(t *testing.T) {
+				tmpFile := createUnixPath(t)
+				path := "unix+ws://" + tmpFile
 
-		closer, err := server.ListenAndServeWebSocket("unix", tmpFile)
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = closer.Close() })
+				closer, err := server.ListenAndServeWebSocket("unix", tmpFile)
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = closer.Close() })
 
-		session, err := xconn.ConnectAnonymous(context.Background(), path, "unix")
-		require.NoError(t, err)
-		require.NotNil(t, session)
-	})
+				session, err := xconn.ConnectAnonymous(context.Background(), path, "unix")
+				require.NoError(t, err)
+				require.NotNil(t, session)
+			})
 
-	t.Run("rawsocket-over-unix", func(t *testing.T) {
-		tmpFile := createUnixPath(t)
-		closer, err := server.ListenAndServeRawSocket("unix", tmpFile)
-		require.NoError(t, err)
-		t.Cleanup(func() { _ = closer.Close() })
+			t.Run("rawsocket-over-unix", func(t *testing.T) {
+				tmpFile := createUnixPath(t)
+				closer, err := server.ListenAndServeRawSocket("unix", tmpFile)
+				require.NoError(t, err)
+				t.Cleanup(func() { _ = closer.Close() })
 
-		path := "unix://" + tmpFile
-		session, err := xconn.ConnectAnonymous(context.Background(), path, "unix")
-		require.NoError(t, err)
-		require.NotNil(t, session)
+				path := "unix://" + tmpFile
+				session, err := xconn.ConnectAnonymous(context.Background(), path, "unix")
+				require.NoError(t, err)
+				require.NotNil(t, session)
 
-		path = "unix+rs://" + tmpFile
-		session, err = xconn.ConnectAnonymous(context.Background(), path, "unix")
-		require.NoError(t, err)
-		require.NotNil(t, session)
+				path = "unix+rs://" + tmpFile
+				session, err = xconn.ConnectAnonymous(context.Background(), path, "unix")
+				require.NoError(t, err)
+				require.NotNil(t, session)
+			})
+		})
 	})
 }
 
@@ -327,8 +481,9 @@ func TestPerformance(t *testing.T) {
 	t.Cleanup(func() { _ = closer.Close() })
 
 	data := make([]byte, 1024*1024)
-	_, err = rand.Read(data)
-	require.NoError(t, err)
+	for i := range data {
+		data[i] = byte(rand.IntN(256))
+	}
 
 	callerClient := xconn.Client{
 		SerializerSpec: xconn.CBORSerializerSpec,
@@ -344,7 +499,7 @@ func TestPerformance(t *testing.T) {
 
 	callee, err := calleeClient.Connect(context.Background(), "rs://localhost:9000", "realm1")
 	require.NoError(t, err)
-	require.NotNil(t, caller)
+	require.NotNil(t, callee)
 
 	response := callee.Register(
 		"io.xconn.proto",
