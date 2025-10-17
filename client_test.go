@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"sync"
 	"testing"
@@ -14,6 +13,7 @@ import (
 	"github.com/gammazero/workerpool"
 	"github.com/stretchr/testify/require"
 
+	"github.com/xconnio/wampproto-go/util"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -33,6 +33,20 @@ func connect(t *testing.T) *xconn.Session {
 	return session
 }
 
+func connectedLocalSessions(t *testing.T) (*xconn.Session, *xconn.Session) {
+	router := xconn.NewRouter()
+	err := router.AddRealm(realmName)
+	require.NoError(t, err)
+
+	callee, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	caller, err := xconn.ConnectInMemory(router, realmName)
+	require.NoError(t, err)
+
+	return callee, caller
+}
+
 func TestCall(t *testing.T) {
 	session := connect(t)
 	t.Run("CallNoProc", func(t *testing.T) {
@@ -45,57 +59,90 @@ func TestCall(t *testing.T) {
 	})
 }
 
-func TestRegisterCall(t *testing.T) {
-	session := connect(t)
-	registerResponse := session.Register("foo.bar",
+func testRegisterCall(t *testing.T, callee, caller *xconn.Session) {
+	regResp := callee.Register("io.xconn.test",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 			return xconn.NewInvocationResult("hello")
 		}).Do()
+	require.NoError(t, regResp.Err)
 
-	require.NoError(t, registerResponse.Err)
+	wp := workerpool.New(10)
+	for i := 0; i < 100; i++ {
+		wp.Submit(func() {
+			callResponse := caller.Call("io.xconn.test").Do()
+			require.NoError(t, callResponse.Err)
+			require.NotNil(t, callResponse)
+			require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
+		})
+	}
 
-	t.Run("callRaw", func(t *testing.T) {
-		wp := workerpool.New(10)
-		for i := 0; i < 100; i++ {
-			wp.Submit(func() {
-				callResponse := session.Call("foo.bar").Do()
-				require.NoError(t, callResponse.Err)
-				require.NotNil(t, callResponse)
-				require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
-			})
-		}
+	wp.StopWait()
 
-		wp.StopWait()
+	require.NoError(t, regResp.Unregister())
+
+	callResp := caller.Call("io.xconn.test").Do()
+	require.EqualError(t, callResp.Err, "wamp.error.no_such_procedure")
+}
+
+func TestRegisterCall(t *testing.T) {
+	t.Run("NXTRouter", func(t *testing.T) {
+		callee, caller := connectedLocalSessions(t)
+		testRegisterCall(t, callee, caller)
 	})
+
+	t.Run("NexusRouter", func(t *testing.T) {
+		session := connect(t)
+		testRegisterCall(t, session, session)
+	})
+}
+
+func testPublishSubscribe(t *testing.T, subscriber, publisher *xconn.Session) {
+	eventCh := make(chan *xconn.Event, 100)
+
+	subResp := subscriber.Subscribe("foo.bar",
+		func(event *xconn.Event) {
+			eventCh <- event
+		}).Do()
+	require.NoError(t, subResp.Err)
+
+	for i := 0; i < 100; i++ {
+		go func() {
+			pubResp := publisher.Publish("foo.bar").ExcludeMe(false).Do()
+			require.NoError(t, pubResp.Err)
+		}()
+	}
+
+	for i := 0; i < 100; i++ {
+		ev := <-eventCh
+		require.NotNil(t, ev)
+	}
+
+	require.NoError(t, subResp.Unsubscribe())
+
+	pubResp := publisher.Publish("foo.bar").Do()
+	require.NoError(t, pubResp.Err)
+
+	select {
+	case <-eventCh:
+		t.Fatal("received event after unsubscribe")
+	case <-time.After(100 * time.Millisecond):
+	}
 }
 
 func TestPublishSubscribe(t *testing.T) {
-	session := connect(t)
-	event1 := make(chan *xconn.Event, 1)
-	subscribeResponse := session.Subscribe(
-		"foo.bar",
-		func(event *xconn.Event) {
-			event1 <- event
-		}).Do()
+	t.Run("NXTRouter", func(t *testing.T) {
+		subscriber, publisher := connectedLocalSessions(t)
+		testPublishSubscribe(t, subscriber, publisher)
+	})
 
-	require.NoError(t, subscribeResponse.Err)
-
-	t.Run("PublishWithRequest", func(t *testing.T) {
-		opt := map[string]any{
-			"exclude_me": false,
-		}
-		publishResponse := session.Publish("foo.bar").Options(opt).Do()
-		require.NoError(t, publishResponse.Err)
-
-		event := <-event1
-		log.Println(event)
+	t.Run("NexusRouter", func(t *testing.T) {
+		session := connect(t)
+		testPublishSubscribe(t, session, session)
 	})
 }
 
-func TestProgressiveCallResults(t *testing.T) {
-	session := connect(t)
-
-	registerResponse := session.Register("foo.bar.progress",
+func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
+	registerResponse := callee.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
 			// Send progress
 			for i := 1; i <= 3; i++ {
@@ -112,8 +159,8 @@ func TestProgressiveCallResults(t *testing.T) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callResponse := session.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
-			progress := int(progressiveResult.Args[0].(float64))
+		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
+			progress, _ := util.AsInt(progressiveResult.Args[0])
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		}).Do()
@@ -127,15 +174,25 @@ func TestProgressiveCallResults(t *testing.T) {
 	})
 }
 
-func TestProgressiveCallInvocation(t *testing.T) {
-	session := connect(t)
+func TestProgressiveCallResults(t *testing.T) {
+	t.Run("NXTRouter", func(t *testing.T) {
+		callee, caller := connectedLocalSessions(t)
+		testProgressiveCallResults(t, callee, caller)
+	})
 
+	t.Run("NexusRouter", func(t *testing.T) {
+		session := connect(t)
+		testProgressiveCallResults(t, session, session)
+	})
+}
+
+func testProgressiveCallInvocation(t *testing.T, callee, caller *xconn.Session) {
 	// Store progress updates
 	progressUpdates := make([]int, 0)
-	registerResponse := session.Register("foo.bar.progress",
+	registerResponse := callee.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress, _ := invocation.ArgFloat64(0)
-			progressUpdates = append(progressUpdates, int(progress))
+			progress, _ := util.AsInt(invocation.Args()[0])
+			progressUpdates = append(progressUpdates, progress)
 			if invocation.Progress() {
 				return xconn.NewInvocationError(xconn.ErrNoResult)
 			}
@@ -148,7 +205,7 @@ func TestProgressiveCallInvocation(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		callResponse := session.Call("foo.bar.progress").
+		callResponse := caller.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				defer func() { chunkIndex++ }()
 
@@ -170,15 +227,25 @@ func TestProgressiveCallInvocation(t *testing.T) {
 	})
 }
 
-func TestCallProgressiveProgress(t *testing.T) {
-	session := connect(t)
+func TestProgressiveCallInvocation(t *testing.T) {
+	t.Run("NXTRouter", func(t *testing.T) {
+		callee, caller := connectedLocalSessions(t)
+		testProgressiveCallInvocation(t, callee, caller)
+	})
 
+	t.Run("NexusRouter", func(t *testing.T) {
+		session := connect(t)
+		testProgressiveCallInvocation(t, session, session)
+	})
+}
+
+func testCallProgressiveProgress(t *testing.T, callee, caller *xconn.Session) {
 	// Store progress updates
 	progressUpdates := make([]int, 0)
-	registerResponse := session.Register("foo.bar.progress",
+	registerResponse := callee.Register("foo.bar.progress",
 		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress, _ := invocation.ArgFloat64(0)
-			progressUpdates = append(progressUpdates, int(progress))
+			progress, _ := util.AsInt(invocation.Args()[0])
+			progressUpdates = append(progressUpdates, progress)
 
 			if invocation.Progress() {
 				err := invocation.SendProgress([]any{progress}, nil)
@@ -196,7 +263,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 		totalChunks := 6
 		chunkIndex := 1
 
-		callResponse := session.Call("foo.bar.progress").
+		callResponse := caller.Call("foo.bar.progress").
 			ProgressSender(func(ctx context.Context) *xconn.Progress {
 				defer func() { chunkIndex++ }()
 
@@ -209,13 +276,13 @@ func TestCallProgressiveProgress(t *testing.T) {
 				}
 			}).
 			ProgressReceiver(func(result *xconn.InvocationResult) {
-				progress := int(result.Args[0].(float64))
+				progress, _ := util.AsInt(result.Args[0])
 				receivedProgressBack = append(receivedProgressBack, progress)
 			}).Do()
 
 		require.NoError(t, callResponse.Err)
 
-		finalResult := int(callResponse.Args.Float64Or(0, 1))
+		finalResult, _ := util.AsInt(callResponse.Args.Raw()[0])
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly
@@ -223,6 +290,18 @@ func TestCallProgressiveProgress(t *testing.T) {
 
 		// Verify progressive updates mirrored correctly
 		require.Equal(t, progressUpdates, receivedProgressBack)
+	})
+}
+
+func TestCallProgressiveProgress(t *testing.T) {
+	t.Run("NXTRouter", func(t *testing.T) {
+		callee, caller := connectedLocalSessions(t)
+		testCallProgressiveProgress(t, callee, caller)
+	})
+
+	t.Run("NexusRouter", func(t *testing.T) {
+		session := connect(t)
+		testCallProgressiveProgress(t, session, session)
 	})
 }
 
