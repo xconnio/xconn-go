@@ -5,7 +5,10 @@ format:
 	golangci-lint fmt
 
 test:
-	go test -count=1 ./... -v
+	go test -count=1 . -v
+
+integration:
+	go test -count=1 ./interoptests -v
 
 build-docs:
 	mkdir -p site/xconn/

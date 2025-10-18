@@ -49,6 +49,10 @@ jobs:
             exit 1;
           fi
 
+      - name: Run unit tests
+        run: |
+          make test
+
       - name: Setup AAT
         run: |
           git clone https://github.com/xconnio/xconn-aat-setup.git
@@ -57,6 +61,6 @@ jobs:
           sudo snap install wick --classic
           timeout 30 bash -c 'until wick --url ws://localhost:8081/ws publish test; do sleep 1; done'
 
-      - name: Run unit tests
+      - name: Run integration tests
         run: |
-          make test
+          make integration

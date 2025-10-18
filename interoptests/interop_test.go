@@ -1,4 +1,4 @@
-package xconn_test
+package interoptests_test
 
 import (
 	"context"
