@@ -1,0 +1,28 @@
+name: nxt-router
+base: core24
+version: '0.1.0'
+summary: High performance WAMP router based on xconn-go
+description: |
+  High performance WAMP router based on xconn-go
+
+grade: stable
+confinement: strict
+
+apps:
+  nxt-router:
+    command: bin/nxt
+    completer: bash_autocomplete.sh
+    plugs:
+      - network
+      - network-bind
+      - home
+
+parts:
+  nxt-router:
+    plugin: go
+    source: .
+    build-snaps:
+      - go
+    override-prime: |
+      craftctl default
+      cp $CRAFT_PART_SRC/bash_autocomplete.sh $CRAFT_PRIME/
