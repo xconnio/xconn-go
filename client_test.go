@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gammazero/workerpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/xconnio/xconn-go"
@@ -55,17 +54,18 @@ func TestRegisterCall(t *testing.T) {
 	require.NoError(t, registerResponse.Err)
 
 	t.Run("callRaw", func(t *testing.T) {
-		wp := workerpool.New(10)
+		var wg sync.WaitGroup
 		for i := 0; i < 100; i++ {
-			wp.Submit(func() {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				callResponse := session.Call("foo.bar").Do()
 				require.NoError(t, callResponse.Err)
 				require.NotNil(t, callResponse)
 				require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
-			})
+			}()
 		}
-
-		wp.StopWait()
+		wg.Wait()
 	})
 }
 
