@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/xconnio/xconn-go"
@@ -90,9 +91,9 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 				return nil, err
 			}
 			if transport.Listener == xconn.NetworkUnix {
-				fmt.Printf("listening websocket on unix+ws://%s\n", address)
+				log.Printf("listening websocket on unix+ws://%s", address)
 			} else {
-				fmt.Printf("listening websocket on ws://%s\n", address)
+				log.Printf("listening websocket on ws://%s", address)
 			}
 		case UniversalTransport:
 			closer, err = server.ListenAndServeUniversal(transport.Listener, address)
@@ -100,11 +101,11 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 				return nil, err
 			}
 			if transport.Listener == xconn.NetworkUnix {
-				fmt.Printf("listening rawsocket on unix://%s\n", address)
-				fmt.Printf("listening websocket on unix+ws://%s\n", address)
+				log.Printf("listening rawsocket on unix://%s", address)
+				log.Printf("listening websocket on unix+ws://%s", address)
 			} else {
-				fmt.Printf("listening rawsocket on rs://%s\n", address)
-				fmt.Printf("listening websocket on ws://%s\n", address)
+				log.Printf("listening rawsocket on rs://%s", address)
+				log.Printf("listening websocket on ws://%s", address)
 			}
 		case RawSocketTransport:
 			closer, err = server.ListenAndServeRawSocket(transport.Listener, address)
@@ -112,9 +113,9 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 				return nil, err
 			}
 			if transport.Listener == xconn.NetworkUnix {
-				fmt.Printf("listening rawsocket on unix://%s\n", address)
+				log.Printf("listening rawsocket on unix://%s", address)
 			} else {
-				fmt.Printf("listening rawsocket on rs://%s\n", address)
+				log.Printf("listening rawsocket on rs://%s", address)
 			}
 		}
 

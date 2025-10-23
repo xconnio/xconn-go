@@ -4,7 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"

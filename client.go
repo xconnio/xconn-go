@@ -3,11 +3,12 @@ package xconn
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"

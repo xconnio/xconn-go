@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go"
 )
@@ -23,12 +23,12 @@ func main() {
 	chunkIndex := 0
 
 	// Simulate file data being uploaded in chunks
-	fmt.Println("Starting file upload...")
+	log.Println("Starting file upload...")
 
 	callResponse := caller.Call(procedureProgressUpload).
 		ProgressSender(func(ctx context.Context) *xconn.Progress {
 			// Simulate sending each chunk of the file
-			fmt.Printf("Uploading chunk %d...\n", chunkIndex)
+			log.Printf("Uploading chunk %d...", chunkIndex)
 			defer func() { chunkIndex++ }()
 
 			// Simulate network delay between chunks
@@ -44,5 +44,5 @@ func main() {
 		log.Fatalf("Failed to upload data: %s", callResponse.Err)
 	}
 
-	fmt.Println("Final result:", callResponse.Args[0])
+	log.Println("Final result:", callResponse.Args[0])
 }

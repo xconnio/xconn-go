@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go"
 )
@@ -21,11 +21,11 @@ func main() {
 
 	callResponse := caller.Call(procedureProgressDownload).ProgressReceiver(func(result *xconn.InvocationResult) {
 		progress := result.Args[0]
-		fmt.Printf("Download progress: %v%%\n", progress)
+		log.Printf("Download progress: %v%%", progress)
 	}).Do()
 	if callResponse.Err != nil {
 		log.Fatalf("CallRaw failed: %s", callResponse.Err)
 	}
 
-	fmt.Println(callResponse.Args[0])
+	log.Println(callResponse.Args[0])
 }

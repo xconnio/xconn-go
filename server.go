@@ -98,7 +98,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 		reader := bufio.NewReader(conn)
 		magicArray, err := reader.Peek(1)
 		if err != nil {
-			fmt.Printf("failed to peek header from client: %v", err)
+			log.Printf("failed to peek header from client: %v", err)
 			_ = conn.Close()
 			return
 		}

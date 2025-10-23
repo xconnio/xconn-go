@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/xconn-go"
@@ -82,7 +83,7 @@ func main() {
 		log.Fatal("Failed to start server:", err)
 	}
 	defer closer.Close()
-	fmt.Println("Listening on ws://localhost:8080/")
+	log.Println("Listening on ws://localhost:8080/")
 
 	// Close server if SIGINT (CTRL-c) received.
 	closeChan := make(chan os.Signal, 1)

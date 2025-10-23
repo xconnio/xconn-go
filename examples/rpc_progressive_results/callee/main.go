@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go"
 )
@@ -24,7 +25,7 @@ func main() {
 		chunkIndex, _ := invocation.ArgFloat64(0)
 		if invocation.Progress() {
 			// Mirror back the received chunk as progress
-			fmt.Printf("Received chunk %v, sending progress back\n", chunkIndex)
+			log.Printf("Received chunk %v, sending progress back", chunkIndex)
 			if err = invocation.SendProgress([]any{chunkIndex}, nil); err != nil {
 				return xconn.NewInvocationError("wamp.error.canceled", err.Error())
 			}
@@ -33,7 +34,7 @@ func main() {
 		}
 
 		// Final response when all chunks are received
-		fmt.Println("All chunks received, processing complete.")
+		log.Println("All chunks received, processing complete.")
 		return xconn.NewInvocationResult(fmt.Sprintf("Upload complete, chunk %v acknowledged", chunkIndex))
 	}
 

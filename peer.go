@@ -210,13 +210,13 @@ func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTi
 		randomBytes := make([]byte, 4)
 		_, err := rand.Read(randomBytes)
 		if err != nil {
-			fmt.Println("failed to generate random bytes:", err)
+			log.Println("failed to generate random bytes:", err)
 		}
 
 		select {
 		case c.ctrlChan <- wsMsg{payload: randomBytes, opCode: ws.OpPing}:
 		default:
-			log.Printf("failed to send ping: %v\n", err)
+			log.Printf("failed to send ping: %v", err)
 			_ = c.Close()
 			return
 		}
