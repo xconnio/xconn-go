@@ -11,6 +11,8 @@ type Router struct {
 	realms internal.Map[string, *Realm]
 
 	metaAPI internal.Map[string, *meta]
+
+	managementAPI bool
 }
 
 func NewRouter() *Router {
@@ -165,6 +167,19 @@ func (r *Router) EnableMetaAPI(realm string) error {
 
 	r.metaAPI.Store(realm, metaAPI)
 	return r.AutoDiscloseCaller(realm, true)
+}
+
+func (r *Router) EnableManagementAPI(session *Session) error {
+	if r.managementAPI {
+		return nil
+	}
+	managementAPI := newManagementAPI(session)
+
+	if err := managementAPI.start(); err != nil {
+		return err
+	}
+	r.managementAPI = true
+	return nil
 }
 
 func (r *Router) AutoDiscloseCaller(realm string, disclose bool) error {
