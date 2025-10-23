@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -14,6 +15,8 @@ const (
 	ManagementProcedureDisableStats     = "io.xconn.management.stats.disable"
 	ManagementProcedureSetStatsInterval = "io.xconn.management.stats.interval.set"
 	ManagementProcedureStatsStatus      = "io.xconn.management.stats.status"
+
+	ManagementProcedureSetLogLevel = "io.xconn.management.loglevel.set"
 )
 
 type management struct {
@@ -36,6 +39,7 @@ func (m *management) start() error {
 		ManagementProcedureDisableStats:     m.handleDisableStats,
 		ManagementProcedureSetStatsInterval: m.handleChangeInterval,
 		ManagementProcedureStatsStatus:      m.handleStatsStatus,
+		ManagementProcedureSetLogLevel:      m.handleSetLogLevel,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -131,4 +135,19 @@ func (m *management) handleStatsStatus(_ context.Context, _ *Invocation) *Invoca
 		"interval": m.interval / time.Millisecond,
 	}
 	return NewInvocationResult(status)
+}
+
+func (m *management) handleSetLogLevel(_ context.Context, inv *Invocation) *InvocationResult {
+	logLevel, err := inv.ArgString(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	level, err := log.ParseLevel(strings.ToLower(logLevel))
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+	log.SetLevel(level)
+
+	return NewInvocationResult()
 }
