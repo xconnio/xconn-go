@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"os"
 	"os/signal"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go"
 )
@@ -24,12 +24,12 @@ func main() {
 		// Handle the progressive chunk
 		if invocation.Progress() {
 			chunkIndex, _ := invocation.ArgUInt64(0)
-			fmt.Printf("Received chunk %v\n", chunkIndex)
+			log.Printf("Received chunk %v", chunkIndex)
 			return xconn.NewInvocationError(xconn.ErrNoResult)
 		}
 
 		// Final response after all chunks are received
-		fmt.Println("All chunks received, processing complete.")
+		log.Println("All chunks received, processing complete.")
 		return xconn.NewInvocationResult("Upload complete")
 	}
 

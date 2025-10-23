@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"encoding/hex"
-	"log"
 	"os"
 	"os/signal"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"

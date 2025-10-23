@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"log"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/xconn-go"
 )
