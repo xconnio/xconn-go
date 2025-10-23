@@ -26,3 +26,7 @@ parts:
     override-prime: |
       craftctl default
       cp $CRAFT_PART_SRC/bash_autocomplete.sh $CRAFT_PRIME/
+    stage:
+      - bin/nxt
+    prime:
+      - bin/nxt
