@@ -6,7 +6,7 @@ config:
 realms:
   - name: realm1
     roles:
-      - name: authorized
+      - name: anonymous
         permissions:
           - uri: ""
             match: prefix
