@@ -565,6 +565,19 @@ func testBlockedClient(
 	// start server
 	router := xconn.NewRouter()
 	require.NoError(t, router.AddRealm("realm1"))
+	err := router.AddRealmRole("realm1", xconn.RealmRole{
+		Name: "anonymous",
+		Permissions: []xconn.Permission{
+			{
+				URI:            "",
+				MatchPolicy:    "prefix",
+				AllowCall:      true,
+				AllowRegister:  true,
+				AllowPublish:   true,
+				AllowSubscribe: true,
+			}},
+	})
+	require.NoError(t, err)
 	server := xconn.NewServer(router, nil, nil)
 
 	address := fmt.Sprintf("localhost:%d", getFreePort(t))
@@ -637,6 +650,19 @@ func blockedCaller(t *testing.T, publishCount int) xconn.BaseSession {
 
 	router := xconn.NewRouter()
 	require.NoError(t, router.AddRealm("realm1"))
+	err := router.AddRealmRole("realm1", xconn.RealmRole{
+		Name: "anonymous",
+		Permissions: []xconn.Permission{
+			{
+				URI:            "",
+				MatchPolicy:    "prefix",
+				AllowCall:      true,
+				AllowRegister:  true,
+				AllowPublish:   true,
+				AllowSubscribe: true,
+			}},
+	})
+	require.NoError(t, err)
 	server := xconn.NewServer(router, nil, nil)
 
 	address := fmt.Sprintf("localhost:%d", getFreePort(t))
