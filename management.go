@@ -75,7 +75,7 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d",
 					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC)
 				// TODO: Publish only if there are subscribers
-				m.session.Publish(ManagementTopicStats).Args(map[string]any{
+				m.session.Publish(ManagementTopicStats).Arg(map[string]any{
 					"alloc":  memStats.Alloc,
 					"malloc": memStats.Mallocs,
 					"frees":  memStats.Frees,
