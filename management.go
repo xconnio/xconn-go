@@ -16,6 +16,8 @@ const (
 	ManagementProcedureSetStatsInterval = "io.xconn.mgmt.stats.interval.set"
 	ManagementProcedureStatsStatus      = "io.xconn.mgmt.stats.status"
 
+	ManagementTopicStats = "io.xconn.mgmt.stats"
+
 	ManagementProcedureSetLogLevel = "io.xconn.mgmt.loglevel.set"
 	ManagementProcedureGetLogLevel = "io.xconn.mgmt.loglevel.get"
 )
@@ -72,6 +74,13 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 				runtime.ReadMemStats(&memStats)
 				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d",
 					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC)
+				// TODO: Publish only if there are subscribers
+				m.session.Publish(ManagementTopicStats).Args(map[string]any{
+					"alloc":  memStats.Alloc,
+					"malloc": memStats.Mallocs,
+					"frees":  memStats.Frees,
+					"num_gc": memStats.NumGC,
+				}).Do()
 			case <-m.stopMemStats:
 				log.Infoln("Stopped memory logging")
 				return
