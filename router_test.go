@@ -605,6 +605,13 @@ func testBlockedClient(
 	_, ok := msg.(*messages.Subscribed)
 	require.True(t, ok)
 
+	// register a procedure
+	require.NoError(t, baseSession.WriteMessage(messages.NewRegister(1, nil, "io.xconn.test")))
+	msg1, err := baseSession.ReadMessage()
+	require.NoError(t, err)
+	_, ok1 := msg1.(*messages.Registered)
+	require.True(t, ok1)
+
 	// publisher client
 	session, err := xconn.ConnectAnonymous(context.Background(),
 		fmt.Sprintf("%s://%s", scheme, address), "realm1")
@@ -619,6 +626,10 @@ func testBlockedClient(
 		resp := session.Publish("io.xconn.test").Acknowledge(true).Arg(data).Do()
 		require.NoError(t, resp.Err)
 	}
+
+	// The callee is blocked so the router should respond with an error
+	callResp := session.Call("io.xconn.test").Do()
+	require.EqualError(t, callResp.Err, "wamp.error.network_failure: callee blocked, cannot call procedure")
 
 	err = session.Leave()
 	require.NoError(t, err)

@@ -171,6 +171,15 @@ func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.M
 	if !success {
 		messageName := messageNameByID(msgWithRecipient.Message.Type())
 		log.Debugf("dropped %s message for blocked peer: %d", messageName, baseSession.ID())
+		if msg.Type() == messages.MessageTypeCall {
+			caller, exists := r.clients.Load(baseSession.ID())
+			if exists {
+				callMsg := msg.(*messages.Call)
+				errMsg := messages.NewError(msg.Type(), callMsg.RequestID(), nil,
+					ErrNetworkFailure, []any{"callee blocked, cannot call procedure"}, nil)
+				_, _ = caller.TryWriteMessage(errMsg)
+			}
+		}
 	}
 
 	return nil
