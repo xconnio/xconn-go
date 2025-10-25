@@ -358,6 +358,14 @@ func (p *ProgressResult) ArgListOr(index int, def []any) []any {
 	return p.args.ListOr(index, def)
 }
 
+func (p *ProgressResult) ArgDict(index int) (map[string]any, error) {
+	return p.args.Dict(index)
+}
+
+func (p *ProgressResult) ArgDictOr(index int, def map[string]any) map[string]any {
+	return p.args.DictOr(index, def)
+}
+
 func (p *ProgressResult) ArgsLen() int {
 	return p.args.Len()
 }
@@ -412,6 +420,22 @@ func (p *ProgressResult) KwargBytes(key string) ([]byte, error) {
 
 func (p *ProgressResult) KwargBytesOr(key string, def []byte) []byte {
 	return p.kwargs.BytesOr(key, def)
+}
+
+func (p *ProgressResult) KwargList(key string) ([]any, error) {
+	return p.kwargs.List(key)
+}
+
+func (p *ProgressResult) KwargListOr(key string, def []any) []any {
+	return p.kwargs.ListOr(key, def)
+}
+
+func (p *ProgressResult) KwargDict(key string) (map[string]any, error) {
+	return p.kwargs.Dict(key)
+}
+
+func (p *ProgressResult) KwargDictOr(key string, def map[string]any) map[string]any {
+	return p.kwargs.DictOr(key, def)
 }
 
 func (p *ProgressResult) KwargsStruct(out any) error {
@@ -795,6 +819,14 @@ func (c *CallResponse) ArgListOr(index int, def []any) []any {
 	return c.args.ListOr(index, def)
 }
 
+func (c *CallResponse) ArgDict(index int) (map[string]any, error) {
+	return c.args.Dict(index)
+}
+
+func (c *CallResponse) ArgDictOr(index int, def map[string]any) map[string]any {
+	return c.args.DictOr(index, def)
+}
+
 func (c *CallResponse) ArgsLen() int {
 	return c.args.Len()
 }
@@ -853,6 +885,22 @@ func (c *CallResponse) KwargBytesOr(key string, def []byte) []byte {
 
 func (c *CallResponse) KwargsStruct(out any) error {
 	return c.kwargs.Decode(out)
+}
+
+func (c *CallResponse) KwargsList(key string) ([]any, error) {
+	return c.kwargs.List(key)
+}
+
+func (c *CallResponse) KwargListOr(key string, def []any) []any {
+	return c.kwargs.ListOr(key, def)
+}
+
+func (c *CallResponse) KwargDict(key string) (map[string]any, error) {
+	return c.kwargs.Dict(key)
+}
+
+func (c *CallResponse) KwargDictOr(key string, def map[string]any) map[string]any {
+	return c.kwargs.DictOr(key, def)
 }
 
 func (c *CallResponse) KwargsLen() int {
