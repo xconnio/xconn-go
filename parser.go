@@ -3,6 +3,7 @@ package xconn
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/util"
@@ -52,11 +53,37 @@ func (v Value) Int64() (int64, error) {
 	switch val := v.data.(type) {
 	case int64:
 		return val, nil
+	case uint64:
+		if val > math.MaxInt64 {
+			return 0, fmt.Errorf("uint64 value %d overflows int64", val)
+		}
+		return int64(val), nil
+	case uint8:
+		return int64(val), nil
 	case int:
+		return int64(val), nil
+	case int8:
 		return int64(val), nil
 	case int32:
 		return int64(val), nil
+	case uint:
+		if val > math.MaxInt64 {
+			return 0, fmt.Errorf("uint value %d overflows int64", val)
+		}
+		return int64(val), nil
+	case uint16:
+		return int64(val), nil
+	case uint32:
+		return int64(val), nil
 	case float64:
+		if val > math.MaxInt64 || val < math.MinInt64 {
+			return 0, fmt.Errorf("float64 value %f overflows int64", val)
+		}
+		return int64(val), nil
+	case float32:
+		if val > math.MaxInt64 || val < math.MinInt64 {
+			return 0, fmt.Errorf("float32 value %f overflows int64", val)
+		}
 		return int64(val), nil
 	}
 	return 0, fmt.Errorf("value cannot be converted to int64, got %T", v.data)
