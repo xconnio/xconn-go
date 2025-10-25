@@ -4,9 +4,7 @@ import (
 	"context"
 	crand "crypto/rand"
 	"fmt"
-	"io"
 	"math/rand"
-	"net"
 	netURL "net/url"
 	"testing"
 	"time"
@@ -547,17 +545,10 @@ func TestCustomAuthorizer(t *testing.T) {
 	})
 }
 
-func getFreePort(t *testing.T) int {
-	l, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	defer func() { _ = l.Close() }()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
 func testBlockedClient(
 	t *testing.T,
 	scheme string,
-	startServer func(*xconn.Server, string) (io.Closer, error),
+	startServer func(*xconn.Server, string) (*xconn.Listener, error),
 	dial func(context.Context, *netURL.URL) (xconn.Peer, error),
 ) {
 	t.Helper()
@@ -580,15 +571,14 @@ func testBlockedClient(
 	require.NoError(t, err)
 	server := xconn.NewServer(router, nil, nil)
 
-	address := fmt.Sprintf("localhost:%d", getFreePort(t))
-	closer, err := startServer(server, address)
+	listener, err := startServer(server, "localhost:0")
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = closer.Close() })
+	t.Cleanup(func() { _ = listener.Close() })
 
 	logrus.SetLevel(logrus.DebugLevel)
 
 	// subscribe to topic 'io.xconn.test'
-	parsedURL, err := netURL.Parse(fmt.Sprintf("%s://%s", scheme, address))
+	parsedURL, err := netURL.Parse(fmt.Sprintf("%s://%s", scheme, listener.Addr()))
 	require.NoError(t, err)
 
 	peer, err := dial(context.Background(), parsedURL)
@@ -614,7 +604,7 @@ func testBlockedClient(
 
 	// publisher client
 	session, err := xconn.ConnectAnonymous(context.Background(),
-		fmt.Sprintf("%s://%s", scheme, address), "realm1")
+		fmt.Sprintf("%s://%s", scheme, listener.Addr()), "realm1")
 	require.NoError(t, err)
 
 	// publish large data payload 100 times
@@ -636,7 +626,7 @@ func testBlockedClient(
 }
 
 func TestBlockedRawSocketClient(t *testing.T) {
-	testBlockedClient(t, "rs", func(server *xconn.Server, address string) (io.Closer, error) {
+	testBlockedClient(t, "rs", func(server *xconn.Server, address string) (*xconn.Listener, error) {
 		return server.ListenAndServeRawSocket(xconn.NetworkTCP, address)
 	}, func(ctx context.Context, url *netURL.URL) (xconn.Peer, error) {
 		return xconn.DialRawSocket(ctx, url, &xconn.RawSocketDialerConfig{
@@ -646,7 +636,7 @@ func TestBlockedRawSocketClient(t *testing.T) {
 }
 
 func TestBlockedWebSocketClient(t *testing.T) {
-	testBlockedClient(t, "ws", func(server *xconn.Server, address string) (io.Closer, error) {
+	testBlockedClient(t, "ws", func(server *xconn.Server, address string) (*xconn.Listener, error) {
 		return server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
 	}, func(ctx context.Context, url *netURL.URL) (xconn.Peer, error) {
 		peer, _, err := xconn.DialWebSocket(ctx, url, &xconn.WSDialerConfig{
@@ -676,14 +666,13 @@ func blockedCaller(t *testing.T, publishCount int) xconn.BaseSession {
 	require.NoError(t, err)
 	server := xconn.NewServer(router, nil, nil)
 
-	address := fmt.Sprintf("localhost:%d", getFreePort(t))
-	closer, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, address)
+	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "localhost:0")
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = closer.Close() })
+	t.Cleanup(func() { _ = listener.Close() })
 
 	logrus.SetLevel(logrus.DebugLevel)
 
-	parsedURL, err := netURL.Parse(fmt.Sprintf("ws://%s", address))
+	parsedURL, err := netURL.Parse(fmt.Sprintf("ws://%s", listener.Addr()))
 	require.NoError(t, err)
 
 	// --- CLIENT 1 SETUP (Publisher + Callee) ---

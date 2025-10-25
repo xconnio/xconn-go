@@ -83,10 +83,10 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 				return nil, err
 			}
 		}
-		var closer io.Closer
+		var listener *xconn.Listener
 		switch transport.Type {
 		case WebSocketTransport:
-			closer, err = server.ListenAndServeWebSocket(transport.Listener, address)
+			listener, err = server.ListenAndServeWebSocket(transport.Listener, address)
 			if err != nil {
 				return nil, err
 			}
@@ -96,7 +96,7 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 				log.Printf("listening websocket on ws://%s", address)
 			}
 		case UniversalTransport:
-			closer, err = server.ListenAndServeUniversal(transport.Listener, address)
+			listener, err = server.ListenAndServeUniversal(transport.Listener, address)
 			if err != nil {
 				return nil, err
 			}
@@ -108,10 +108,11 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 				log.Printf("listening websocket on ws://%s", address)
 			}
 		case RawSocketTransport:
-			closer, err = server.ListenAndServeRawSocket(transport.Listener, address)
+			listener, err = server.ListenAndServeRawSocket(transport.Listener, address)
 			if err != nil {
 				return nil, err
 			}
+
 			if transport.Listener == xconn.NetworkUnix {
 				log.Printf("listening rawsocket on unix://%s", address)
 			} else {
@@ -119,7 +120,7 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 			}
 		}
 
-		closers = append(closers, closer)
+		closers = append(closers, listener)
 	}
 
 	return closers, nil
