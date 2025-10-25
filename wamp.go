@@ -8,4 +8,6 @@ const (
 	CloseGoodByeAndOut  = "wamp.close.goodbye_and_out"
 	CloseCloseRealm     = "wamp.close.close_realm"
 	CloseSystemShutdown = "wamp.close.system_shutdown"
+
+	ErrNetworkFailure = "wamp.error.network_failure"
 )
