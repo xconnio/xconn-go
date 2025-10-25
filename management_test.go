@@ -31,7 +31,7 @@ func TestManagementStatsAPIs(t *testing.T) {
 	}).Do()
 	require.NoError(t, subResp.Err)
 
-	callResp := session.Call(xconn.ManagementProcedureEnableStats).Arg(int64(100)).Do()
+	callResp := session.Call(xconn.ManagementProcedureEnableStats).Arg(100).Do()
 	require.NoError(t, callResp.Err)
 
 	require.Eventually(t, func() bool {
