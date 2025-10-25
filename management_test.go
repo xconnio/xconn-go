@@ -37,7 +37,7 @@ func TestManagementStatsAPIs(t *testing.T) {
 		return true
 	}, 2*time.Second, 50*time.Millisecond)
 
-	callResp = session.Call(xconn.ManagementProcedureStatsStatus).Do()
+	callResp = session.Call(xconn.ManagementProcedureStatsStatusGet).Do()
 	require.NoError(t, callResp.Err)
 	require.Equal(t, map[string]any{"interval": int64(100), "running": true}, callResp.ArgDictOr(0, map[string]any{}))
 
@@ -45,7 +45,7 @@ func TestManagementStatsAPIs(t *testing.T) {
 	require.NoError(t, callResp.Err)
 	require.NoError(t, callResp.Err)
 
-	callResp = session.Call(xconn.ManagementProcedureStatsStatus).Do()
+	callResp = session.Call(xconn.ManagementProcedureStatsStatusGet).Do()
 	require.NoError(t, callResp.Err)
 	require.Equal(t, map[string]any{"interval": int64(100), "running": false}, callResp.ArgDictOr(0, map[string]any{}))
 }

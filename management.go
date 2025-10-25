@@ -14,12 +14,12 @@ const (
 	ManagementProcedureEnableStats      = "io.xconn.mgmt.stats.enable"
 	ManagementProcedureDisableStats     = "io.xconn.mgmt.stats.disable"
 	ManagementProcedureSetStatsInterval = "io.xconn.mgmt.stats.interval.set"
-	ManagementProcedureStatsStatus      = "io.xconn.mgmt.stats.status"
+	ManagementProcedureStatsStatusGet   = "io.xconn.mgmt.stats.status.get"
 
-	ManagementTopicStats = "io.xconn.mgmt.stats"
+	ManagementTopicStats = "io.xconn.mgmt.stats.on_update"
 
-	ManagementProcedureSetLogLevel = "io.xconn.mgmt.loglevel.set"
-	ManagementProcedureGetLogLevel = "io.xconn.mgmt.loglevel.get"
+	ManagementProcedureSetLogLevel = "io.xconn.mgmt.log.level.set"
+	ManagementProcedureGetLogLevel = "io.xconn.mgmt.log.level.get"
 )
 
 type management struct {
@@ -41,7 +41,7 @@ func (m *management) start() error {
 		ManagementProcedureEnableStats:      m.handleEnableStats,
 		ManagementProcedureDisableStats:     m.handleDisableStats,
 		ManagementProcedureSetStatsInterval: m.handleChangeInterval,
-		ManagementProcedureStatsStatus:      m.handleStatsStatus,
+		ManagementProcedureStatsStatusGet:   m.handleStatsStatus,
 		ManagementProcedureSetLogLevel:      m.handleSetLogLevel,
 		ManagementProcedureGetLogLevel:      m.handleGetLogLevel,
 	} {
@@ -158,8 +158,8 @@ func (m *management) handleSetLogLevel(_ context.Context, inv *Invocation) *Invo
 	if err != nil {
 		return NewInvocationError("wamp.error.invalid_argument", err.Error())
 	}
-	log.SetLevel(level)
 
+	log.SetLevel(level)
 	return NewInvocationResult()
 }
 
