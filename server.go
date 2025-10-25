@@ -176,7 +176,7 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 	for {
 		msg, err := base.ReadMessage()
 		if err != nil {
-			log.Debugf("failed to read client message: %v", err)
+			log.Tracef("failed to read client message: %v", err)
 			_ = s.router.DetachClient(base)
 			break
 		}
@@ -186,7 +186,7 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 		}
 
 		if err = s.router.ReceiveMessage(base, msg); err != nil {
-			log.Debugf("error feeding client message to router: %v", err)
+			log.Tracef("error feeding client message to router: %v", err)
 			_ = s.router.DetachClient(base)
 			break
 		}

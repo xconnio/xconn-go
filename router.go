@@ -7,6 +7,8 @@ import (
 	"github.com/xconnio/xconn-go/internal"
 )
 
+const ManagementRealm = "io.xconn.mgmt"
+
 type Router struct {
 	realms internal.Map[string, *Realm]
 
@@ -166,15 +168,27 @@ func (r *Router) EnableMetaAPI(realm string) error {
 	return r.AutoDiscloseCaller(realm, true)
 }
 
-func (r *Router) EnableManagementAPI(session *Session) error {
+func (r *Router) EnableManagementAPI() error {
 	if r.managementAPI {
+		fmt.Println("management API is already enabled")
 		return nil
 	}
-	managementAPI := newManagementAPI(session)
 
-	if err := managementAPI.start(); err != nil {
+	if err := r.AddRealm(ManagementRealm); err != nil {
 		return err
 	}
+
+	session, err := ConnectInMemory(r, ManagementRealm)
+	if err != nil {
+		return err
+	}
+
+	managementAPI := newManagementAPI(session)
+
+	if err = managementAPI.start(); err != nil {
+		return err
+	}
+
 	r.managementAPI = true
 	return nil
 }

@@ -13,11 +13,9 @@ func startRouterWithManagementAPIs(t *testing.T) *xconn.Session {
 	r := xconn.NewRouter()
 	err := r.AddRealm(realmName)
 	require.NoError(t, err)
-	inMemorySession, err := xconn.ConnectInMemory(r, realmName)
-	require.NoError(t, err)
-	require.NoError(t, r.EnableManagementAPI(inMemorySession))
+	require.NoError(t, r.EnableManagementAPI())
 
-	callerSession, err := xconn.ConnectInMemory(r, realmName)
+	callerSession, err := xconn.ConnectInMemory(r, xconn.ManagementRealm)
 	require.NoError(t, err)
 	return callerSession
 }
