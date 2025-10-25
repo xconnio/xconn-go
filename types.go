@@ -169,7 +169,7 @@ func (r *Registration) unregister() error {
 	}
 
 	unregister := messages.NewUnregister(r.session.idGen.NextID(), r.id)
-	toSend, err := r.session.proto.SendMessage(unregister)
+	toSend, err := r.session.serializer.Serialize(unregister)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (s *Subscription) unsubscribe() error {
 	}
 
 	unsubscribe := messages.NewUnsubscribe(s.session.idGen.NextID(), s.id)
-	toSend, err := s.session.proto.SendMessage(unsubscribe)
+	toSend, err := s.session.serializer.Serialize(unsubscribe)
 	if err != nil {
 		return err
 	}

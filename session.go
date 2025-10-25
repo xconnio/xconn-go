@@ -24,9 +24,9 @@ type ProgressReceiver func(result *ProgressResult)
 type ProgressSender func(ctx context.Context) *Progress
 
 type Session struct {
-	base    BaseSession
-	details *SessionDetails
-	proto   *wampproto.Session
+	base       BaseSession
+	details    *SessionDetails
+	serializer serializers.Serializer
 
 	// wamp id generator
 	idGen *wampproto.SessionScopeIDGenerator
@@ -57,9 +57,9 @@ type Session struct {
 
 func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 	session := &Session{
-		base:  base,
-		proto: wampproto.NewSession(serializer),
-		idGen: &wampproto.SessionScopeIDGenerator{},
+		base:       base,
+		idGen:      &wampproto.SessionScopeIDGenerator{},
+		serializer: serializer,
 
 		registerRequests:   sync.Map{},
 		unregisterRequests: sync.Map{},
@@ -98,7 +98,7 @@ func (s *Session) waitForRouterMessages() {
 			return
 		}
 
-		msg, err := s.proto.Receive(payload)
+		msg, err := s.serializer.Deserialize(payload)
 		if err != nil {
 			log.Println("failed to parse message: ", err)
 			_ = s.base.Close()
@@ -167,7 +167,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		if receiveProgress {
 			progressFunc := func(args []any, kwArgs map[string]any) error {
 				yield := messages.NewYield(invocation.RequestID(), map[string]any{"progress": true}, args, kwArgs)
-				payload, err := s.proto.SendMessage(yield)
+				payload, err := s.serializer.Serialize(yield)
 				if err != nil {
 					return fmt.Errorf("failed to send yield: %w", err)
 				}
@@ -208,7 +208,7 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				msgToSend = messages.NewYield(invocation.RequestID(), nil, res.Args, res.Kwargs)
 			}
 
-			payload, err := s.proto.SendMessage(msgToSend)
+			payload, err := s.serializer.Serialize(msgToSend)
 			if err != nil {
 				log.Println("failed to send yield: %w", err)
 				return
@@ -363,7 +363,7 @@ func (s *Session) register(procedure string, handler InvocationHandler,
 	}
 
 	register := messages.NewRegister(s.idGen.NextID(), options, procedure)
-	toSend, err := s.proto.SendMessage(register)
+	toSend, err := s.serializer.Serialize(register)
 	if err != nil {
 		return RegisterResponse{Err: err}
 	}
@@ -398,7 +398,7 @@ func (s *Session) call(ctx context.Context, call *messages.Call) CallResponse {
 		return CallResponse{Err: fmt.Errorf("cannot call procedure: session not established")}
 	}
 
-	toSend, err := s.proto.SendMessage(call)
+	toSend, err := s.serializer.Serialize(call)
 	if err != nil {
 		return CallResponse{Err: err}
 	}
@@ -470,7 +470,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 	}
 	call := messages.NewCall(s.idGen.NextID(), progress.Options, procedure, progress.Args, progress.Kwargs)
 
-	toSend, err := s.proto.SendMessage(call)
+	toSend, err := s.serializer.Serialize(call)
 	if err != nil {
 		return CallResponse{Err: err}
 	}
@@ -491,7 +491,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 				return
 			}
 			call = messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.Kwargs)
-			toSend, err = s.proto.SendMessage(call)
+			toSend, err = s.serializer.Serialize(call)
 			if err != nil {
 				return
 			}
@@ -521,7 +521,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 	s.progressHandlers.Store(call.RequestID(), progressHandler)
 	call.Options()[wampproto.OptionReceiveProgress] = true
 
-	toSend, err := s.proto.SendMessage(call)
+	toSend, err := s.serializer.Serialize(call)
 	if err != nil {
 		return CallResponse{Err: err}
 	}
@@ -542,7 +542,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 				return
 			}
 			call := messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.Kwargs)
-			toSend, err = s.proto.SendMessage(call)
+			toSend, err = s.serializer.Serialize(call)
 			if err != nil {
 				return
 			}
@@ -601,7 +601,7 @@ func (s *Session) subscribe(topic string, handler EventHandler, options map[stri
 		return SubscribeResponse{Err: fmt.Errorf("cannot subscribe to topic: session not established")}
 	}
 
-	toSend, err := s.proto.SendMessage(subscribe)
+	toSend, err := s.serializer.Serialize(subscribe)
 	if err != nil {
 		return SubscribeResponse{Err: err}
 	}
@@ -646,7 +646,7 @@ func (s *Session) publish(topic string, args []any, kwArgs map[string]any,
 	}
 
 	publish := messages.NewPublish(s.idGen.NextID(), options, topic, args, kwArgs)
-	toSend, err := s.proto.SendMessage(publish)
+	toSend, err := s.serializer.Serialize(publish)
 	if err != nil {
 		return PublishResponse{Err: err}
 	}
@@ -689,7 +689,7 @@ func (s *Session) Leave() error {
 	}
 
 	goodbye := messages.NewGoodBye(CloseCloseRealm, map[string]any{})
-	toSend, err := s.proto.SendMessage(goodbye)
+	toSend, err := s.serializer.Serialize(goodbye)
 	if err != nil {
 		return err
 	}
