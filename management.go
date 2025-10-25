@@ -11,13 +11,13 @@ import (
 )
 
 const (
-	ManagementProcedureEnableStats      = "io.xconn.management.stats.enable"
-	ManagementProcedureDisableStats     = "io.xconn.management.stats.disable"
-	ManagementProcedureSetStatsInterval = "io.xconn.management.stats.interval.set"
-	ManagementProcedureStatsStatus      = "io.xconn.management.stats.status"
+	ManagementProcedureEnableStats      = "io.xconn.mgmt.stats.enable"
+	ManagementProcedureDisableStats     = "io.xconn.mgmt.stats.disable"
+	ManagementProcedureSetStatsInterval = "io.xconn.mgmt.stats.interval.set"
+	ManagementProcedureStatsStatus      = "io.xconn.mgmt.stats.status"
 
-	ManagementProcedureSetLogLevel = "io.xconn.management.loglevel.set"
-	ManagementProcedureGetLogLevel = "io.xconn.management.loglevel.get"
+	ManagementProcedureSetLogLevel = "io.xconn.mgmt.loglevel.set"
+	ManagementProcedureGetLogLevel = "io.xconn.mgmt.loglevel.get"
 )
 
 type management struct {
