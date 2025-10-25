@@ -106,7 +106,7 @@ func testRegisterCall(t *testing.T, callee, caller *xconn.Session) {
 			callResponse := caller.Call("io.xconn.test").Do()
 			require.NoError(t, callResponse.Err)
 			require.NotNil(t, callResponse)
-			require.Equal(t, "hello", callResponse.Args.StringOr(0, ""))
+			require.Equal(t, "hello", callResponse.ArgStringOr(0, ""))
 		}()
 	}
 	wg.Wait()
@@ -205,8 +205,8 @@ func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
 		// Store received progress updates
 		progressUpdates := make([]int, 0)
 
-		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.InvocationResult) {
-			progress, _ := util.AsInt(progressiveResult.Args[0])
+		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.ProgressResult) {
+			progress, _ := util.AsInt(progressiveResult.Args()[0])
 			// Collect received progress
 			progressUpdates = append(progressUpdates, progress)
 		}).Do()
@@ -216,7 +216,7 @@ func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
 		require.Equal(t, []int{1, 2, 3}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Args.StringOr(0, ""))
+		require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
 	})
 }
 
@@ -276,7 +276,7 @@ func testProgressiveCallInvocation(t *testing.T, callee, caller *xconn.Session) 
 		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
 
 		// Verify the final result
-		require.Equal(t, "done", callResponse.Args.StringOr(0, ""))
+		require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
 	})
 }
 
@@ -335,14 +335,14 @@ func testCallProgressiveProgress(t *testing.T, callee, caller *xconn.Session) {
 					return xconn.NewProgress(chunkIndex)
 				}
 			}).
-			ProgressReceiver(func(result *xconn.InvocationResult) {
-				progress, _ := util.AsInt(result.Args[0])
+			ProgressReceiver(func(result *xconn.ProgressResult) {
+				progress, _ := util.AsInt(result.Args()[0])
 				receivedProgressBack = append(receivedProgressBack, progress)
 			}).Do()
 
 		require.NoError(t, callResponse.Err)
 
-		finalResult, _ := util.AsInt(callResponse.Args.Raw()[0])
+		finalResult, _ := util.AsInt(callResponse.Args()[0])
 		receivedProgressBack = append(receivedProgressBack, finalResult)
 
 		// Verify progressive updates received correctly

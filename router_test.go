@@ -87,7 +87,7 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 	// Kill all sessions with authid "test"
 	resp := session.Call(xconn.MetaProcedureSessionKillByAuthID).Arg(baseSession.AuthID()).Do()
 	require.NoError(t, resp.Err)
-	sessionList, err := resp.Args.List(0)
+	sessionList, err := resp.ArgList(0)
 	require.NoError(t, err)
 	require.Contains(t, sessionList, session1.ID())
 	require.Contains(t, sessionList, session2.ID())
@@ -129,7 +129,7 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 	// Kill all sessions with authrole "test"
 	resp := session.Call(xconn.MetaProcedureSessionKillByAuthRole).Arg(baseSession.AuthRole()).Do()
 	require.NoError(t, resp.Err)
-	sessionList, err := resp.Args.List(0)
+	sessionList, err := resp.ArgList(0)
 	require.NoError(t, err)
 	require.Contains(t, sessionList, session1.ID())
 	require.Contains(t, sessionList, session2.ID())
@@ -167,7 +167,7 @@ func TestRouterMetaKillAll(t *testing.T) {
 	// Kill all sessions
 	resp := session.Call(xconn.MetaProcedureSessionKillAll).Do()
 	require.NoError(t, resp.Err)
-	sessionList, err := resp.Args.List(0)
+	sessionList, err := resp.ArgList(0)
 	require.NoError(t, err)
 	require.Contains(t, sessionList, session1.ID())
 	require.Contains(t, sessionList, session2.ID())
@@ -196,7 +196,7 @@ func TestRouterMetaSessionCount(t *testing.T) {
 	t.Run("CountSessionWithRoleTrusted", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Arg([]any{"trusted"}).Do()
 		require.NoError(t, resp.Err)
-		require.Equal(t, uint64(2), resp.Args.UInt64Or(0, 0))
+		require.Equal(t, uint64(2), resp.ArgUInt64Or(0, 0))
 	})
 
 	// Connect second session with role=admin
@@ -207,13 +207,13 @@ func TestRouterMetaSessionCount(t *testing.T) {
 	t.Run("CountAllSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
 		require.NoError(t, resp.Err)
-		require.Equal(t, uint64(3), resp.Args.UInt64Or(0, 0))
+		require.Equal(t, uint64(3), resp.ArgUInt64Or(0, 0))
 	})
 
 	t.Run("CountOnlyAdminSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Arg([]any{"admin"}).Do()
 		require.NoError(t, resp.Err)
-		require.Equal(t, uint64(1), resp.Args.UInt64Or(0, 0))
+		require.Equal(t, uint64(1), resp.ArgUInt64Or(0, 0))
 	})
 
 	// Disconnect admin session
@@ -222,7 +222,7 @@ func TestRouterMetaSessionCount(t *testing.T) {
 	t.Run("CountAfterAdminSessionLeaves", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
 		require.NoError(t, resp.Err)
-		require.Equal(t, uint64(2), resp.Args.UInt64Or(0, 0))
+		require.Equal(t, uint64(2), resp.ArgUInt64Or(0, 0))
 	})
 }
 
@@ -238,7 +238,7 @@ func TestRouterMetaSessionList(t *testing.T) {
 	t.Run("ListSessionsWithRoleTrusted", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Arg([]any{"trusted"}).Do()
 		require.NoError(t, resp.Err)
-		ids := resp.Args.ListOr(0, nil)
+		ids := resp.ArgListOr(0, nil)
 		require.Len(t, ids, 2)
 	})
 
@@ -250,14 +250,14 @@ func TestRouterMetaSessionList(t *testing.T) {
 	t.Run("ListAllSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Do()
 		require.NoError(t, resp.Err)
-		ids := resp.Args.ListOr(0, nil)
+		ids := resp.ArgListOr(0, nil)
 		require.Len(t, ids, 3)
 	})
 
 	t.Run("ListOnlyAdminSessions", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Arg([]any{"admin"}).Do()
 		require.NoError(t, resp.Err)
-		ids := resp.Args.ListOr(0, nil)
+		ids := resp.ArgListOr(0, nil)
 		require.Len(t, ids, 1)
 		require.Equal(t, session2.ID(), ids[0])
 	})
@@ -268,7 +268,7 @@ func TestRouterMetaSessionList(t *testing.T) {
 	t.Run("ListAfterAdminSessionLeaves", func(t *testing.T) {
 		resp := session.Call(xconn.MetaProcedureSessionList).Do()
 		require.NoError(t, resp.Err)
-		ids := resp.Args.ListOr(0, nil)
+		ids := resp.ArgListOr(0, nil)
 		require.Len(t, ids, 2)
 	})
 }
@@ -285,7 +285,7 @@ func TestRouterMetaSessionGet(t *testing.T) {
 		"authrole": "trusted", "session": session.ID()}
 	resp := session.Call(xconn.MetaProcedureSessionGet).Arg(session.ID()).Do()
 	require.NoError(t, resp.Err)
-	require.Equal(t, expectedDetails, resp.Args.Raw()[0])
+	require.Equal(t, expectedDetails, resp.Args()[0])
 
 	// test err
 	respErr := session.Call(xconn.MetaProcedureSessionGet).Arg(uint64(2152454520)).Do()

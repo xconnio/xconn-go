@@ -9,7 +9,6 @@ import (
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"
-	"github.com/xconnio/wampproto-go/util"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -59,8 +58,8 @@ func main() {
 				return nil
 			}
 		}).
-		ProgressReceiver(func(result *xconn.InvocationResult) {
-			ch := util.ToString(result.Args[0])
+		ProgressReceiver(func(result *xconn.ProgressResult) {
+			ch := result.ArgStringOr(0, "")
 			challengeChan <- ch
 		}).
 		Do()

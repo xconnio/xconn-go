@@ -292,6 +292,144 @@ func NewFinalProgress(args ...any) *Progress {
 	}
 }
 
+type ProgressResult struct {
+	args    List
+	kwargs  Dict
+	details Dict
+}
+
+func (p *ProgressResult) ArgUInt64(index int) (uint64, error) {
+	return p.args.UInt64(index)
+}
+
+func (p *ProgressResult) ArgUInt64Or(index int, def uint64) uint64 {
+	return p.args.UInt64Or(index, def)
+}
+
+func (p *ProgressResult) ArgString(index int) (string, error) {
+	return p.args.String(index)
+}
+
+func (p *ProgressResult) ArgStringOr(index int, def string) string {
+	return p.args.StringOr(index, def)
+}
+
+func (p *ProgressResult) ArgBool(index int) (bool, error) {
+	return p.args.Bool(index)
+}
+
+func (p *ProgressResult) ArgBoolOr(index int, def bool) bool {
+	return p.args.BoolOr(index, def)
+}
+
+func (p *ProgressResult) ArgFloat64(index int) (float64, error) {
+	return p.args.Float64(index)
+}
+
+func (p *ProgressResult) ArgFloat64Or(index int, def float64) float64 {
+	return p.args.Float64Or(index, def)
+}
+
+func (p *ProgressResult) ArgInt64(index int) (int64, error) {
+	return p.args.Int64(index)
+}
+
+func (p *ProgressResult) ArgInt64Or(index int, def int64) int64 {
+	return p.args.Int64Or(index, def)
+}
+
+func (p *ProgressResult) ArgBytes(index int) ([]byte, error) {
+	return p.args.Bytes(index)
+}
+
+func (p *ProgressResult) ArgsStruct(out any) error {
+	return p.args.Decode(out)
+}
+
+func (p *ProgressResult) ArgBytesOr(index int, def []byte) []byte {
+	return p.args.BytesOr(index, def)
+}
+
+func (p *ProgressResult) ArgList(index int) ([]any, error) {
+	return p.args.List(index)
+}
+
+func (p *ProgressResult) ArgListOr(index int, def []any) []any {
+	return p.args.ListOr(index, def)
+}
+
+func (p *ProgressResult) ArgsLen() int {
+	return p.args.Len()
+}
+
+func (p *ProgressResult) Args() []any {
+	return p.args.Raw()
+}
+
+func (p *ProgressResult) KwargUInt64(key string) (uint64, error) {
+	return p.kwargs.UInt64(key)
+}
+
+func (p *ProgressResult) KwargUInt64Or(key string, def uint64) uint64 {
+	return p.kwargs.UInt64Or(key, def)
+}
+
+func (p *ProgressResult) KwargString(key string) (string, error) {
+	return p.kwargs.String(key)
+}
+
+func (p *ProgressResult) KwargStringOr(key string, def string) string {
+	return p.kwargs.StringOr(key, def)
+}
+
+func (p *ProgressResult) KwargBool(key string) (bool, error) {
+	return p.kwargs.Bool(key)
+}
+
+func (p *ProgressResult) KwargBoolOr(key string, def bool) bool {
+	return p.kwargs.BoolOr(key, def)
+}
+
+func (p *ProgressResult) KwargFloat64(key string) (float64, error) {
+	return p.kwargs.Float64(key)
+}
+
+func (p *ProgressResult) KwargFloat64Or(key string, def float64) float64 {
+	return p.kwargs.Float64Or(key, def)
+}
+
+func (p *ProgressResult) KwargInt64(key string) (int64, error) {
+	return p.kwargs.Int64(key)
+}
+
+func (p *ProgressResult) KwargInt64Or(key string, def int64) int64 {
+	return p.kwargs.Int64Or(key, def)
+}
+
+func (p *ProgressResult) KwargBytes(key string) ([]byte, error) {
+	return p.kwargs.Bytes(key)
+}
+
+func (p *ProgressResult) KwargBytesOr(key string, def []byte) []byte {
+	return p.kwargs.BytesOr(key, def)
+}
+
+func (p *ProgressResult) KwargsStruct(out any) error {
+	return p.kwargs.Decode(out)
+}
+
+func (p *ProgressResult) KwargsLen() int {
+	return p.kwargs.Len()
+}
+
+func (p *ProgressResult) Kwargs() map[string]any {
+	return p.kwargs.Raw()
+}
+
+func (p *ProgressResult) Details() map[string]any {
+	return p.details.Raw()
+}
+
 type Error struct {
 	URI    string
 	Args   []any
@@ -591,10 +729,142 @@ func (p *PublishRequest) ToPublish(requestID uint64) *messages.Publish {
 }
 
 type CallResponse struct {
-	Args    List
-	Kwargs  Dict
-	Details map[string]any
+	args    List
+	kwargs  Dict
+	details Dict
 	Err     error
+}
+
+func (c *CallResponse) ArgUInt64(index int) (uint64, error) {
+	return c.args.UInt64(index)
+}
+
+func (c *CallResponse) ArgUInt64Or(index int, def uint64) uint64 {
+	return c.args.UInt64Or(index, def)
+}
+
+func (c *CallResponse) ArgString(index int) (string, error) {
+	return c.args.String(index)
+}
+
+func (c *CallResponse) ArgStringOr(index int, def string) string {
+	return c.args.StringOr(index, def)
+}
+
+func (c *CallResponse) ArgBool(index int) (bool, error) {
+	return c.args.Bool(index)
+}
+
+func (c *CallResponse) ArgBoolOr(index int, def bool) bool {
+	return c.args.BoolOr(index, def)
+}
+
+func (c *CallResponse) ArgFloat64(index int) (float64, error) {
+	return c.args.Float64(index)
+}
+
+func (c *CallResponse) ArgFloat64Or(index int, def float64) float64 {
+	return c.args.Float64Or(index, def)
+}
+
+func (c *CallResponse) ArgInt64(index int) (int64, error) {
+	return c.args.Int64(index)
+}
+
+func (c *CallResponse) ArgInt64Or(index int, def int64) int64 {
+	return c.args.Int64Or(index, def)
+}
+
+func (c *CallResponse) ArgBytes(index int) ([]byte, error) {
+	return c.args.Bytes(index)
+}
+
+func (c *CallResponse) ArgsStruct(out any) error {
+	return c.args.Decode(out)
+}
+
+func (c *CallResponse) ArgBytesOr(index int, def []byte) []byte {
+	return c.args.BytesOr(index, def)
+}
+
+func (c *CallResponse) ArgList(index int) ([]any, error) {
+	return c.args.List(index)
+}
+
+func (c *CallResponse) ArgListOr(index int, def []any) []any {
+	return c.args.ListOr(index, def)
+}
+
+func (c *CallResponse) ArgsLen() int {
+	return c.args.Len()
+}
+
+func (c *CallResponse) Args() []any {
+	return c.args.Raw()
+}
+
+func (c *CallResponse) KwargUInt64(key string) (uint64, error) {
+	return c.kwargs.UInt64(key)
+}
+
+func (c *CallResponse) KwargUInt64Or(key string, def uint64) uint64 {
+	return c.kwargs.UInt64Or(key, def)
+}
+
+func (c *CallResponse) KwargString(key string) (string, error) {
+	return c.kwargs.String(key)
+}
+
+func (c *CallResponse) KwargStringOr(key string, def string) string {
+	return c.kwargs.StringOr(key, def)
+}
+
+func (c *CallResponse) KwargBool(key string) (bool, error) {
+	return c.kwargs.Bool(key)
+}
+
+func (c *CallResponse) KwargBoolOr(key string, def bool) bool {
+	return c.kwargs.BoolOr(key, def)
+}
+
+func (c *CallResponse) KwargFloat64(key string) (float64, error) {
+	return c.kwargs.Float64(key)
+}
+
+func (c *CallResponse) KwargFloat64Or(key string, def float64) float64 {
+	return c.kwargs.Float64Or(key, def)
+}
+
+func (c *CallResponse) KwargInt64(key string) (int64, error) {
+	return c.kwargs.Int64(key)
+}
+
+func (c *CallResponse) KwargInt64Or(key string, def int64) int64 {
+	return c.kwargs.Int64Or(key, def)
+}
+
+func (c *CallResponse) KwargBytes(key string) ([]byte, error) {
+	return c.kwargs.Bytes(key)
+}
+
+func (c *CallResponse) KwargBytesOr(key string, def []byte) []byte {
+	return c.kwargs.BytesOr(key, def)
+}
+
+func (c *CallResponse) KwargsStruct(out any) error {
+	return c.kwargs.Decode(out)
+}
+
+func (c *CallResponse) KwargsLen() int {
+	return c.kwargs.Len()
+}
+
+func (c *CallResponse) Kwargs() map[string]any {
+	return c.kwargs.Raw()
+}
+
+func (c *CallResponse) Details() map[string]any {
+	return c.details.Raw()
 }
 
 type RegisterResponse struct {
