@@ -14,12 +14,11 @@ import (
 	"github.com/xconnio/wampproto-go/transports"
 )
 
-type Listener int
+type ListenerType int
 
 const (
-	ListenerWebSocket Listener = iota
+	ListenerWebSocket ListenerType = iota
 	ListenerRawSocket
-	ListenerUnixSocket
 	ListenerUniversalTCP
 )
 
@@ -71,7 +70,28 @@ func (s *Server) RegisterSpec(spec SerializerSpec) error {
 	return s.rsAcceptor.RegisterSpec(spec)
 }
 
-func (s *Server) ListenAndServeWebSocket(network Network, address string) (io.Closer, error) {
+type Listener struct {
+	closer io.Closer
+	addr   net.Addr
+}
+
+func (l *Listener) Close() error {
+	return l.closer.Close()
+}
+
+func (l *Listener) Addr() net.Addr {
+	return l.addr
+}
+
+func (l *Listener) Port() int {
+	if tcp, ok := l.addr.(*net.TCPAddr); ok {
+		return tcp.Port
+	}
+
+	return 0
+}
+
+func (s *Server) ListenAndServeWebSocket(network Network, address string) (*Listener, error) {
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -89,7 +109,7 @@ func (c connWithPrependedReader) Read(p []byte) (int, error) {
 	return c.Reader.Read(p)
 }
 
-func (s *Server) HandleClient(conn net.Conn, listener Listener) {
+func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 	var base BaseSession
 	var err error
 
@@ -175,7 +195,7 @@ func (s *Server) HandleClient(conn net.Conn, listener Listener) {
 	log.Debugf("detached client %d", base.ID())
 }
 
-func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
+func (s *Server) startConnectionLoop(ln net.Listener, listener ListenerType) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -187,7 +207,7 @@ func (s *Server) startConnectionLoop(ln net.Listener, listener Listener) {
 	}
 }
 
-func (s *Server) ListenAndServeRawSocket(network Network, address string) (io.Closer, error) {
+func (s *Server) ListenAndServeRawSocket(network Network, address string) (*Listener, error) {
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -196,7 +216,7 @@ func (s *Server) ListenAndServeRawSocket(network Network, address string) (io.Cl
 	return s.Serve(ln, ListenerRawSocket), nil
 }
 
-func (s *Server) ListenAndServeUniversal(network Network, address string) (io.Closer, error) {
+func (s *Server) ListenAndServeUniversal(network Network, address string) (*Listener, error) {
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -205,7 +225,12 @@ func (s *Server) ListenAndServeUniversal(network Network, address string) (io.Cl
 	return s.Serve(ln, ListenerUniversalTCP), nil
 }
 
-func (s *Server) Serve(listener net.Listener, protocol Listener) io.Closer {
+func (s *Server) Serve(listener net.Listener, protocol ListenerType) *Listener {
 	go s.startConnectionLoop(listener, protocol)
-	return listener
+
+	addr := listener.Addr()
+	return &Listener{
+		closer: listener,
+		addr:   addr,
+	}
 }
