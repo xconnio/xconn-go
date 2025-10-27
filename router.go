@@ -168,17 +168,13 @@ func (r *Router) EnableMetaAPI(realm string) error {
 	return r.AutoDiscloseCaller(realm, true)
 }
 
-func (r *Router) EnableManagementAPI() error {
+func (r *Router) EnableManagementAPI(realm string) error {
 	if r.managementAPI {
 		fmt.Println("management API is already enabled")
 		return nil
 	}
 
-	if err := r.AddRealm(ManagementRealm); err != nil {
-		return err
-	}
-
-	session, err := ConnectInMemory(r, ManagementRealm)
+	session, err := ConnectInMemory(r, realm)
 	if err != nil {
 		return err
 	}
