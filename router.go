@@ -183,7 +183,7 @@ func (r *Router) EnableManagementAPI() error {
 		return err
 	}
 
-	managementAPI := newManagementAPI(session)
+	managementAPI := newManagementAPI(session, r)
 
 	if err = managementAPI.start(); err != nil {
 		return err

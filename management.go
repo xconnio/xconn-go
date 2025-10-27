@@ -20,19 +20,23 @@ const (
 
 	ManagementProcedureSetLogLevel = "io.xconn.mgmt.log.level.set"
 	ManagementProcedureGetLogLevel = "io.xconn.mgmt.log.level.get"
+
+	ManagementProcedureListRealms = "io.xconn.mgmt.realm.list"
 )
 
 type management struct {
 	session      *Session
+	router       *Router
 	stopMemStats chan struct{}
 	memRunning   bool
 	interval     time.Duration
 }
 
-func newManagementAPI(session *Session) *management {
+func newManagementAPI(session *Session, router *Router) *management {
 	return &management{
 		session:  session,
 		interval: time.Second,
+		router:   router,
 	}
 }
 
@@ -44,6 +48,7 @@ func (m *management) start() error {
 		ManagementProcedureStatsStatusGet:   m.handleStatsStatus,
 		ManagementProcedureSetLogLevel:      m.handleSetLogLevel,
 		ManagementProcedureGetLogLevel:      m.handleGetLogLevel,
+		ManagementProcedureListRealms:       m.handleListRealms,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -165,4 +170,13 @@ func (m *management) handleSetLogLevel(_ context.Context, inv *Invocation) *Invo
 
 func (m *management) handleGetLogLevel(_ context.Context, _ *Invocation) *InvocationResult {
 	return NewInvocationResult(log.GetLevel().String())
+}
+
+func (m *management) handleListRealms(_ context.Context, _ *Invocation) *InvocationResult {
+	var realmNames []string
+	m.router.realms.Range(func(name string, _ *Realm) bool {
+		realmNames = append(realmNames, name)
+		return true
+	})
+	return NewInvocationResult(realmNames)
 }

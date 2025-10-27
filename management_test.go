@@ -49,3 +49,11 @@ func TestManagementStatsAPIs(t *testing.T) {
 	require.NoError(t, callResp.Err)
 	require.Equal(t, map[string]any{"interval": int64(100), "running": false}, callResp.ArgDictOr(0, map[string]any{}))
 }
+
+func TestManagementRealmListApi(t *testing.T) {
+	session := startRouterWithManagementAPIs(t)
+
+	callResp := session.Call(xconn.ManagementProcedureListRealms).Do()
+	require.NoError(t, callResp.Err)
+	require.ElementsMatch(t, []any{"io.xconn.mgmt", "test"}, callResp.ArgListOr(0, []any{}))
+}
