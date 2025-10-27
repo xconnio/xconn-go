@@ -33,7 +33,6 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 	}
 
 	router := xconn.NewRouter()
-	defer router.Close()
 
 	for _, realm := range config.Realms {
 		if err := router.AddRealm(realm.Name); err != nil {
@@ -58,6 +57,12 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 			if err != nil {
 				return nil, err
 			}
+		}
+	}
+
+	if config.Config.Management {
+		if err = router.EnableManagementAPI(); err != nil {
+			return nil, err
 		}
 	}
 

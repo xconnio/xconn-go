@@ -58,6 +58,7 @@ func (m *management) start() error {
 		if response.Err != nil {
 			return response.Err
 		}
+		log.Infof("Registered procedure %s", uri)
 	}
 	return nil
 }

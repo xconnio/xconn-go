@@ -33,7 +33,8 @@ var URIRegex = regexp.MustCompile(`^([^\s.#]+\.)*([^\s.#]+)$`)
 type Config struct {
 	Version string `yaml:"version"`
 	Config  struct {
-		Loglevel string `yaml:"loglevel"`
+		Loglevel   string `yaml:"loglevel"`
+		Management bool   `yaml:"management"`
 	} `yaml:"config"`
 	Realms         []Realm        `yaml:"realms"`
 	Transports     []Transport    `yaml:"transports"`
