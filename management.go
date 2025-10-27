@@ -8,6 +8,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/xconnio/wampproto-go/serializers"
 )
 
 const (
@@ -21,7 +23,8 @@ const (
 	ManagementProcedureSetLogLevel = "io.xconn.mgmt.log.level.set"
 	ManagementProcedureGetLogLevel = "io.xconn.mgmt.log.level.get"
 
-	ManagementProcedureListRealms = "io.xconn.mgmt.realm.list"
+	ManagementProcedureListRealms  = "io.xconn.mgmt.realm.list"
+	ManagementProcedureListSession = "io.xconn.mgmt.session.list"
 )
 
 type management struct {
@@ -49,6 +52,7 @@ func (m *management) start() error {
 		ManagementProcedureSetLogLevel:      m.handleSetLogLevel,
 		ManagementProcedureGetLogLevel:      m.handleGetLogLevel,
 		ManagementProcedureListRealms:       m.handleListRealms,
+		ManagementProcedureListSession:      m.handleListSession,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -179,4 +183,74 @@ func (m *management) handleListRealms(_ context.Context, _ *Invocation) *Invocat
 		return true
 	})
 	return NewInvocationResult(realmNames)
+}
+
+func (m *management) handleListSession(_ context.Context, inv *Invocation) *InvocationResult {
+	realm, err := inv.ArgString(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	rlm, ok := m.router.realms.Load(realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found", "no such realm")
+	}
+
+	var sessions []map[string]any
+	rlm.clients.Range(func(key uint64, value BaseSession) bool {
+		sessions = append(sessions, sessionToMap(value))
+		return true
+	})
+
+	limit := inv.KwargInt64Or("limit", 50)
+	offset := inv.KwargInt64Or("offset", 0)
+
+	paged, total := paginateList(sessions, offset, limit)
+
+	return &InvocationResult{
+		Args: []any{paged},
+		Kwargs: map[string]any{
+			"total":  total,
+			"offset": offset,
+			"limit":  limit,
+		},
+	}
+}
+
+func paginateList[T any](items []T, offset, limit int64) ([]T, int64) {
+	total := int64(len(items))
+
+	if limit <= 0 {
+		return items, total
+	}
+
+	if offset > total {
+		offset = total
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+
+	return items[offset:end], total
+}
+
+var serializerNameBySerializer = map[Serializer]string{ //nolint:gochecknoglobals
+	&serializers.JSONSerializer{}:    "json",
+	&serializers.CBORSerializer{}:    "cbor",
+	&serializers.MsgPackSerializer{}: "msgpack",
+}
+
+func sessionToMap(s BaseSession) map[string]any {
+	serializer, ok := serializerNameBySerializer[s.Serializer()]
+	if !ok {
+		serializer = "unknown"
+	}
+
+	return map[string]any{
+		"authid":     s.AuthID(),
+		"authrole":   s.AuthRole(),
+		"sessionID":  s.ID(),
+		"serializer": serializer,
+	}
 }
