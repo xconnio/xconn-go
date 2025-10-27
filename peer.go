@@ -3,7 +3,6 @@ package xconn
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -125,10 +124,11 @@ type WebSocketPeer struct {
 	ctrlChan      chan wsMsg
 	doneWriting   chan struct{}
 
-	pingCh  chan struct{}
-	wsMsgOp ws.OpCode
-	server  bool
-	closed  bool
+	pingCh    chan struct{}
+	wsMsgOp   ws.OpCode
+	server    bool
+	closed    bool
+	closeChan chan struct{}
 
 	sync.Mutex
 }
@@ -149,6 +149,7 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 		writeChan:     make(chan []byte, 64),
 		ctrlChan:      make(chan wsMsg, 2),
 		doneWriting:   make(chan struct{}),
+		closeChan:     make(chan struct{}),
 	}
 
 	if peerConfig.KeepAliveInterval != 0 {
@@ -162,9 +163,10 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 
 func (c *WebSocketPeer) TryWrite(data []byte) (bool, error) {
 	c.Lock()
-	defer c.Unlock()
+	closed := c.closed
+	c.Unlock()
 
-	if c.closed {
+	if closed {
 		return false, io.ErrClosedPipe
 	}
 
@@ -192,31 +194,50 @@ func (c *WebSocketPeer) writer() {
 				_ = c.Close()
 				return
 			}
+		case <-c.closeChan:
+			return
 		}
 	}
 }
 
 func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTimeout time.Duration) {
+	if keepaliveInterval == 0 {
+		keepaliveInterval = 30 * time.Second
+	}
+
+	if keepaliveTimeout == 0 {
+		keepaliveTimeout = 10 * time.Second
+	}
+
+	if keepaliveTimeout >= keepaliveInterval {
+		log.Printf("adjusting keepaliveTimeout (%s) to half of interval (%s)", keepaliveTimeout, keepaliveInterval)
+		keepaliveTimeout = keepaliveInterval / 2
+	}
+
 	ticker := time.NewTicker(keepaliveInterval)
 	defer ticker.Stop()
 
-	if keepaliveTimeout == 0 {
-		keepaliveTimeout = 30 * time.Second
-	}
-
 	for {
-		<-ticker.C
+		select {
+		case <-ticker.C:
+		case <-c.closeChan:
+			return
+		}
+
 		// Send a ping
 		randomBytes := make([]byte, 4)
 		_, err := rand.Read(randomBytes)
 		if err != nil {
 			log.Println("failed to generate random bytes:", err)
+			continue
 		}
 
 		select {
 		case c.ctrlChan <- wsMsg{payload: randomBytes, opCode: ws.OpPing}:
+		case <-c.closeChan:
+			return
 		default:
-			log.Printf("failed to send ping: %v", err)
+			log.Println("failed to send ping: ctrlChan full")
 			_ = c.Close()
 			return
 		}
@@ -226,6 +247,8 @@ func (c *WebSocketPeer) startPinger(keepaliveInterval time.Duration, keepaliveTi
 		case <-time.After(keepaliveTimeout):
 			log.Println("ping timeout, closing connection")
 			_ = c.Close()
+			return
+		case <-c.closeChan:
 			return
 		}
 	}
@@ -248,58 +271,60 @@ func (c *WebSocketPeer) writeOpFunc(w io.Writer, op ws.OpCode, p []byte) error {
 }
 
 func (c *WebSocketPeer) Read() ([]byte, error) {
-	header, reader, err := wsutil.NextReader(c.conn, c.peerState())
-	if err != nil {
-		return nil, err
-	}
-
-	payload, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-
-	switch header.OpCode {
-	case ws.OpText, ws.OpBinary:
-		return payload, nil
-	case ws.OpPing:
-		select {
-		case c.ctrlChan <- wsMsg{payload: payload, opCode: ws.OpPong}:
-		default:
-			return nil, errors.New("failed to send pong: channel is full")
+	for {
+		header, reader, err := wsutil.NextReader(c.conn, c.peerState())
+		if err != nil {
+			return nil, err
 		}
-	case ws.OpPong:
-		select {
-		case c.pingCh <- struct{}{}:
-		default:
-		}
-	case ws.OpClose:
-		_ = c.Close()
-		return nil, fmt.Errorf("connection closed")
-	}
 
-	return c.Read()
+		payload, err := io.ReadAll(reader)
+		if err != nil {
+			return nil, err
+		}
+
+		switch header.OpCode {
+		case ws.OpText, ws.OpBinary:
+			return payload, nil
+		case ws.OpPing:
+			select {
+			case c.ctrlChan <- wsMsg{payload: payload, opCode: ws.OpPong}:
+			case <-c.closeChan:
+				return nil, io.ErrClosedPipe
+			default:
+				log.Println("failed to send pong: ctrlChan full")
+				continue
+			}
+		case ws.OpPong:
+			select {
+			case c.pingCh <- struct{}{}:
+			default:
+			}
+
+			continue
+		case ws.OpClose:
+			_ = c.Close()
+			return nil, fmt.Errorf("connection closed")
+		}
+	}
 }
 
 func (c *WebSocketPeer) Write(bytes []byte) error {
 	c.Lock()
-	defer c.Unlock()
+	closed := c.closed
+	c.Unlock()
 
-	if c.closed {
+	if closed {
 		return io.ErrClosedPipe
 	}
 
-	var now time.Time
 	if len(c.writeChan) == cap(c.writeChan) {
-		now = time.Now()
-		log.Debugf("websocket write channel blocked (full)")
+		start := time.Now()
+		c.writeChan <- bytes
+		log.Debugf("websocket write channel unblocked. took=%s", time.Since(start))
+		return nil
 	}
 
 	c.writeChan <- bytes
-
-	if !now.IsZero() {
-		log.Debugf("websocket write channel unblocked. took=%s", time.Since(now))
-	}
-
 	return nil
 }
 
@@ -317,11 +342,14 @@ func (c *WebSocketPeer) NetConn() net.Conn {
 
 func (c *WebSocketPeer) Close() error {
 	c.Lock()
-	defer c.Unlock()
-
 	if c.closed {
+		c.Unlock()
 		return nil
 	}
+	c.closed = true
+	c.Unlock()
+
+	close(c.closeChan)
 
 	select {
 	case <-c.doneWriting:
@@ -329,7 +357,6 @@ func (c *WebSocketPeer) Close() error {
 		// writer still busy, timeout
 	}
 
-	c.closed = true
 	return c.conn.Close()
 }
 
