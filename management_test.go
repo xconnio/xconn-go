@@ -9,7 +9,7 @@ import (
 	"github.com/xconnio/xconn-go"
 )
 
-func startRouterWithManagementAPIs(t *testing.T) *xconn.Session {
+func startRouterWithManagementAPIs(t *testing.T) (*xconn.Router, *xconn.Session) {
 	r := xconn.NewRouter()
 	err := r.AddRealm(realmName)
 	require.NoError(t, err)
@@ -17,11 +17,11 @@ func startRouterWithManagementAPIs(t *testing.T) *xconn.Session {
 
 	callerSession, err := xconn.ConnectInMemory(r, xconn.ManagementRealm)
 	require.NoError(t, err)
-	return callerSession
+	return r, callerSession
 }
 
 func TestManagementStatsAPIs(t *testing.T) {
-	session := startRouterWithManagementAPIs(t)
+	_, session := startRouterWithManagementAPIs(t)
 
 	eventChannel := make(chan *xconn.Event)
 	subResp := session.Subscribe(xconn.ManagementTopicStats, func(event *xconn.Event) {
@@ -51,9 +51,47 @@ func TestManagementStatsAPIs(t *testing.T) {
 }
 
 func TestManagementRealmListApi(t *testing.T) {
-	session := startRouterWithManagementAPIs(t)
+	_, session := startRouterWithManagementAPIs(t)
 
 	callResp := session.Call(xconn.ManagementProcedureListRealms).Do()
 	require.NoError(t, callResp.Err)
 	require.ElementsMatch(t, []any{"io.xconn.mgmt", "test"}, callResp.ArgListOr(0, []any{}))
+}
+
+func TestManagementSessionList(t *testing.T) {
+	r, session := startRouterWithManagementAPIs(t)
+
+	callResp := session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Do()
+	require.NoError(t, callResp.Err)
+	require.Len(t, callResp.ArgListOr(0, []any{}), 2)
+
+	for i := 0; i < 20; i++ {
+		_, err := xconn.ConnectInMemory(r, xconn.ManagementRealm)
+		require.NoError(t, err)
+	}
+
+	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Do()
+	require.NoError(t, callResp.Err)
+	require.Len(t, callResp.ArgListOr(0, []any{}), 22)
+
+	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Kwargs(map[string]any{
+		"limit":  10,
+		"offset": 0,
+	}).Do()
+	require.NoError(t, callResp.Err)
+	require.Len(t, callResp.ArgListOr(0, []any{}), 10)
+
+	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Kwargs(map[string]any{
+		"limit":  10,
+		"offset": 10,
+	}).Do()
+	require.NoError(t, callResp.Err)
+	require.Len(t, callResp.ArgListOr(0, []any{}), 10)
+
+	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Kwargs(map[string]any{
+		"limit":  10,
+		"offset": 20,
+	}).Do()
+	require.NoError(t, callResp.Err)
+	require.Len(t, callResp.ArgListOr(0, []any{}), 2)
 }
