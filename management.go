@@ -13,10 +13,8 @@ import (
 )
 
 const (
-	ManagementProcedureEnableStats      = "io.xconn.mgmt.stats.enable"
-	ManagementProcedureDisableStats     = "io.xconn.mgmt.stats.disable"
-	ManagementProcedureSetStatsInterval = "io.xconn.mgmt.stats.interval.set"
-	ManagementProcedureStatsStatusGet   = "io.xconn.mgmt.stats.status.get"
+	ManagementProcedureStatsStatusSet = "io.xconn.mgmt.stats.status.set"
+	ManagementProcedureStatsStatusGet = "io.xconn.mgmt.stats.status.get"
 
 	ManagementTopicStats = "io.xconn.mgmt.stats.on_update"
 
@@ -45,14 +43,12 @@ func newManagementAPI(session *Session, router *Router) *management {
 
 func (m *management) start() error {
 	for uri, handler := range map[string]InvocationHandler{
-		ManagementProcedureEnableStats:      m.handleEnableStats,
-		ManagementProcedureDisableStats:     m.handleDisableStats,
-		ManagementProcedureSetStatsInterval: m.handleChangeInterval,
-		ManagementProcedureStatsStatusGet:   m.handleStatsStatus,
-		ManagementProcedureSetLogLevel:      m.handleSetLogLevel,
-		ManagementProcedureGetLogLevel:      m.handleGetLogLevel,
-		ManagementProcedureListRealms:       m.handleListRealms,
-		ManagementProcedureListSession:      m.handleListSession,
+		ManagementProcedureStatsStatusSet: m.handleSetStatsStatus,
+		ManagementProcedureStatsStatusGet: m.handleStatsStatus,
+		ManagementProcedureSetLogLevel:    m.handleSetLogLevel,
+		ManagementProcedureGetLogLevel:    m.handleGetLogLevel,
+		ManagementProcedureListRealms:     m.handleListRealms,
+		ManagementProcedureListSession:    m.handleListSession,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -111,39 +107,55 @@ func (m *management) stopMemoryLogging() {
 	m.memRunning = false
 }
 
-func (m *management) handleEnableStats(_ context.Context, invocation *Invocation) *InvocationResult {
-	interval, err := invocation.ArgInt64(0)
-	if err != nil {
-		interval = 1000 // default 1s
+func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocation) *InvocationResult {
+	enable := invocation.KwargBoolOr("enable", false)
+	disable := invocation.KwargBoolOr("disable", false)
+
+	if enable && disable {
+		return NewInvocationError("wamp.error.invalid_argument", "only one of 'enable' or 'disable' can be true")
 	}
 
-	err = m.startMemoryLogging(time.Duration(interval) * time.Millisecond)
-	if err != nil {
-		return NewInvocationError("wamp.error.internal_error", err.Error())
+	intervalMS, err := invocation.KwargInt64("interval")
+	intervalProvided := err == nil
+
+	if intervalMS == 0 {
+		if m.interval > 0 {
+			intervalMS = int64(m.interval / time.Millisecond)
+		} else {
+			intervalMS = 1000 // default 1s
+		}
 	}
-	return NewInvocationResult()
-}
+	interval := time.Duration(intervalMS) * time.Millisecond
 
-func (m *management) handleDisableStats(_ context.Context, _ *Invocation) *InvocationResult {
-	m.stopMemoryLogging()
-	return NewInvocationResult()
-}
-
-func (m *management) handleChangeInterval(_ context.Context, invocation *Invocation) *InvocationResult {
-	newIntervalMS, err := invocation.ArgInt64(0)
-	if err != nil {
-		return NewInvocationError("wamp.error.invalid_argument", "interval must be a positive integer (milliseconds)")
+	if intervalProvided {
+		m.interval = interval
 	}
 
-	newInterval := time.Duration(newIntervalMS) * time.Millisecond
-	m.interval = newInterval
+	switch {
+	case enable:
+		if m.memRunning {
+			m.stopMemoryLogging()
+		}
+		if err := m.startMemoryLogging(interval); err != nil {
+			return NewInvocationError("wamp.error.internal_error", err.Error())
+		}
 
-	if m.memRunning {
-		log.Infof("Changing memory logging interval to %v", newInterval)
-		m.stopMemoryLogging()
-		_ = m.startMemoryLogging(newInterval)
-	} else {
-		log.Infof("Updated memory logging interval to %v (will apply when started)", newInterval)
+	case disable:
+		if m.memRunning {
+			m.stopMemoryLogging()
+		}
+
+	case intervalProvided:
+		if m.memRunning {
+			log.Infof("Changing memory logging interval to %v", interval)
+			m.stopMemoryLogging()
+			_ = m.startMemoryLogging(interval)
+		} else {
+			log.Infof("Updated memory logging interval to %v (will apply when started)", interval)
+		}
+
+	default:
+		return NewInvocationError("wamp.error.invalid_argument", "no valid kwargs provided (enable, disable, or interval)")
 	}
 
 	return NewInvocationResult()

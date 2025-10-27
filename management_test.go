@@ -29,7 +29,10 @@ func TestManagementStatsAPIs(t *testing.T) {
 	}).Do()
 	require.NoError(t, subResp.Err)
 
-	callResp := session.Call(xconn.ManagementProcedureEnableStats).Arg(100).Do()
+	callResp := session.Call(xconn.ManagementProcedureStatsStatusSet).Kwargs(map[string]any{
+		"interval": 100,
+		"enable":   true,
+	}).Do()
 	require.NoError(t, callResp.Err)
 
 	require.Eventually(t, func() bool {
@@ -41,7 +44,7 @@ func TestManagementStatsAPIs(t *testing.T) {
 	require.NoError(t, callResp.Err)
 	require.Equal(t, map[string]any{"interval": int64(100), "running": true}, callResp.ArgDictOr(0, map[string]any{}))
 
-	callResp = session.Call(xconn.ManagementProcedureDisableStats).Arg(100).Do()
+	callResp = session.Call(xconn.ManagementProcedureStatsStatusSet).Kwarg("disable", true).Do()
 	require.NoError(t, callResp.Err)
 	require.NoError(t, callResp.Err)
 
