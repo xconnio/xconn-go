@@ -174,10 +174,6 @@ func (r *Router) EnableManagementAPI() error {
 		return nil
 	}
 
-	if err := r.AddRealm(ManagementRealm); err != nil {
-		return err
-	}
-
 	session, err := ConnectInMemory(r, ManagementRealm)
 	if err != nil {
 		return err

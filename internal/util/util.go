@@ -61,6 +61,12 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 		}
 	}
 
+	if config.Config.Management {
+		if err = router.EnableManagementAPI(); err != nil {
+			return nil, err
+		}
+	}
+
 	authenticator := NewAuthenticator(config.Authenticators)
 
 	closers := make([]io.Closer, 0)
