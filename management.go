@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -78,14 +79,19 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 			select {
 			case <-ticker.C:
 				runtime.ReadMemStats(&memStats)
-				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d",
-					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC)
+
+				cpuPercent := cpuUsage()
+
+				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%%",
+					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent)
+
 				// TODO: Publish only if there are subscribers
 				m.session.Publish(ManagementTopicStats).Arg(map[string]any{
-					"alloc":  memStats.Alloc,
-					"malloc": memStats.Mallocs,
-					"frees":  memStats.Frees,
-					"num_gc": memStats.NumGC,
+					"alloc":     memStats.Alloc,
+					"malloc":    memStats.Mallocs,
+					"frees":     memStats.Frees,
+					"num_gc":    memStats.NumGC,
+					"cpu_usage": cpuPercent,
 				}).Do()
 			case <-m.stopMemStats:
 				log.Infoln("Stopped memory logging")
@@ -95,6 +101,19 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 	}()
 	log.Infof("Started memory logging (interval=%v)", m.interval)
 	return nil
+}
+
+func cpuUsage() float64 {
+	var rusage syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
+		return 0
+	}
+
+	userTime := float64(rusage.Utime.Sec) + float64(rusage.Utime.Usec)/1e6
+	sysTime := float64(rusage.Stime.Sec) + float64(rusage.Stime.Usec)/1e6
+	totalTime := userTime + sysTime
+
+	return (totalTime / float64(runtime.NumCPU())) * 100
 }
 
 // stopMemoryLogging stops the memory logging.
