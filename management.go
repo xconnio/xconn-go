@@ -33,13 +33,15 @@ type management struct {
 	stopMemStats chan struct{}
 	memRunning   bool
 	interval     time.Duration
+	startTime    time.Time
 }
 
 func newManagementAPI(session *Session, router *Router) *management {
 	return &management{
-		session:  session,
-		interval: time.Second,
-		router:   router,
+		session:   session,
+		interval:  time.Second,
+		router:    router,
+		startTime: time.Now(),
 	}
 }
 
@@ -84,8 +86,11 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 
 				cpuPercent := cpuUsage()
 
-				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%%",
-					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent)
+				// Uptime in seconds
+				uptime := time.Since(m.startTime).Seconds()
+
+				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%% | Uptime=%.1fs",
+					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent, uptime)
 
 				// TODO: Publish only if there are subscribers
 				m.session.Publish(ManagementTopicStats).Arg(map[string]any{
@@ -94,6 +99,7 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 					"frees":     memStats.Frees,
 					"num_gc":    memStats.NumGC,
 					"cpu_usage": cpuPercent,
+					"uptime":    uptime,
 				}).Do()
 			case <-m.stopMemStats:
 				log.Infoln("Stopped memory logging")
