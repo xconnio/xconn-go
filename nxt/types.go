@@ -1,4 +1,4 @@
-package util
+package nxt
 
 import "github.com/xconnio/xconn-go"
 
