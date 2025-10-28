@@ -24,6 +24,7 @@ const (
 
 	ManagementProcedureListRealms  = "io.xconn.mgmt.realm.list"
 	ManagementProcedureListSession = "io.xconn.mgmt.session.list"
+	ManagementProcedureKillSession = "io.xconn.mgmt.session.kill"
 )
 
 type management struct {
@@ -50,6 +51,7 @@ func (m *management) start() error {
 		ManagementProcedureGetLogLevel:    m.handleGetLogLevel,
 		ManagementProcedureListRealms:     m.handleListRealms,
 		ManagementProcedureListSession:    m.handleListSession,
+		ManagementProcedureKillSession:    m.handleSessionKill,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -285,4 +287,36 @@ func sessionToMap(s BaseSession) map[string]any {
 		"sessionID":  s.ID(),
 		"serializer": serializer,
 	}
+}
+
+func (m *management) handleSessionKill(_ context.Context, invocation *Invocation) *InvocationResult {
+	realm, err := invocation.ArgString(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	sessionID, err := invocation.ArgUInt64(1)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	if sessionID == m.session.ID() || sessionID == invocation.Caller() {
+		return NewInvocationError("wamp.error.invalid_argument", "invalid session id")
+	}
+
+	rlm, ok := m.router.realms.Load(realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found", "invalid realm")
+	}
+
+	client, ok := rlm.clients.Load(sessionID)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found", "session not found")
+	}
+
+	if err := killSession(invocation, client); err != nil {
+		return NewInvocationError(err.Error())
+	}
+
+	return NewInvocationResult()
 }

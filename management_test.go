@@ -99,3 +99,18 @@ func TestManagementSessionList(t *testing.T) {
 	require.NoError(t, callResp.Err)
 	require.Len(t, callResp.ArgListOr(0, []any{}), 2)
 }
+
+func TestManagementSessionKill(t *testing.T) {
+	r, session := startRouterWithManagementAPIs(t)
+	require.NoError(t, r.AddRealm("realm1"))
+
+	sessionToKill, err := xconn.ConnectInMemory(r, "realm1")
+	require.NoError(t, err)
+
+	response := session.Call(xconn.ManagementProcedureKillSession).Args("realm1", sessionToKill.ID()).Do()
+	require.NoError(t, response.Err)
+
+	require.Eventually(t, func() bool {
+		return !sessionToKill.Connected()
+	}, 1*time.Second, 50*time.Millisecond)
+}
