@@ -212,6 +212,7 @@ func (r *Router) AutoDisclosePublisher(realm string, disclose bool) error {
 func (r *Router) Close() {
 	r.realms.Range(func(name string, realm *Realm) bool {
 		realm.Close()
+		r.realms.Delete(name)
 		return true
 	})
 }
