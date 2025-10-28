@@ -10,7 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/xconnio/xconn-go/internal/util"
+	"github.com/xconnio/xconn-go/nxt"
 )
 
 var (
@@ -97,7 +97,7 @@ func Run(args []string) error {
 			return fmt.Errorf("unable to write config: %w", err)
 		}
 	case "start":
-		closers, err := util.StartServerFromConfigFile(configFile)
+		closers, err := nxt.StartServerFromConfigFile(configFile)
 		if err != nil {
 			return err
 		}
