@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -30,6 +31,9 @@ const (
 
 	ManagementProcedureMaxProcsSet = "io.xconn.runtime.gomaxprocs.set"
 	ManagementProcedureMaxProcsGet = "io.xconn.runtime.gomaxprocs.get"
+
+	ManagementProcedureSessionLogSet  = "io.xconn.mgmt.session.log.set"
+	ManagementTopicSessionLogTemplate = "io.xconn.mgmt.session.log.%d.on_update"
 )
 
 type management struct {
@@ -62,6 +66,7 @@ func (m *management) start() error {
 		ManagementProcedureMaxProcsSet:    m.handleMaxProcsSet,
 		ManagementProcedureMaxProcsGet:    m.handleMaxProcsGet,
 		ManagementProcedureGC:             m.handleGC,
+		ManagementProcedureSessionLogSet:  m.handleSessionLoggingSet,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -369,5 +374,41 @@ func (m *management) handleMaxProcsGet(_ context.Context, _ *Invocation) *Invoca
 
 func (m *management) handleGC(_ context.Context, _ *Invocation) *InvocationResult {
 	runtime.GC()
+	return NewInvocationResult()
+}
+
+func (m *management) handleSessionLoggingSet(_ context.Context, invocation *Invocation) *InvocationResult {
+	enable, err := invocation.KwargBool("enable")
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	realm, err := invocation.ArgString(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	sessionID, err := invocation.ArgUInt64(1)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+
+	rlm, ok := m.router.realms.Load(realm)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found", "invalid realm")
+	}
+
+	client, ok := rlm.clients.Load(sessionID)
+	if !ok {
+		return NewInvocationError("wamp.error.not_found", "session not found")
+	}
+
+	if enable {
+		topic := fmt.Sprintf(ManagementTopicSessionLogTemplate, client.ID())
+		client.EnableLogPublishing(m.session, topic)
+		return NewInvocationResult(map[string]any{"topic": topic})
+	}
+
+	client.DisableLogPublishing()
 	return NewInvocationResult()
 }

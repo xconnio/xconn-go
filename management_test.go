@@ -1,6 +1,7 @@
 package xconn_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -113,4 +114,50 @@ func TestManagementSessionKill(t *testing.T) {
 	require.Eventually(t, func() bool {
 		return !sessionToKill.Connected()
 	}, 1*time.Second, 50*time.Millisecond)
+}
+
+func TestManagementSessionLog(t *testing.T) {
+	r, session := startRouterWithManagementAPIs(t)
+	require.NoError(t, r.AddRealm("realm1"))
+
+	sessionToLog, err := xconn.ConnectInMemory(r, "realm1")
+	require.NoError(t, err)
+
+	eventChannel := make(chan *xconn.Event, 1)
+	subResp := session.Subscribe(
+		fmt.Sprintf(xconn.ManagementTopicSessionLogTemplate, sessionToLog.ID()),
+		func(event *xconn.Event) {
+			eventChannel <- event
+		},
+	).Do()
+	require.NoError(t, subResp.Err)
+
+	// Enable session log
+	response := session.Call(xconn.ManagementProcedureSessionLogSet).Args("realm1", sessionToLog.ID()).
+		Kwarg("enable", true).Do()
+	require.NoError(t, response.Err)
+
+	// Should trigger event
+	sessionToLog.Publish("test").Do()
+	require.Eventually(t, func() bool {
+		<-eventChannel
+		return true
+	}, 2*time.Second, 50*time.Millisecond)
+
+	// Disable session log
+	response = session.Call(xconn.ManagementProcedureSessionLogSet).Args("realm1", sessionToLog.ID()).
+		Kwarg("enable", false).Do()
+	require.NoError(t, response.Err)
+
+	// Publish again should not trigger event
+	sessionToLog.Publish("test").Do()
+	select {
+	case <-eventChannel:
+		t.Fatal("unexpected event received after disabling session log")
+	case <-time.After(500 * time.Millisecond):
+	}
+
+	// Call with no kwargs
+	response = session.Call(xconn.ManagementProcedureSessionLogSet).Args("realm1", sessionToLog.ID()).Do()
+	require.ErrorContains(t, response.Err, "wamp.error.invalid_argument")
 }
