@@ -2,6 +2,10 @@ package xconn
 
 import (
 	"fmt"
+	"sync/atomic"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/xconn-go/internal"
@@ -15,11 +19,17 @@ type Router struct {
 	metaAPI internal.Map[string, *meta]
 
 	managementAPI bool
+
+	trackingMsg atomic.Bool
+	msgCount    atomic.Uint64
+	msgsPerSec  atomic.Uint64
+	stopTrackCh chan struct{}
 }
 
 func NewRouter() *Router {
 	return &Router{
-		realms: internal.Map[string, *Realm]{},
+		realms:      internal.Map[string, *Realm]{},
+		stopTrackCh: make(chan struct{}),
 	}
 }
 
@@ -151,7 +161,14 @@ func (r *Router) ReceiveMessage(base BaseSession, msg messages.Message) error {
 		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
-	return realm.ReceiveMessage(base, msg)
+	if err := realm.ReceiveMessage(base, msg); err != nil {
+		return err
+	}
+
+	if r.trackingMsg.Load() {
+		r.msgCount.Add(1)
+	}
+	return nil
 }
 
 func (r *Router) EnableMetaAPI(realm string) error {
@@ -187,6 +204,35 @@ func (r *Router) EnableManagementAPI() error {
 
 	r.managementAPI = true
 	return nil
+}
+
+func (r *Router) setMessageRateTracking(enabled bool) {
+	if enabled {
+		if r.trackingMsg.Load() {
+			return // already running
+		}
+		r.trackingMsg.Store(true)
+		ticker := time.NewTicker(time.Second)
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					count := r.msgCount.Swap(0)
+					r.msgsPerSec.Store(count)
+					log.Tracef("currently handling %d messages/sec", count)
+				case <-r.stopTrackCh:
+					ticker.Stop()
+					return
+				}
+			}
+		}()
+	} else {
+		select {
+		case r.stopTrackCh <- struct{}{}:
+		default:
+		}
+		r.trackingMsg.Store(false)
+	}
 }
 
 func (r *Router) AutoDiscloseCaller(realm string, disclose bool) error {
