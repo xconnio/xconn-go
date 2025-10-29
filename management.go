@@ -74,6 +74,8 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 	m.stopMemStats = make(chan struct{})
 	m.memRunning = true
 
+	m.router.setMessageRateTracking(true)
+
 	go func() {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
@@ -89,18 +91,27 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 				// Uptime in seconds
 				uptime := time.Since(m.startTime).Seconds()
 
-				log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%% | Uptime=%.1fs",
-					memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent, uptime)
-
-				// TODO: Publish only if there are subscribers
-				m.session.Publish(ManagementTopicStats).Arg(map[string]any{
+				statsMap := map[string]any{
 					"alloc":     memStats.Alloc,
 					"malloc":    memStats.Mallocs,
 					"frees":     memStats.Frees,
 					"num_gc":    memStats.NumGC,
 					"cpu_usage": cpuPercent,
 					"uptime":    uptime,
-				}).Do()
+				}
+
+				if m.router.trackingMsg.Load() {
+					msgsPerSec := m.router.msgsPerSec.Load()
+					log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%% | Uptime=%.1fs | Message/sec=%d",
+						memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent, uptime, msgsPerSec)
+					statsMap["messages_per_second"] = msgsPerSec
+				} else {
+					log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%% | Uptime=%.1fs",
+						memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent, uptime)
+				}
+
+				// TODO: Publish only if there are subscribers
+				m.session.Publish(ManagementTopicStats).Arg(statsMap).Do()
 			case <-m.stopMemStats:
 				log.Infoln("Stopped memory logging")
 				return
@@ -133,6 +144,7 @@ func (m *management) stopMemoryLogging() {
 
 	close(m.stopMemStats)
 	m.memRunning = false
+	m.router.setMessageRateTracking(false)
 }
 
 func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocation) *InvocationResult {
