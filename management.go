@@ -25,6 +25,9 @@ const (
 	ManagementProcedureListRealms  = "io.xconn.mgmt.realm.list"
 	ManagementProcedureListSession = "io.xconn.mgmt.session.list"
 	ManagementProcedureKillSession = "io.xconn.mgmt.session.kill"
+
+	ManagementProcedureMaxProcsSet = "io.xconn.runtime.gomaxprocs.set"
+	ManagementProcedureMaxProcsGet = "io.xconn.runtime.gomaxprocs.get"
 )
 
 type management struct {
@@ -54,6 +57,8 @@ func (m *management) start() error {
 		ManagementProcedureListRealms:     m.handleListRealms,
 		ManagementProcedureListSession:    m.handleListSession,
 		ManagementProcedureKillSession:    m.handleSessionKill,
+		ManagementProcedureMaxProcsSet:    m.handleMaxProcsSet,
+		ManagementProcedureMaxProcsGet:    m.handleMaxProcsGet,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -337,4 +342,18 @@ func (m *management) handleSessionKill(_ context.Context, invocation *Invocation
 	}
 
 	return NewInvocationResult()
+}
+
+func (m *management) handleMaxProcsSet(_ context.Context, invocation *Invocation) *InvocationResult {
+	n, err := invocation.ArgInt64(0)
+	if err != nil {
+		return NewInvocationError("wamp.error.invalid_argument", err.Error())
+	}
+	runtime.GOMAXPROCS(int(n))
+
+	return NewInvocationResult()
+}
+
+func (m *management) handleMaxProcsGet(_ context.Context, _ *Invocation) *InvocationResult {
+	return NewInvocationResult(runtime.GOMAXPROCS(0))
 }
