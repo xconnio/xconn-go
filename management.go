@@ -3,11 +3,11 @@ package xconn
 import (
 	"context"
 	"fmt"
-	"runtime"
+	"os"
 	"strings"
-	"syscall"
 	"time"
 
+	"github.com/shirou/gopsutil/process"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/serializers"
@@ -80,34 +80,53 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 		ticker := time.NewTicker(m.interval)
 		defer ticker.Stop()
 
-		var memStats runtime.MemStats
+		proc, err := process.NewProcess(int32(os.Getpid())) //nolint:gosec
+		if err != nil {
+			log.Errorf("Failed to get current process: %v", err)
+			return
+		}
+
 		for {
 			select {
 			case <-ticker.C:
-				runtime.ReadMemStats(&memStats)
+				procMem, err := proc.MemoryInfo()
+				if err != nil {
+					log.Errorf("Failed to get process memory: %v", err)
+					continue
+				}
 
-				cpuPercent := cpuUsage()
+				procMemPercent, err := proc.MemoryPercent()
+				if err != nil {
+					log.Errorf("Failed to get process memory percent: %v", err)
+					continue
+				}
+
+				cpuPercent, err := proc.CPUPercent()
+				if err != nil {
+					log.Errorf("Failed to get process CPU usage: %v", err)
+					continue
+				}
 
 				// Uptime in seconds
 				uptime := time.Since(m.startTime).Seconds()
 
 				statsMap := map[string]any{
-					"alloc":     memStats.Alloc,
-					"malloc":    memStats.Mallocs,
-					"frees":     memStats.Frees,
-					"num_gc":    memStats.NumGC,
-					"cpu_usage": cpuPercent,
-					"uptime":    uptime,
+					"cpu_usage":    cpuPercent,
+					"memory_usage": procMemPercent,
+					"virt_memory":  procMem.VMS,
+					"res_memory":   procMem.RSS,
+					"uptime":       uptime,
 				}
 
 				if m.router.trackingMsg.Load() {
 					msgsPerSec := m.router.msgsPerSec.Load()
-					log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%% | Uptime=%.1fs | Message/sec=%d",
-						memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent, uptime, msgsPerSec)
+					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs | Msg/sec=%d",
+						cpuPercent, procMemPercent, float64(procMem.VMS)/1024/1024, float64(procMem.RSS)/1024/1024,
+						uptime, msgsPerSec)
 					statsMap["messages_per_second"] = msgsPerSec
 				} else {
-					log.Infof("MemStats: Alloc=%d Mallocs=%d Frees=%d NumGC=%d | CPU Usage=%.2f%% | Uptime=%.1fs",
-						memStats.Alloc, memStats.Mallocs, memStats.Frees, memStats.NumGC, cpuPercent, uptime)
+					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs", cpuPercent,
+						procMemPercent, float64(procMem.VMS)/1024/1024, float64(procMem.RSS)/1024/1024, uptime)
 				}
 
 				// TODO: Publish only if there are subscribers
@@ -120,19 +139,6 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 	}()
 	log.Infof("Started memory logging (interval=%v)", m.interval)
 	return nil
-}
-
-func cpuUsage() float64 {
-	var rusage syscall.Rusage
-	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
-		return 0
-	}
-
-	userTime := float64(rusage.Utime.Sec) + float64(rusage.Utime.Usec)/1e6
-	sysTime := float64(rusage.Stime.Sec) + float64(rusage.Stime.Usec)/1e6
-	totalTime := userTime + sysTime
-
-	return (totalTime / float64(runtime.NumCPU())) * 100
 }
 
 // stopMemoryLogging stops the memory logging.
