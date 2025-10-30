@@ -26,7 +26,8 @@ const (
 	ManagementProcedureListSession = "io.xconn.mgmt.session.list"
 	ManagementProcedureKillSession = "io.xconn.mgmt.session.kill"
 
-	ManagementProcedureMaxProcsSet = "io.xconn.mgmt.maxprocs.set"
+	ManagementProcedureMaxProcsSet = "io.xconn.runtime.gomaxprocs.set"
+	ManagementProcedureMaxProcsGet = "io.xconn.runtime.gomaxprocs.get"
 )
 
 type management struct {
@@ -57,6 +58,7 @@ func (m *management) start() error {
 		ManagementProcedureListSession:    m.handleListSession,
 		ManagementProcedureKillSession:    m.handleSessionKill,
 		ManagementProcedureMaxProcsSet:    m.handleMaxProcsSet,
+		ManagementProcedureMaxProcsGet:    m.handleMaxProcsGet,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -350,4 +352,8 @@ func (m *management) handleMaxProcsSet(_ context.Context, invocation *Invocation
 	runtime.GOMAXPROCS(int(n))
 
 	return NewInvocationResult()
+}
+
+func (m *management) handleMaxProcsGet(_ context.Context, _ *Invocation) *InvocationResult {
+	return NewInvocationResult(runtime.GOMAXPROCS(0))
 }
