@@ -55,6 +55,8 @@ type BaseSession interface {
 	ReadMessage() (messages.Message, error)
 	WriteMessage(messages.Message) error
 	TryWriteMessage(messages.Message) (bool, error)
+	EnableLogPublishing(session *Session, topic string)
+	DisableLogPublishing()
 	Close() error
 }
 

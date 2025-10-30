@@ -37,6 +37,26 @@ type baseSession struct {
 
 	client     Peer
 	serializer serializers.Serializer
+
+	session     *Session
+	publishLogs bool
+	topic       string
+
+	sync.Mutex
+}
+
+func (b *baseSession) EnableLogPublishing(session *Session, topic string) {
+	b.Lock()
+	defer b.Unlock()
+	b.session = session
+	b.publishLogs = true
+	b.topic = topic
+}
+
+func (b *baseSession) DisableLogPublishing() {
+	b.Lock()
+	defer b.Unlock()
+	b.publishLogs = false
 }
 
 func (b *baseSession) Serializer() serializers.Serializer {
@@ -54,6 +74,12 @@ func (b *baseSession) ReadMessage() (messages.Message, error) {
 		return nil, err
 	}
 
+	b.Lock()
+	if b.publishLogs {
+		b.session.Publish(b.topic).Arg(constructReceivedMsgLog(msg)).Do()
+	}
+	b.Unlock()
+
 	return msg, nil
 }
 
@@ -63,6 +89,12 @@ func (b *baseSession) WriteMessage(message messages.Message) error {
 		return err
 	}
 
+	b.Lock()
+	if b.publishLogs {
+		b.session.Publish(b.topic).Arg(constructSendingMsgLog(message)).Do()
+	}
+	b.Unlock()
+
 	return b.Write(payload)
 }
 
@@ -71,6 +103,12 @@ func (b *baseSession) TryWriteMessage(message messages.Message) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	b.Lock()
+	if b.publishLogs {
+		b.session.Publish(b.topic).Arg(constructSendingMsgLog(message)).Do()
+	}
+	b.Unlock()
 
 	return b.TryWrite(payload)
 }
