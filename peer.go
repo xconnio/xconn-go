@@ -48,14 +48,18 @@ type baseSession struct {
 func (b *baseSession) EnableLogPublishing(session *Session, topic string) {
 	b.Lock()
 	defer b.Unlock()
+
 	b.session = session
-	b.publishLogs = true
 	b.topic = topic
+	b.publishLogs = true
 }
 
 func (b *baseSession) DisableLogPublishing() {
 	b.Lock()
 	defer b.Unlock()
+
+	b.session = nil
+	b.topic = ""
 	b.publishLogs = false
 }
 
@@ -74,41 +78,54 @@ func (b *baseSession) ReadMessage() (messages.Message, error) {
 		return nil, err
 	}
 
+	var pub *PublishRequest
 	b.Lock()
 	if b.publishLogs {
-		b.session.Publish(b.topic).Arg(constructReceivedMsgLog(msg)).Do()
+		pub = b.session.Publish(b.topic).Arg(constructReceivedMsgLog(msg))
 	}
 	b.Unlock()
+
+	if pub != nil {
+		_ = pub.Do()
+	}
 
 	return msg, nil
 }
 
-func (b *baseSession) WriteMessage(message messages.Message) error {
+func (b *baseSession) constructWriteMessage(message messages.Message) ([]byte, error) {
 	payload, err := b.serializer.Serialize(message)
+	if err != nil {
+		return nil, err
+	}
+
+	var pub *PublishRequest
+	b.Lock()
+	if b.publishLogs {
+		pub = b.session.Publish(b.topic).Arg(constructSendingMsgLog(message))
+	}
+	b.Unlock()
+
+	if pub != nil {
+		_ = pub.Do()
+	}
+
+	return payload, nil
+}
+
+func (b *baseSession) WriteMessage(message messages.Message) error {
+	payload, err := b.constructWriteMessage(message)
 	if err != nil {
 		return err
 	}
-
-	b.Lock()
-	if b.publishLogs {
-		b.session.Publish(b.topic).Arg(constructSendingMsgLog(message)).Do()
-	}
-	b.Unlock()
 
 	return b.Write(payload)
 }
 
 func (b *baseSession) TryWriteMessage(message messages.Message) (bool, error) {
-	payload, err := b.serializer.Serialize(message)
+	payload, err := b.constructWriteMessage(message)
 	if err != nil {
 		return false, err
 	}
-
-	b.Lock()
-	if b.publishLogs {
-		b.session.Publish(b.topic).Arg(constructSendingMsgLog(message)).Do()
-	}
-	b.Unlock()
 
 	return b.TryWrite(payload)
 }
