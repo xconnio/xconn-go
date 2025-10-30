@@ -17,6 +17,8 @@ const (
 	ManagementProcedureStatsStatusSet = "io.xconn.mgmt.stats.status.set"
 	ManagementProcedureStatsStatusGet = "io.xconn.mgmt.stats.status.get"
 
+	ManagementProcedureGC = "io.xconn.mgmt.runtime.force_gc"
+
 	ManagementTopicStats = "io.xconn.mgmt.stats.on_update"
 
 	ManagementProcedureSetLogLevel = "io.xconn.mgmt.log.level.set"
@@ -59,6 +61,7 @@ func (m *management) start() error {
 		ManagementProcedureKillSession:    m.handleSessionKill,
 		ManagementProcedureMaxProcsSet:    m.handleMaxProcsSet,
 		ManagementProcedureMaxProcsGet:    m.handleMaxProcsGet,
+		ManagementProcedureGC:             m.handleGC,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -356,4 +359,9 @@ func (m *management) handleMaxProcsSet(_ context.Context, invocation *Invocation
 
 func (m *management) handleMaxProcsGet(_ context.Context, _ *Invocation) *InvocationResult {
 	return NewInvocationResult(runtime.GOMAXPROCS(0))
+}
+
+func (m *management) handleGC(_ context.Context, _ *Invocation) *InvocationResult {
+	runtime.GC()
+	return NewInvocationResult()
 }
