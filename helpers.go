@@ -109,7 +109,7 @@ func constructReceivedMsgLog(msg messages.Message) string {
 	switch msg.Type() {
 	case messages.MessageTypeCall:
 		callMsg := msg.(*messages.Call)
-		return fmt.Sprintf("[%s] RX: %s for procedure %s with request_id=%v args=%v, kwargs=%v, options=%v",
+		return fmt.Sprintf("[%s] RX: %s for procedure '%s' with request_id=%v args=%v, kwargs=%v, options=%v",
 			timestamp, messages.MessageNameCall, callMsg.Procedure(), callMsg.RequestID(),
 			callMsg.Args(), callMsg.KwArgs(), callMsg.Options())
 	case messages.MessageTypeYield:
@@ -119,7 +119,7 @@ func constructReceivedMsgLog(msg messages.Message) string {
 			yieldMsg.Args(), yieldMsg.KwArgs(), yieldMsg.Options())
 	case messages.MessageTypeRegister:
 		registerMsg := msg.(*messages.Register)
-		return fmt.Sprintf("[%s] RX: %s for procedure=%s with request_id=%v, options=%v",
+		return fmt.Sprintf("[%s] RX: %s for procedure '%s' with request_id=%v, options=%v",
 			timestamp, messages.MessageNameRegister, registerMsg.Procedure(),
 			registerMsg.RequestID(), registerMsg.Options())
 	case messages.MessageTypeUnregister:
@@ -129,12 +129,12 @@ func constructReceivedMsgLog(msg messages.Message) string {
 			unregisterMsg.RegistrationID())
 	case messages.MessageTypePublish:
 		publishMsg := msg.(*messages.Publish)
-		return fmt.Sprintf("[%s] RX: %s for topic %s with args=%v, kwargs=%v, options=%v",
+		return fmt.Sprintf("[%s] RX: %s for topic '%s' with args=%v, kwargs=%v, options=%v",
 			timestamp, messages.MessageNamePublish, publishMsg.Topic(),
 			publishMsg.Args(), publishMsg.KwArgs(), publishMsg.Options())
 	case messages.MessageTypeSubscribe:
 		subscribeMsg := msg.(*messages.Subscribe)
-		return fmt.Sprintf("[%s] RX: %s for topic=%s with request_id=%v, options=%v",
+		return fmt.Sprintf("[%s] RX: %s for topic '%s' with request_id=%v, options=%v",
 			timestamp, messages.MessageNameSubscribe, subscribeMsg.Topic(),
 			subscribeMsg.RequestID(), subscribeMsg.Options())
 	case messages.MessageTypeUnsubscribe:
@@ -144,8 +144,8 @@ func constructReceivedMsgLog(msg messages.Message) string {
 			unsubscribeMsg.SubscriptionID())
 	case messages.MessageTypeError:
 		errorMsg := msg.(*messages.Error)
-		return fmt.Sprintf("[%s] RX: %s for message %v with uri=%s, args=%v, kwargs=%v, details=%v",
-			timestamp, messages.MessageNameError, errorMsg.MessageType(), errorMsg.URI(),
+		return fmt.Sprintf("[%s] RX: %s for message %s with uri=%s, args=%v, kwargs=%v, details=%v",
+			timestamp, messages.MessageNameError, messageNameByID(errorMsg.MessageType()), errorMsg.URI(),
 			errorMsg.Args(), errorMsg.KwArgs(), errorMsg.Details())
 	case messages.MessageTypeGoodbye:
 		goodbyeMsg := msg.(*messages.GoodBye)
@@ -195,8 +195,8 @@ func constructSendingMsgLog(msg messages.Message) string {
 			timestamp, messages.MessageNameUnsubscribed, unsubscribed.RequestID())
 	case messages.MessageTypeError:
 		errorMsg := msg.(*messages.Error)
-		return fmt.Sprintf("[%s] TX: %s for message %v with uri=%s, args=%v, kwargs=%v, details=%v",
-			timestamp, messages.MessageNameError, errorMsg.MessageType(), errorMsg.URI(),
+		return fmt.Sprintf("[%s] TX: %s for message %s with uri=%s, args=%v, kwargs=%v, details=%v",
+			timestamp, messages.MessageNameError, messageNameByID(errorMsg.MessageType()), errorMsg.URI(),
 			errorMsg.Args(), errorMsg.KwArgs(), errorMsg.Details())
 	case messages.MessageTypeGoodbye:
 		goodbyeMsg := msg.(*messages.GoodBye)
