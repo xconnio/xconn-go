@@ -403,6 +403,10 @@ func (m *management) handleSessionLoggingSet(_ context.Context, invocation *Invo
 		return NewInvocationError("wamp.error.not_found", "session not found")
 	}
 
+	if sessionID == m.session.ID() || sessionID == invocation.Caller() {
+		return NewInvocationError("wamp.error.invalid_argument", "invalid session id")
+	}
+
 	if enable {
 		topic := fmt.Sprintf(ManagementTopicSessionLogTemplate, client.ID())
 		client.EnableLogPublishing(m.session, topic)
