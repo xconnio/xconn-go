@@ -29,8 +29,9 @@ const (
 	ManagementProcedureListSession = "io.xconn.mgmt.session.list"
 	ManagementProcedureKillSession = "io.xconn.mgmt.session.kill"
 
-	ManagementProcedureMaxProcsSet = "io.xconn.runtime.gomaxprocs.set"
-	ManagementProcedureMaxProcsGet = "io.xconn.runtime.gomaxprocs.get"
+	ManagementProcedureMaxProcsSet   = "io.xconn.runtime.gomaxprocs.set"
+	ManagementProcedureMaxProcsGet   = "io.xconn.runtime.gomaxprocs.get"
+	ManagementProcedureGoroutinesGet = "io.xconn.runtime.goroutines.get"
 
 	ManagementProcedureSessionLogSet  = "io.xconn.mgmt.session.log.set"
 	ManagementTopicSessionLogTemplate = "io.xconn.mgmt.session.log.%d.on_update"
@@ -67,6 +68,7 @@ func (m *management) start() error {
 		ManagementProcedureMaxProcsGet:    m.handleMaxProcsGet,
 		ManagementProcedureGC:             m.handleGC,
 		ManagementProcedureSessionLogSet:  m.handleSessionLoggingSet,
+		ManagementProcedureGoroutinesGet:  m.handleGoroutineGet,
 	} {
 		response := m.session.Register(uri, handler).Do()
 		if response.Err != nil {
@@ -415,4 +417,8 @@ func (m *management) handleSessionLoggingSet(_ context.Context, invocation *Invo
 
 	client.DisableLogPublishing()
 	return NewInvocationResult()
+}
+
+func (m *management) handleGoroutineGet(_ context.Context, _ *Invocation) *InvocationResult {
+	return NewInvocationResult(runtime.NumGoroutine())
 }
