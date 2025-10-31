@@ -554,21 +554,7 @@ func testBlockedClient(
 	t.Helper()
 
 	// start server
-	router := xconn.NewRouter()
-	require.NoError(t, router.AddRealm("realm1"))
-	err := router.AddRealmRole("realm1", xconn.RealmRole{
-		Name: "anonymous",
-		Permissions: []xconn.Permission{
-			{
-				URI:            "",
-				MatchPolicy:    "prefix",
-				AllowCall:      true,
-				AllowRegister:  true,
-				AllowPublish:   true,
-				AllowSubscribe: true,
-			}},
-	})
-	require.NoError(t, err)
+	router := initRouterWithRealm1(t)
 	server := xconn.NewServer(router, nil, nil)
 
 	listener, err := startServer(server, "localhost:0")
@@ -588,41 +574,12 @@ func testBlockedClient(
 		auth.NewAnonymousAuthenticator("", nil))
 	require.NoError(t, err)
 
-	require.NoError(t, baseSession.WriteMessage(messages.NewSubscribe(1, nil, "io.xconn.test")))
-
-	msg, err := baseSession.ReadMessage()
-	require.NoError(t, err)
-	_, ok := msg.(*messages.Subscribed)
-	require.True(t, ok)
-
-	// register a procedure
-	require.NoError(t, baseSession.WriteMessage(messages.NewRegister(1, nil, "io.xconn.test")))
-	msg1, err := baseSession.ReadMessage()
-	require.NoError(t, err)
-	_, ok1 := msg1.(*messages.Registered)
-	require.True(t, ok1)
-
 	// publisher client
 	session, err := xconn.ConnectAnonymous(context.Background(),
 		fmt.Sprintf("%s://%s", scheme, listener.Addr()), "realm1")
 	require.NoError(t, err)
 
-	// publish large data payload 100 times
-	data := make([]byte, 1024*1024)
-	_, err = crand.Read(data)
-	require.NoError(t, err)
-
-	for i := 0; i < 100; i++ {
-		resp := session.Publish("io.xconn.test").Acknowledge(true).Arg(data).Do()
-		require.NoError(t, resp.Err)
-	}
-
-	// The callee is blocked so the router should respond with an error
-	callResp := session.Call("io.xconn.test").Do()
-	require.EqualError(t, callResp.Err, "wamp.error.network_failure: callee blocked, cannot call procedure")
-
-	err = session.Leave()
-	require.NoError(t, err)
+	testBlockedSubscriberCaller(t, baseSession, session)
 }
 
 func TestBlockedRawSocketClient(t *testing.T) {
@@ -646,9 +603,41 @@ func TestBlockedWebSocketClient(t *testing.T) {
 	})
 }
 
-func blockedCaller(t *testing.T, publishCount int) xconn.BaseSession {
+func testBlockedSubscriberCaller(t *testing.T, baseSession xconn.BaseSession, session *xconn.Session) {
 	t.Helper()
+	require.NoError(t, baseSession.WriteMessage(messages.NewSubscribe(1, nil, "io.xconn.test")))
 
+	msg, err := baseSession.ReadMessage()
+	require.NoError(t, err)
+	_, ok := msg.(*messages.Subscribed)
+	require.True(t, ok)
+
+	// register a procedure
+	require.NoError(t, baseSession.WriteMessage(messages.NewRegister(1, nil, "io.xconn.test")))
+	msg1, err := baseSession.ReadMessage()
+	require.NoError(t, err)
+	_, ok1 := msg1.(*messages.Registered)
+	require.True(t, ok1)
+
+	// publish large data payload 100 times
+	data := make([]byte, 1024*1024)
+	_, err = crand.Read(data)
+	require.NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		resp := session.Publish("io.xconn.test").Acknowledge(true).Arg(data).Do()
+		require.NoError(t, resp.Err)
+	}
+
+	// The callee is blocked so the router should respond with an error
+	callResp := session.Call("io.xconn.test").Do()
+	require.EqualError(t, callResp.Err, "wamp.error.network_failure: callee blocked, cannot call procedure")
+
+	err = session.Leave()
+	require.NoError(t, err)
+}
+
+func initRouterWithRealm1(t *testing.T) *xconn.Router {
 	router := xconn.NewRouter()
 	require.NoError(t, router.AddRealm("realm1"))
 	err := router.AddRealmRole("realm1", xconn.RealmRole{
@@ -664,6 +653,30 @@ func blockedCaller(t *testing.T, publishCount int) xconn.BaseSession {
 			}},
 	})
 	require.NoError(t, err)
+	return router
+}
+
+func TestBlockedLocalClient(t *testing.T) {
+	router := initRouterWithRealm1(t)
+
+	logrus.SetLevel(logrus.DebugLevel)
+
+	// subscribe to topic 'io.xconn.test'
+	authID := fmt.Sprintf("%012x", rand.Uint64())[:12] // #nosec
+	baseSession, err := xconn.ConnectInMemoryBase(router, "realm1", authID, "trusted", &serializers.MsgPackSerializer{})
+	require.NoError(t, err)
+
+	// publisher client
+	session, err := xconn.ConnectInMemory(router, "realm1")
+	require.NoError(t, err)
+
+	testBlockedSubscriberCaller(t, baseSession, session)
+}
+
+func blockedCaller(t *testing.T, publishCount int) xconn.BaseSession {
+	t.Helper()
+
+	router := initRouterWithRealm1(t)
 	server := xconn.NewServer(router, nil, nil)
 
 	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "localhost:0")

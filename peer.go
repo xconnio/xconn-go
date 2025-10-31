@@ -609,8 +609,13 @@ func (r *RawSocketPeer) Close() error {
 type localPeer struct {
 	conn  net.Conn
 	other net.Conn
-	rmu   sync.Mutex
-	wmu   sync.Mutex
+
+	writeChan   chan []byte
+	doneWriting chan struct{}
+	closed      bool
+
+	rmu sync.Mutex
+	wmu sync.Mutex
 }
 
 func (l *localPeer) Type() TransportType {
@@ -650,51 +655,102 @@ func (l *localPeer) Read() ([]byte, error) {
 	return data, nil
 }
 
-func (l *localPeer) write(data []byte) error {
-	l.wmu.Lock()
-	defer l.wmu.Unlock()
+func (l *localPeer) writer() {
+	defer close(l.doneWriting)
 
-	length := uint32(len(data)) // #nosec
+	for data := range l.writeChan {
+		length := uint32(len(data)) // #nosec
+		if err := binary.Write(l.conn, binary.BigEndian, length); err != nil {
+			_ = l.other.Close()
+			return
+		}
 
-	if err := binary.Write(l.conn, binary.BigEndian, length); err != nil {
-		return err
+		if err := writeFull(l.conn, data); err != nil {
+			_ = l.other.Close()
+			return
+		}
 	}
-
-	return writeFull(l.conn, data)
 }
 
 func (l *localPeer) Write(data []byte) error {
-	if err := l.write(data); err != nil {
-		_ = l.other.Close()
-		return err
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
+
+	if l.closed {
+		return io.ErrClosedPipe
+	}
+
+	var now time.Time
+	if len(l.writeChan) == cap(l.writeChan) {
+		now = time.Now()
+		log.Debugln("localpeer write channel blocked (full)")
+	}
+
+	l.writeChan <- data
+
+	if !now.IsZero() {
+		log.Debugf("localpeer write channel unblocked. took=%s", time.Since(now))
 	}
 
 	return nil
 }
 
-func (l *localPeer) TryWrite(bytes []byte) (bool, error) {
-	if err := l.Write(bytes); err != nil {
-		return false, err
+func (l *localPeer) TryWrite(data []byte) (bool, error) {
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
+
+	if l.closed {
+		return false, io.ErrClosedPipe
 	}
 
-	return true, nil
+	select {
+	case l.writeChan <- data:
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 func (l *localPeer) Close() error {
+	l.wmu.Lock()
+	defer l.wmu.Unlock()
+
+	if l.closed {
+		return nil
+	}
+	l.closed = true
+
+	close(l.writeChan)
+
+	select {
+	case <-l.doneWriting:
+	case <-time.After(1 * time.Second):
+		// writer still busy, timeout
+	}
+
 	return l.conn.Close()
 }
 
-func newLocalPeer(conn, otherSide net.Conn) *localPeer {
-	return &localPeer{
-		conn:  conn,
-		other: otherSide,
+func newLocalPeer(conn, otherSide net.Conn, bufferSize int) *localPeer {
+	if bufferSize <= 0 {
+		bufferSize = 16 // default fallback
 	}
+
+	p := &localPeer{
+		conn:        conn,
+		other:       otherSide,
+		writeChan:   make(chan []byte, bufferSize),
+		doneWriting: make(chan struct{}),
+	}
+
+	go p.writer()
+	return p
 }
 
 func NewInMemoryPeerPair() (Peer, Peer) {
 	conn1, conn2 := net.Pipe()
-	peer1 := newLocalPeer(conn1, conn2)
-	peer2 := newLocalPeer(conn2, conn1)
+	peer1 := newLocalPeer(conn1, conn2, 16)
+	peer2 := newLocalPeer(conn2, conn1, 16)
 
 	return peer1, peer2
 }

@@ -203,7 +203,7 @@ func (r *Router) EnableManagementAPI() error {
 	}
 
 	r.managementAPI = true
-	return nil
+	return r.AutoDiscloseCaller(ManagementRealm, true)
 }
 
 func (r *Router) setMessageRateTracking(enabled bool) {

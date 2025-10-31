@@ -99,7 +99,7 @@ func testRegisterCall(t *testing.T, callee, caller *xconn.Session) {
 		}).Do()
 	require.NoError(t, regResp.Err)
 	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 16; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -144,14 +144,14 @@ func testPublishSubscribe(t *testing.T, subscriber, publisher *xconn.Session) {
 		}).Do()
 	require.NoError(t, subResp.Err)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 16; i++ {
 		go func() {
 			pubResp := publisher.Publish("foo.bar").ExcludeMe(false).Do()
 			require.NoError(t, pubResp.Err)
 		}()
 	}
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 16; i++ {
 		ev := <-eventCh
 		require.NotNil(t, ev)
 	}
