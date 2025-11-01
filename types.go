@@ -360,11 +360,11 @@ func (p *ProgressResult) ArgListOr(index int, def List) List {
 	return p.args.ListOr(index, def)
 }
 
-func (p *ProgressResult) ArgDict(index int) (map[string]any, error) {
+func (p *ProgressResult) ArgDict(index int) (Dict, error) {
 	return p.args.Dict(index)
 }
 
-func (p *ProgressResult) ArgDictOr(index int, def map[string]any) map[string]any {
+func (p *ProgressResult) ArgDictOr(index int, def Dict) Dict {
 	return p.args.DictOr(index, def)
 }
 
@@ -432,11 +432,11 @@ func (p *ProgressResult) KwargListOr(key string, def List) List {
 	return p.kwargs.ListOr(key, def)
 }
 
-func (p *ProgressResult) KwargDict(key string) (map[string]any, error) {
+func (p *ProgressResult) KwargDict(key string) (Dict, error) {
 	return p.kwargs.Dict(key)
 }
 
-func (p *ProgressResult) KwargDictOr(key string, def map[string]any) map[string]any {
+func (p *ProgressResult) KwargDictOr(key string, def Dict) Dict {
 	return p.kwargs.DictOr(key, def)
 }
 
@@ -821,11 +821,11 @@ func (c *CallResponse) ArgListOr(index int, def List) List {
 	return c.args.ListOr(index, def)
 }
 
-func (c *CallResponse) ArgDict(index int) (map[string]any, error) {
+func (c *CallResponse) ArgDict(index int) (Dict, error) {
 	return c.args.Dict(index)
 }
 
-func (c *CallResponse) ArgDictOr(index int, def map[string]any) map[string]any {
+func (c *CallResponse) ArgDictOr(index int, def Dict) Dict {
 	return c.args.DictOr(index, def)
 }
 
@@ -897,11 +897,11 @@ func (c *CallResponse) KwargListOr(key string, def List) List {
 	return c.kwargs.ListOr(key, def)
 }
 
-func (c *CallResponse) KwargDict(key string) (map[string]any, error) {
+func (c *CallResponse) KwargDict(key string) (Dict, error) {
 	return c.kwargs.Dict(key)
 }
 
-func (c *CallResponse) KwargDictOr(key string, def map[string]any) map[string]any {
+func (c *CallResponse) KwargDictOr(key string, def Dict) Dict {
 	return c.kwargs.DictOr(key, def)
 }
 

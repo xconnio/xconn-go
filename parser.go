@@ -199,14 +199,21 @@ func (v Value) ListOr(def List) List {
 	return def
 }
 
-func (v Value) Dict() (map[string]any, error) {
-	if b, ok := v.data.(map[string]any); ok {
-		return b, nil
+func (v Value) Dict() (Dict, error) {
+	items, ok := v.data.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("value is not map[string]any, got %T", v.data)
 	}
-	return nil, fmt.Errorf("value is not data map[string]any, got %T", v.data)
+
+	dict := make(Dict, len(items))
+	for k, item := range items {
+		dict[k] = NewValue(item)
+	}
+
+	return dict, nil
 }
 
-func (v Value) DictOr(def map[string]any) map[string]any {
+func (v Value) DictOr(def Dict) Dict {
 	if b, err := v.Dict(); err == nil {
 		return b
 	}
@@ -343,7 +350,7 @@ func (l List) ListOr(i int, def List) List {
 	return l.GetOr(i, def).ListOr(def)
 }
 
-func (l List) Dict(i int) (map[string]any, error) {
+func (l List) Dict(i int) (Dict, error) {
 	v, err := l.Get(i)
 	if err != nil {
 		return nil, err
@@ -351,7 +358,7 @@ func (l List) Dict(i int) (map[string]any, error) {
 	return v.Dict()
 }
 
-func (l List) DictOr(i int, def map[string]any) map[string]any {
+func (l List) DictOr(i int, def Dict) Dict {
 	return l.GetOr(i, def).DictOr(def)
 }
 
@@ -498,7 +505,7 @@ func (d Dict) ListOr(key string, def List) List {
 	return d.GetOr(key, def).ListOr(def)
 }
 
-func (d Dict) Dict(key string) (map[string]any, error) {
+func (d Dict) Dict(key string) (Dict, error) {
 	v, err := d.Get(key)
 	if err != nil {
 		return nil, err
@@ -506,7 +513,7 @@ func (d Dict) Dict(key string) (map[string]any, error) {
 	return v.Dict()
 }
 
-func (d Dict) DictOr(key string, def map[string]any) map[string]any {
+func (d Dict) DictOr(key string, def Dict) Dict {
 	return d.GetOr(key, def).DictOr(def)
 }
 
@@ -598,11 +605,11 @@ func (inv *Invocation) ArgListOr(index int, def List) List {
 	return inv.args.ListOr(index, def)
 }
 
-func (inv *Invocation) ArgDict(index int) (map[string]any, error) {
+func (inv *Invocation) ArgDict(index int) (Dict, error) {
 	return inv.args.Dict(index)
 }
 
-func (inv *Invocation) ArgDictOr(index int, def map[string]any) map[string]any {
+func (inv *Invocation) ArgDictOr(index int, def Dict) Dict {
 	return inv.args.DictOr(index, def)
 }
 
@@ -666,11 +673,11 @@ func (inv *Invocation) KwargListOr(key string, def List) List {
 	return inv.kwargs.ListOr(key, def)
 }
 
-func (inv *Invocation) KwargDict(key string) (map[string]any, error) {
+func (inv *Invocation) KwargDict(key string) (Dict, error) {
 	return inv.kwargs.Dict(key)
 }
 
-func (inv *Invocation) KwargDictOr(key string, def map[string]any) map[string]any {
+func (inv *Invocation) KwargDictOr(key string, def Dict) Dict {
 	return inv.kwargs.DictOr(key, def)
 }
 
@@ -784,11 +791,11 @@ func (e *Event) ArgListOr(index int, def List) List {
 	return e.args.ListOr(index, def)
 }
 
-func (e *Event) ArgDict(index int) (dict map[string]any, err error) {
+func (e *Event) ArgDict(index int) (dict Dict, err error) {
 	return e.args.Dict(index)
 }
 
-func (e *Event) ArgDictOr(index int, def map[string]any) map[string]any {
+func (e *Event) ArgDictOr(index int, def Dict) Dict {
 	return e.args.DictOr(index, def)
 }
 
@@ -856,11 +863,11 @@ func (e *Event) KwargListOr(key string, def List) List {
 	return e.kwargs.ListOr(key, def)
 }
 
-func (e *Event) KwargDict(key string) (map[string]any, error) {
+func (e *Event) KwargDict(key string) (Dict, error) {
 	return e.kwargs.Dict(key)
 }
 
-func (e *Event) KwargDictOr(key string, def map[string]any) map[string]any {
+func (e *Event) KwargDictOr(key string, def Dict) Dict {
 	return e.kwargs.DictOr(key, def)
 }
 
