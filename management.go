@@ -114,7 +114,7 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 					continue
 				}
 
-				cpuPercent, err := proc.CPUPercent()
+				cpuPercent, err := proc.Percent(0)
 				if err != nil {
 					log.Errorf("Failed to get process CPU usage: %v", err)
 					continue
