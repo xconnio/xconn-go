@@ -17,6 +17,7 @@ import (
 const (
 	ManagementProcedureStatsStatusSet = "io.xconn.mgmt.stats.status.set"
 	ManagementProcedureStatsStatusGet = "io.xconn.mgmt.stats.status.get"
+	ManagementProcedureStatsGet       = "io.xconn.mgmt.stats.get"
 
 	ManagementProcedureGC = "io.xconn.mgmt.runtime.force_gc"
 
@@ -59,6 +60,7 @@ func (m *management) start() error {
 	for uri, handler := range map[string]InvocationHandler{
 		ManagementProcedureStatsStatusSet: m.handleSetStatsStatus,
 		ManagementProcedureStatsStatusGet: m.handleStatsStatus,
+		ManagementProcedureStatsGet:       m.handleStatsGet,
 		ManagementProcedureSetLogLevel:    m.handleSetLogLevel,
 		ManagementProcedureGetLogLevel:    m.handleGetLogLevel,
 		ManagementProcedureListRealms:     m.handleListRealms,
@@ -77,6 +79,40 @@ func (m *management) start() error {
 		log.Infof("Registered procedure %s", uri)
 	}
 	return nil
+}
+
+func (m *management) collectStats(proc *process.Process) (map[string]any, error) {
+	procMem, err := proc.MemoryInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get process memory: %w", err)
+	}
+
+	procMemPercent, err := proc.MemoryPercent()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get process memory percent: %w", err)
+	}
+
+	cpuPercent, err := proc.Percent(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get process CPU usage: %w", err)
+	}
+
+	// Uptime in seconds
+	uptime := time.Since(m.startTime).Seconds()
+
+	statsMap := map[string]any{
+		"cpu_usage":    cpuPercent,
+		"memory_usage": procMemPercent,
+		"virt_memory":  procMem.VMS,
+		"res_memory":   procMem.RSS,
+		"uptime":       uptime,
+	}
+
+	if m.router.trackingMsg.Load() {
+		statsMap["messages_per_second"] = m.router.msgsPerSec.Load()
+	}
+
+	return statsMap, nil
 }
 
 // startMemoryLogging starts the periodic memory logging.
@@ -104,44 +140,20 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 		for {
 			select {
 			case <-ticker.C:
-				procMem, err := proc.MemoryInfo()
+				statsMap, err := m.collectStats(proc)
 				if err != nil {
-					log.Errorf("Failed to get process memory: %v", err)
+					log.Error(err)
 					continue
-				}
-
-				procMemPercent, err := proc.MemoryPercent()
-				if err != nil {
-					log.Errorf("Failed to get process memory percent: %v", err)
-					continue
-				}
-
-				cpuPercent, err := proc.Percent(0)
-				if err != nil {
-					log.Errorf("Failed to get process CPU usage: %v", err)
-					continue
-				}
-
-				// Uptime in seconds
-				uptime := time.Since(m.startTime).Seconds()
-
-				statsMap := map[string]any{
-					"cpu_usage":    cpuPercent,
-					"memory_usage": procMemPercent,
-					"virt_memory":  procMem.VMS,
-					"res_memory":   procMem.RSS,
-					"uptime":       uptime,
 				}
 
 				if m.router.trackingMsg.Load() {
-					msgsPerSec := m.router.msgsPerSec.Load()
 					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs | Msg/sec=%d",
-						cpuPercent, procMemPercent, float64(procMem.VMS)/1024/1024, float64(procMem.RSS)/1024/1024,
-						uptime, msgsPerSec)
-					statsMap["messages_per_second"] = msgsPerSec
+						statsMap["cpu_usage"], statsMap["memory_usage"], float64(statsMap["virt_memory"].(uint64))/1024/1024,
+						float64(statsMap["res_memory"].(uint64))/1024/1024, statsMap["uptime"], statsMap["messages_per_second"])
 				} else {
-					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs", cpuPercent,
-						procMemPercent, float64(procMem.VMS)/1024/1024, float64(procMem.RSS)/1024/1024, uptime)
+					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs",
+						statsMap["cpu_usage"], statsMap["memory_usage"], float64(statsMap["virt_memory"].(uint64))/1024/1024,
+						float64(statsMap["res_memory"].(uint64))/1024/1024, statsMap["uptime"])
 				}
 
 				// TODO: Publish only if there are subscribers
@@ -228,6 +240,20 @@ func (m *management) handleStatsStatus(_ context.Context, _ *Invocation) *Invoca
 		"interval": m.interval / time.Millisecond,
 	}
 	return NewInvocationResult(status)
+}
+
+func (m *management) handleStatsGet(_ context.Context, _ *Invocation) *InvocationResult {
+	proc, err := process.NewProcess(int32(os.Getpid())) //nolint:gosec
+	if err != nil {
+		return NewInvocationError("wamp.error.internal_error", fmt.Errorf("failed to get current process: %v", err.Error()))
+	}
+
+	statMap, err := m.collectStats(proc)
+	if err != nil {
+		return NewInvocationError("wamp.error.internal_error", err.Error())
+	}
+
+	return NewInvocationResult(statMap)
 }
 
 func (m *management) handleSetLogLevel(_ context.Context, inv *Invocation) *InvocationResult {

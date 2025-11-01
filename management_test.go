@@ -53,6 +53,11 @@ func TestManagementStatsAPIs(t *testing.T) {
 	callResp = session.Call(xconn.ManagementProcedureStatsStatusGet).Do()
 	require.NoError(t, callResp.Err)
 	require.Equal(t, map[string]any{"interval": int64(100), "running": false}, callResp.ArgDictOr(0, map[string]any{}))
+
+	callResp = session.Call(xconn.ManagementProcedureStatsGet).Do()
+	require.NoError(t, callResp.Err)
+	_, err := callResp.ArgDict(0)
+	require.NoError(t, err)
 }
 
 func TestManagementRealmListApi(t *testing.T) {
