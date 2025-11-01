@@ -34,7 +34,19 @@ func NewBaseSession(id uint64, realm, authID, authRole, authMethod string, authE
 		authExtra:  authExtra,
 		client:     cl,
 		serializer: serializer,
+		tracker: &messageTracker{
+			stopTrackCh: make(chan struct{}),
+		},
 	}
+}
+
+type messageTracker struct {
+	enabled     bool
+	rxCount     uint64
+	txCount     uint64
+	rxPerSec    uint64
+	txPerSec    uint64
+	stopTrackCh chan struct{}
 }
 
 type baseSession struct {
@@ -52,6 +64,8 @@ type baseSession struct {
 	publishLogs bool
 	topic       string
 
+	tracker *messageTracker
+
 	sync.Mutex
 }
 
@@ -64,6 +78,7 @@ func (b *baseSession) AuthExtra() map[string]any {
 }
 
 func (b *baseSession) EnableLogPublishing(session *Session, topic string) {
+	b.setMessageRateTracking(true)
 	b.Lock()
 	defer b.Unlock()
 
@@ -73,12 +88,53 @@ func (b *baseSession) EnableLogPublishing(session *Session, topic string) {
 }
 
 func (b *baseSession) DisableLogPublishing() {
+	b.setMessageRateTracking(false)
 	b.Lock()
 	defer b.Unlock()
 
 	b.session = nil
 	b.topic = ""
 	b.publishLogs = false
+}
+
+func (b *baseSession) setMessageRateTracking(enabled bool) {
+	if enabled {
+		b.Lock()
+		if b.tracker.enabled {
+			b.Unlock()
+			return // already running
+		}
+		b.tracker.enabled = true
+		b.Unlock()
+		ticker := time.NewTicker(time.Second)
+		go func() {
+			for {
+				select {
+				case <-ticker.C:
+					b.Lock()
+					rx := b.tracker.rxCount
+					tx := b.tracker.txCount
+					b.tracker.rxCount = 0
+					b.tracker.txCount = 0
+					b.tracker.rxPerSec = rx
+					b.tracker.txPerSec = tx
+					b.Unlock()
+
+				case <-b.tracker.stopTrackCh:
+					ticker.Stop()
+					return
+				}
+			}
+		}()
+	} else {
+		select {
+		case b.tracker.stopTrackCh <- struct{}{}:
+		default:
+		}
+		b.Lock()
+		b.tracker.enabled = false
+		b.Unlock()
+	}
 }
 
 func (b *baseSession) Serializer() serializers.Serializer {
@@ -98,8 +154,16 @@ func (b *baseSession) ReadMessage() (messages.Message, error) {
 
 	var pub *PublishRequest
 	b.Lock()
+	if b.tracker.enabled {
+		b.tracker.rxCount++
+	}
+
 	if b.publishLogs {
-		pub = b.session.Publish(b.topic).Arg(constructReceivedMsgLog(msg))
+		pub = b.session.Publish(b.topic).Arg(map[string]any{
+			"message":                constructReceivedMsgLog(msg),
+			"rx_messages_per_second": b.tracker.rxPerSec,
+			"tx_messages_per_second": b.tracker.txPerSec,
+		})
 	}
 	b.Unlock()
 
@@ -118,8 +182,16 @@ func (b *baseSession) constructWriteMessage(message messages.Message) ([]byte, e
 
 	var pub *PublishRequest
 	b.Lock()
+	if b.tracker.enabled {
+		b.tracker.txCount++
+	}
+
 	if b.publishLogs {
-		pub = b.session.Publish(b.topic).Arg(constructSendingMsgLog(message))
+		pub = b.session.Publish(b.topic).Arg(map[string]any{
+			"message":                constructSendingMsgLog(message),
+			"rx_messages_per_second": b.tracker.rxPerSec,
+			"tx_messages_per_second": b.tracker.txPerSec,
+		})
 	}
 	b.Unlock()
 
