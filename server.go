@@ -20,6 +20,8 @@ const (
 	ListenerWebSocket ListenerType = iota
 	ListenerRawSocket
 	ListenerUniversalTCP
+
+	ServerOutQueueSizeDefault = 8
 )
 
 type Network string
@@ -36,6 +38,7 @@ type Server struct {
 	throttle          *Throttle
 	keepAliveInterval time.Duration
 	keepAliveTimeout  time.Duration
+	outQueueSize      int
 }
 
 func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *ServerConfig) *Server {
@@ -57,6 +60,7 @@ func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *S
 		server.throttle = config.Throttle
 		server.keepAliveInterval = config.KeepAliveInterval
 		server.keepAliveTimeout = config.KeepAliveTimeout
+		server.outQueueSize = config.OutQueueSize
 	}
 
 	return server
@@ -136,7 +140,11 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 		}
 
 		if magicArray[0] == transports.MAGIC {
-			base, err = s.rsAcceptor.Accept(wrapped)
+			config := DefaultRawSocketServerConfig()
+			config.KeepAliveInterval = s.keepAliveInterval
+			config.KeepAliveTimeout = s.keepAliveTimeout
+			config.OutQueueSize = s.outQueueSize
+			base, err = s.rsAcceptor.Accept(wrapped, config)
 			if err != nil {
 				return
 			}
@@ -144,6 +152,7 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 			config := DefaultWebSocketServerConfig()
 			config.KeepAliveInterval = s.keepAliveInterval
 			config.KeepAliveTimeout = s.keepAliveTimeout
+			config.OutQueueSize = s.outQueueSize
 			base, err = s.wsAcceptor.Accept(wrapped, s.router, config)
 			if err != nil {
 				return
@@ -153,13 +162,18 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 		config := DefaultWebSocketServerConfig()
 		config.KeepAliveInterval = s.keepAliveInterval
 		config.KeepAliveTimeout = s.keepAliveTimeout
+		config.OutQueueSize = s.outQueueSize
 		base, err = s.wsAcceptor.Accept(conn, s.router, config)
 		if err != nil {
 			log.Debugf("failed to accept websocket connection: %v", err)
 			return
 		}
 	case ListenerRawSocket:
-		base, err = s.rsAcceptor.Accept(conn)
+		config := DefaultRawSocketServerConfig()
+		config.KeepAliveInterval = s.keepAliveInterval
+		config.KeepAliveTimeout = s.keepAliveTimeout
+		config.OutQueueSize = s.outQueueSize
+		base, err = s.rsAcceptor.Accept(conn, config)
 		if err != nil {
 			log.Debugf("failed to accept rawsocket connection: %v", err)
 			return

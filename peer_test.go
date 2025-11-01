@@ -10,7 +10,7 @@ import (
 )
 
 func TestInMemoryPeer(t *testing.T) {
-	client, server := xconn.NewInMemoryPeerPair()
+	client, server := xconn.NewInMemoryPeerPair(0)
 
 	clientChan := make(chan []byte)
 	clientCloseChan := make(chan struct{})

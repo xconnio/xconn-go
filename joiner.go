@@ -92,6 +92,7 @@ func DialWebSocket(ctx context.Context, url *netURL.URL, config *WSDialerConfig)
 		Server:            false,
 		KeepAliveInterval: config.KeepAliveInterval,
 		KeepAliveTimeout:  config.KeepAliveTimeout,
+		OutQueueSize:      config.OutQueueSize,
 	}
 	wsPeer, err := NewWebSocketPeer(conn, peerConfig)
 	if err != nil {
@@ -156,7 +157,10 @@ func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialer
 		return nil, err
 	}
 
-	return NewRawSocketPeer(conn, RawSocketPeerConfig{Serializer: config.Serializer}), nil
+	return NewRawSocketPeer(conn, RawSocketPeerConfig{
+		Serializer:   config.Serializer,
+		OutQueueSize: config.OutQueueSize,
+	}), nil
 }
 
 func Join(cl Peer, realm string, serializer serializers.Serializer,

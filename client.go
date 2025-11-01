@@ -24,6 +24,7 @@ type Client struct {
 	DialTimeout       time.Duration
 	KeepAliveInterval time.Duration
 	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
 }
 
 func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Session, error) {
@@ -39,6 +40,7 @@ func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Sessio
 			NetDial:           c.NetDial,
 			KeepAliveInterval: c.KeepAliveInterval,
 			KeepAliveTimeout:  c.KeepAliveTimeout,
+			OutQueueSize:      c.OutQueueSize,
 		}
 
 		joiner := &WebSocketJoiner{
@@ -64,6 +66,7 @@ func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Sessio
 			NetDial:           c.NetDial,
 			KeepAliveInterval: c.KeepAliveInterval,
 			KeepAliveTimeout:  c.KeepAliveTimeout,
+			OutQueueSize:      c.OutQueueSize,
 		}
 
 		joiner := &RawSocketJoiner{
@@ -116,13 +119,13 @@ func ConnectCryptosign(ctx context.Context, uri, realm, authid, privateKey strin
 }
 
 func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
-	serializer serializers.Serializer) (BaseSession, error) {
+	serializer serializers.Serializer, outQueueSize int) (BaseSession, error) {
 
 	if serializer == nil {
 		return nil, fmt.Errorf("serializer must not be nil")
 	}
 
-	clientPeer, routerPeer := NewInMemoryPeerPair()
+	clientPeer, routerPeer := NewInMemoryPeerPair(outQueueSize)
 	sessionID := wampproto.GenerateID()
 	routerSession := NewBaseSession(
 		sessionID,
@@ -168,8 +171,9 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
 func ConnectInMemory(router *Router, realm string) (*Session, error) {
 	authID := fmt.Sprintf("%012x", rand.Uint64())[:12] // #nosec
 	authRole := "trusted"
+	outQueueSize := 16
 
-	base, err := ConnectInMemoryBase(router, realm, authID, authRole, &serializers.MsgPackSerializer{})
+	base, err := ConnectInMemoryBase(router, realm, authID, authRole, &serializers.MsgPackSerializer{}, outQueueSize)
 	if err != nil {
 		return nil, err
 	}

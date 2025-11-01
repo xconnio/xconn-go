@@ -201,7 +201,7 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 		pingCh:        make(chan struct{}, 1),
 		wsMsgOp:       msgOpCode,
 		server:        peerConfig.Server,
-		writeChan:     make(chan []byte, 64),
+		writeChan:     make(chan []byte, peerConfig.OutQueueSize),
 		ctrlChan:      make(chan wsMsg, 2),
 		doneWriting:   make(chan struct{}),
 		closeChan:     make(chan struct{}),
@@ -439,7 +439,7 @@ func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
 		transportType: TransportRawSocket,
 		conn:          conn,
 		serializer:    peerConfig.Serializer,
-		writeChan:     make(chan []byte, 64),
+		writeChan:     make(chan []byte, peerConfig.OutQueueSize),
 		ctrlChan:      make(chan rsMsg, 2),
 		doneWriting:   make(chan struct{}),
 	}
@@ -731,15 +731,11 @@ func (l *localPeer) Close() error {
 	return l.conn.Close()
 }
 
-func newLocalPeer(conn, otherSide net.Conn, bufferSize int) *localPeer {
-	if bufferSize <= 0 {
-		bufferSize = 16 // default fallback
-	}
-
+func newLocalPeer(conn, otherSide net.Conn, outQueueSize int) *localPeer {
 	p := &localPeer{
 		conn:        conn,
 		other:       otherSide,
-		writeChan:   make(chan []byte, bufferSize),
+		writeChan:   make(chan []byte, outQueueSize),
 		doneWriting: make(chan struct{}),
 	}
 
@@ -747,10 +743,10 @@ func newLocalPeer(conn, otherSide net.Conn, bufferSize int) *localPeer {
 	return p
 }
 
-func NewInMemoryPeerPair() (Peer, Peer) {
+func NewInMemoryPeerPair(outQueueSize int) (Peer, Peer) {
 	conn1, conn2 := net.Pipe()
-	peer1 := newLocalPeer(conn1, conn2, 16)
-	peer2 := newLocalPeer(conn2, conn1, 16)
+	peer1 := newLocalPeer(conn1, conn2, outQueueSize)
+	peer2 := newLocalPeer(conn2, conn1, outQueueSize)
 
 	return peer1, peer2
 }
