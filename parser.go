@@ -178,14 +178,21 @@ func (v Value) Decode(out any) error {
 	return nil
 }
 
-func (v Value) List() ([]any, error) {
-	if b, ok := v.data.([]any); ok {
-		return b, nil
+func (v Value) List() (List, error) {
+	items, ok := v.data.([]any)
+	if !ok {
+		return nil, fmt.Errorf("value is not []any, got %T", v.data)
 	}
-	return nil, fmt.Errorf("value is not data []any, got %T", v.data)
+
+	list := make(List, len(items))
+	for i, item := range items {
+		list[i] = NewValue(item)
+	}
+
+	return list, nil
 }
 
-func (v Value) ListOr(def []any) []any {
+func (v Value) ListOr(def List) List {
 	if b, err := v.List(); err == nil {
 		return b
 	}
@@ -324,7 +331,7 @@ func (l List) Decode(out any) error {
 	return nil
 }
 
-func (l List) List(i int) ([]any, error) {
+func (l List) List(i int) (List, error) {
 	v, err := l.Get(i)
 	if err != nil {
 		return nil, err
@@ -332,7 +339,7 @@ func (l List) List(i int) ([]any, error) {
 	return v.List()
 }
 
-func (l List) ListOr(i int, def []any) []any {
+func (l List) ListOr(i int, def List) List {
 	return l.GetOr(i, def).ListOr(def)
 }
 
@@ -479,7 +486,7 @@ func (d Dict) Decode(out any) error {
 	return nil
 }
 
-func (d Dict) List(key string) ([]any, error) {
+func (d Dict) List(key string) (List, error) {
 	v, err := d.Get(key)
 	if err != nil {
 		return nil, err
@@ -487,7 +494,7 @@ func (d Dict) List(key string) ([]any, error) {
 	return v.List()
 }
 
-func (d Dict) ListOr(key string, def []any) []any {
+func (d Dict) ListOr(key string, def List) List {
 	return d.GetOr(key, def).ListOr(def)
 }
 
@@ -583,11 +590,11 @@ func (inv *Invocation) ArgsLen() int {
 	return inv.args.Len()
 }
 
-func (inv *Invocation) ArgList(index int) ([]any, error) {
+func (inv *Invocation) ArgList(index int) (List, error) {
 	return inv.args.List(index)
 }
 
-func (inv *Invocation) ArgListOr(index int, def []any) []any {
+func (inv *Invocation) ArgListOr(index int, def List) List {
 	return inv.args.ListOr(index, def)
 }
 
@@ -651,11 +658,11 @@ func (inv *Invocation) KwargBytesOr(key string, def []byte) []byte {
 	return inv.kwargs.BytesOr(key, def)
 }
 
-func (inv *Invocation) KwargList(key string) ([]any, error) {
+func (inv *Invocation) KwargList(key string) (List, error) {
 	return inv.kwargs.List(key)
 }
 
-func (inv *Invocation) KwargListOr(key string, def []any) []any {
+func (inv *Invocation) KwargListOr(key string, def List) List {
 	return inv.kwargs.ListOr(key, def)
 }
 
@@ -769,11 +776,11 @@ func (e *Event) ArgBytesOr(index int, def []byte) []byte {
 	return e.args.BytesOr(index, def)
 }
 
-func (e *Event) ArgList(index int) (list []any, err error) {
+func (e *Event) ArgList(index int) (list List, err error) {
 	return e.args.List(index)
 }
 
-func (e *Event) ArgListOr(index int, def []any) []any {
+func (e *Event) ArgListOr(index int, def List) List {
 	return e.args.ListOr(index, def)
 }
 
@@ -841,11 +848,11 @@ func (e *Event) KwargBytesOr(key string, def []byte) []byte {
 	return e.kwargs.BytesOr(key, def)
 }
 
-func (e *Event) KwargList(key string) ([]any, error) {
+func (e *Event) KwargList(key string) (List, error) {
 	return e.kwargs.List(key)
 }
 
-func (e *Event) KwargListOr(key string, def []any) []any {
+func (e *Event) KwargListOr(key string, def List) List {
 	return e.kwargs.ListOr(key, def)
 }
 

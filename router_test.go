@@ -87,8 +87,8 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 	require.NoError(t, resp.Err)
 	sessionList, err := resp.ArgList(0)
 	require.NoError(t, err)
-	require.Contains(t, sessionList, session1.ID())
-	require.Contains(t, sessionList, session2.ID())
+	require.Contains(t, sessionList.Raw(), session1.ID())
+	require.Contains(t, sessionList.Raw(), session2.ID())
 
 	// Verify both sessions are disconnected
 	require.Eventually(t, func() bool {
@@ -129,8 +129,8 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 	require.NoError(t, resp.Err)
 	sessionList, err := resp.ArgList(0)
 	require.NoError(t, err)
-	require.Contains(t, sessionList, session1.ID())
-	require.Contains(t, sessionList, session2.ID())
+	require.Contains(t, sessionList.Raw(), session1.ID())
+	require.Contains(t, sessionList.Raw(), session2.ID())
 
 	// Verify both sessions are disconnected
 	require.Eventually(t, func() bool {
@@ -167,8 +167,8 @@ func TestRouterMetaKillAll(t *testing.T) {
 	require.NoError(t, resp.Err)
 	sessionList, err := resp.ArgList(0)
 	require.NoError(t, err)
-	require.Contains(t, sessionList, session1.ID())
-	require.Contains(t, sessionList, session2.ID())
+	require.Contains(t, sessionList.Raw(), session1.ID())
+	require.Contains(t, sessionList.Raw(), session2.ID())
 
 	// Verify both sessions are disconnected
 	require.Eventually(t, func() bool {
@@ -257,7 +257,7 @@ func TestRouterMetaSessionList(t *testing.T) {
 		require.NoError(t, resp.Err)
 		ids := resp.ArgListOr(0, nil)
 		require.Len(t, ids, 1)
-		require.Equal(t, session2.ID(), ids[0])
+		require.Equal(t, session2.ID(), ids.UInt64Or(0, 0))
 	})
 
 	// Disconnect admin session
