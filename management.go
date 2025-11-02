@@ -30,9 +30,9 @@ const (
 	ManagementProcedureListSession = "io.xconn.mgmt.session.list"
 	ManagementProcedureKillSession = "io.xconn.mgmt.session.kill"
 
-	ManagementProcedureMaxProcsSet   = "io.xconn.runtime.gomaxprocs.set"
-	ManagementProcedureMaxProcsGet   = "io.xconn.runtime.gomaxprocs.get"
-	ManagementProcedureGoroutinesGet = "io.xconn.runtime.goroutines.get"
+	ManagementProcedureMaxProcsSet   = "io.xconn.mgmt.runtime.gomaxprocs.set"
+	ManagementProcedureMaxProcsGet   = "io.xconn.mgmt.runtime.gomaxprocs.get"
+	ManagementProcedureGoroutinesGet = "io.xconn.mgmt.runtime.goroutines.get"
 
 	ManagementProcedureSessionLogSet  = "io.xconn.mgmt.session.log.set"
 	ManagementTopicSessionLogTemplate = "io.xconn.mgmt.session.log.%d.on_update"
