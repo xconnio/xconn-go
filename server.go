@@ -75,6 +75,13 @@ type Listener struct {
 	addr   net.Addr
 }
 
+func NewListener(closer io.Closer, addr net.Addr) *Listener {
+	return &Listener{
+		closer: closer,
+		addr:   addr,
+	}
+}
+
 func (l *Listener) Close() error {
 	return l.closer.Close()
 }
