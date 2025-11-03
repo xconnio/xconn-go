@@ -187,8 +187,6 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 
 		if err = s.router.ReceiveMessage(base, msg); err != nil {
 			log.Tracef("error feeding client message to router: %v", err)
-			_ = s.router.DetachClient(base)
-			break
 		}
 	}
 
