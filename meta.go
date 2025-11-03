@@ -199,7 +199,7 @@ func (m *meta) forEachSession(invocation *Invocation, fn func(sess BaseSession))
 		if err != nil {
 			return fmt.Errorf("wamp.error.invalid_argument")
 		}
-		roles = r
+		roles = r.Raw()
 	}
 
 	rlm, ok := m.router.realms.Load(m.realm)

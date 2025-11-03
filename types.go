@@ -352,19 +352,19 @@ func (p *ProgressResult) ArgBytesOr(index int, def []byte) []byte {
 	return p.args.BytesOr(index, def)
 }
 
-func (p *ProgressResult) ArgList(index int) ([]any, error) {
+func (p *ProgressResult) ArgList(index int) (List, error) {
 	return p.args.List(index)
 }
 
-func (p *ProgressResult) ArgListOr(index int, def []any) []any {
+func (p *ProgressResult) ArgListOr(index int, def List) List {
 	return p.args.ListOr(index, def)
 }
 
-func (p *ProgressResult) ArgDict(index int) (map[string]any, error) {
+func (p *ProgressResult) ArgDict(index int) (Dict, error) {
 	return p.args.Dict(index)
 }
 
-func (p *ProgressResult) ArgDictOr(index int, def map[string]any) map[string]any {
+func (p *ProgressResult) ArgDictOr(index int, def Dict) Dict {
 	return p.args.DictOr(index, def)
 }
 
@@ -424,19 +424,19 @@ func (p *ProgressResult) KwargBytesOr(key string, def []byte) []byte {
 	return p.kwargs.BytesOr(key, def)
 }
 
-func (p *ProgressResult) KwargList(key string) ([]any, error) {
+func (p *ProgressResult) KwargList(key string) (List, error) {
 	return p.kwargs.List(key)
 }
 
-func (p *ProgressResult) KwargListOr(key string, def []any) []any {
+func (p *ProgressResult) KwargListOr(key string, def List) List {
 	return p.kwargs.ListOr(key, def)
 }
 
-func (p *ProgressResult) KwargDict(key string) (map[string]any, error) {
+func (p *ProgressResult) KwargDict(key string) (Dict, error) {
 	return p.kwargs.Dict(key)
 }
 
-func (p *ProgressResult) KwargDictOr(key string, def map[string]any) map[string]any {
+func (p *ProgressResult) KwargDictOr(key string, def Dict) Dict {
 	return p.kwargs.DictOr(key, def)
 }
 
@@ -813,19 +813,19 @@ func (c *CallResponse) ArgBytesOr(index int, def []byte) []byte {
 	return c.args.BytesOr(index, def)
 }
 
-func (c *CallResponse) ArgList(index int) ([]any, error) {
+func (c *CallResponse) ArgList(index int) (List, error) {
 	return c.args.List(index)
 }
 
-func (c *CallResponse) ArgListOr(index int, def []any) []any {
+func (c *CallResponse) ArgListOr(index int, def List) List {
 	return c.args.ListOr(index, def)
 }
 
-func (c *CallResponse) ArgDict(index int) (map[string]any, error) {
+func (c *CallResponse) ArgDict(index int) (Dict, error) {
 	return c.args.Dict(index)
 }
 
-func (c *CallResponse) ArgDictOr(index int, def map[string]any) map[string]any {
+func (c *CallResponse) ArgDictOr(index int, def Dict) Dict {
 	return c.args.DictOr(index, def)
 }
 
@@ -889,19 +889,19 @@ func (c *CallResponse) KwargsStruct(out any) error {
 	return c.kwargs.Decode(out)
 }
 
-func (c *CallResponse) KwargsList(key string) ([]any, error) {
+func (c *CallResponse) KwargsList(key string) (List, error) {
 	return c.kwargs.List(key)
 }
 
-func (c *CallResponse) KwargListOr(key string, def []any) []any {
+func (c *CallResponse) KwargListOr(key string, def List) List {
 	return c.kwargs.ListOr(key, def)
 }
 
-func (c *CallResponse) KwargDict(key string) (map[string]any, error) {
+func (c *CallResponse) KwargDict(key string) (Dict, error) {
 	return c.kwargs.Dict(key)
 }
 
-func (c *CallResponse) KwargDictOr(key string, def map[string]any) map[string]any {
+func (c *CallResponse) KwargDictOr(key string, def Dict) Dict {
 	return c.kwargs.DictOr(key, def)
 }
 
