@@ -195,6 +195,10 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 		Server:            true,
 		KeepAliveInterval: config.KeepAliveInterval,
 		KeepAliveTimeout:  config.KeepAliveTimeout,
+		OutQueueSize:      config.OutQueueSize,
+	}
+	if peerConfig.OutQueueSize == 0 {
+		peerConfig.OutQueueSize = 64
 	}
 	peer, err := NewWebSocketPeer(conn, peerConfig)
 	if err != nil {
@@ -297,6 +301,10 @@ func UpgradeRawSocket(conn net.Conn, config *RawSocketServerConfig) (Peer, trans
 	peerConfig := RawSocketPeerConfig{
 		Serializer:   handshakeResponse.Serializer(),
 		OutQueueSize: config.OutQueueSize,
+	}
+
+	if peerConfig.OutQueueSize == 0 {
+		peerConfig.OutQueueSize = 64
 	}
 
 	return NewRawSocketPeer(conn, peerConfig), handshakeRequest.Serializer(), nil

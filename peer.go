@@ -194,6 +194,10 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 		msgOpCode = ws.OpText
 	}
 
+	if peerConfig.OutQueueSize == 0 {
+		peerConfig.OutQueueSize = 16
+	}
+
 	peer := &WebSocketPeer{
 		transportType: TransportWebSocket,
 		protocol:      peerConfig.Protocol,
@@ -435,6 +439,10 @@ type RawSocketPeer struct {
 }
 
 func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
+	if peerConfig.OutQueueSize == 0 {
+		peerConfig.OutQueueSize = 16
+	}
+
 	peer := &RawSocketPeer{
 		transportType: TransportRawSocket,
 		conn:          conn,
@@ -732,6 +740,9 @@ func (l *localPeer) Close() error {
 }
 
 func newLocalPeer(conn, otherSide net.Conn, outQueueSize int) *localPeer {
+	if outQueueSize == 0 {
+		outQueueSize = 16
+	}
 	p := &localPeer{
 		conn:        conn,
 		other:       otherSide,
