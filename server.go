@@ -186,6 +186,10 @@ func (s *Server) HandleClient(conn net.Conn, listener ListenerType) {
 		}
 
 		if err = s.router.ReceiveMessage(base, msg); err != nil {
+			// This likely means we were not able to write the message
+			// to the other peer, they are either blocked, or maybe just
+			// disconnected. In either case, we just log that and continue
+			// reading further messages.
 			log.Tracef("error feeding client message to router: %v", err)
 		}
 	}
