@@ -9,7 +9,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
-	github.com/xconnio/wampproto-go v0.0.0-20251013095945-aeb962e7ed9a
+	github.com/xconnio/wampproto-go v0.0.0-20251103160710-51d26611527b
 	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d
 	gopkg.in/yaml.v3 v3.0.1
 )
