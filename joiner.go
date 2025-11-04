@@ -44,7 +44,7 @@ func (w *WebSocketJoiner) Join(ctx context.Context, url, realm string, config *W
 	if w.SerializerSpec != nil {
 		serializer = w.SerializerSpec.Serializer()
 	} else {
-		serializer = serializersByWSSubProtocol[subprotocol]
+		serializer = SerializersByWSSubProtocol()[subprotocol]
 	}
 
 	return Join(peer, realm, serializer, w.Authenticator)
