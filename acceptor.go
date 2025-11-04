@@ -76,7 +76,8 @@ func (w *WebSocketAcceptor) Spec(subProtocol string) (serializers.Serializer, er
 	return serializer, nil
 }
 
-func (w *WebSocketAcceptor) Accept(conn net.Conn, router *Router, config *WebSocketServerConfig) (BaseSession, error) {
+func (w *WebSocketAcceptor) UpgradeAndReadHello(
+	conn net.Conn, config *WebSocketServerConfig) (*WebSocketPeer, *messages.Hello, serializers.Serializer, error) {
 	if config == nil {
 		config = DefaultWebSocketServerConfig()
 	}
@@ -84,18 +85,27 @@ func (w *WebSocketAcceptor) Accept(conn net.Conn, router *Router, config *WebSoc
 	config.SubProtocols = w.protocols()
 	peer, err := UpgradeWebSocket(conn, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to init reader/writer: %w", err)
 	}
 
 	wsPeer := peer.(*WebSocketPeer)
 	serializer, err := w.Spec(wsPeer.Protocol())
 	if err != nil {
-		return nil, fmt.Errorf("unknown subprotocol: %w", err)
+		return nil, nil, nil, fmt.Errorf("unknown subprotocol: %w", err)
 	}
 
 	hello, err := ReadHello(peer, serializer)
 	if err != nil {
-		return nil, fmt.Errorf("")
+		return nil, nil, nil, fmt.Errorf("failed to read hello: %w", err)
+	}
+
+	return wsPeer, hello, serializer, nil
+}
+
+func (w *WebSocketAcceptor) Accept(conn net.Conn, router *Router, config *WebSocketServerConfig) (BaseSession, error) {
+	peer, hello, serializer, err := w.UpgradeAndReadHello(conn, config)
+	if err != nil {
+		return nil, err
 	}
 
 	if !router.HasRealm(hello.Realm()) {
