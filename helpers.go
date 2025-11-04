@@ -211,3 +211,11 @@ func constructSendingMsgLog(msg messages.Message) string {
 		return fmt.Sprintf("[%s] TX: %+v", timestamp, msg.Marshal())
 	}
 }
+
+func SerializersByWSSubProtocol() map[string]serializers.Serializer {
+	return map[string]serializers.Serializer{
+		JsonWebsocketProtocol:    &serializers.JSONSerializer{},
+		MsgpackWebsocketProtocol: &serializers.MsgPackSerializer{},
+		CborWebsocketProtocol:    &serializers.CBORSerializer{},
+	}
+}

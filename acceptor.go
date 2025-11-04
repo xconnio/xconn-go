@@ -28,12 +28,6 @@ var wsProtocols = []string{ //nolint:gochecknoglobals
 	JsonWebsocketProtocol,
 }
 
-var serializersByWSSubProtocol = map[string]serializers.Serializer{ //nolint:gochecknoglobals
-	JsonWebsocketProtocol:    &serializers.JSONSerializer{},
-	MsgpackWebsocketProtocol: &serializers.MsgPackSerializer{},
-	CborWebsocketProtocol:    &serializers.CBORSerializer{},
-}
-
 type WebSocketAcceptor struct {
 	specs map[string]serializers.Serializer
 	once  sync.Once
@@ -43,7 +37,7 @@ type WebSocketAcceptor struct {
 
 func (w *WebSocketAcceptor) init() {
 	if w.specs == nil {
-		w.specs = serializersByWSSubProtocol
+		w.specs = SerializersByWSSubProtocol()
 	}
 }
 
@@ -58,7 +52,7 @@ func (w *WebSocketAcceptor) RegisterSpec(spec SerializerSpec) error {
 
 	_, exists := w.specs[spec.SubProtocol()]
 	if exists {
-		return fmt.Errorf("spec for %s is alraedy registered", spec.SubProtocol())
+		return fmt.Errorf("spec for %s is already registered", spec.SubProtocol())
 	}
 
 	w.specs[spec.SubProtocol()] = spec.Serializer()
