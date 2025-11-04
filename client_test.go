@@ -17,8 +17,6 @@ import (
 	"github.com/xconnio/xconn-go"
 )
 
-const msgPackSerializer = "msgpack"
-
 func forEachSerializer(fn func(name string, spec xconn.SerializerSpec)) {
 	serializersToTest := []struct {
 		name string
@@ -32,22 +30,6 @@ func forEachSerializer(fn func(name string, spec xconn.SerializerSpec)) {
 	for _, s := range serializersToTest {
 		fn(s.name, s.spec)
 	}
-}
-
-func connect(t *testing.T, serializerSpec xconn.SerializerSpec) *xconn.Session {
-	listener := startRouter(t, "realm1")
-	defer func() { _ = listener.Close() }()
-	address := fmt.Sprintf("ws://%s/ws", listener.Addr().String())
-
-	client := &xconn.Client{
-		SerializerSpec: serializerSpec,
-	}
-
-	session, err := client.Connect(context.Background(), address, "realm1")
-	require.NoError(t, err)
-	require.NotNil(t, session)
-
-	return session
 }
 
 func connectInMemory(t *testing.T, router *xconn.Router, realm string,
@@ -74,12 +56,8 @@ func connectedLocalSessions(t *testing.T, serializer serializers.Serializer) (*x
 
 func TestCall(t *testing.T) {
 	forEachSerializer(func(name string, spec xconn.SerializerSpec) {
-		// msgpack is broken in nexus
-		if name == msgPackSerializer {
-			return
-		}
-		t.Run("NexusRouterWith"+name, func(t *testing.T) {
-			session := connect(t, spec)
+		t.Run("With"+name, func(t *testing.T) {
+			session, _ := connectedLocalSessions(t, spec.Serializer())
 			t.Run("CallNoProc", func(t *testing.T) {
 				callResponse := session.Call("foo.bar").Do()
 				require.Error(t, callResponse.Err)
@@ -92,282 +70,212 @@ func TestCall(t *testing.T) {
 	})
 }
 
-func testRegisterCall(t *testing.T, callee, caller *xconn.Session) {
-	regResp := callee.Register("io.xconn.test",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			return xconn.NewInvocationResult("hello")
-		}).Do()
-	require.NoError(t, regResp.Err)
-	var wg sync.WaitGroup
-	for i := 0; i < 16; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			callResponse := caller.Call("io.xconn.test").Do()
-			require.NoError(t, callResponse.Err)
-			require.NotNil(t, callResponse)
-			require.Equal(t, "hello", callResponse.ArgStringOr(0, ""))
-		}()
-	}
-	wg.Wait()
-
-	require.NoError(t, regResp.Unregister())
-
-	callResp := caller.Call("io.xconn.test").Do()
-	require.EqualError(t, callResp.Err, "wamp.error.no_such_procedure")
-}
-
 func TestRegisterCall(t *testing.T) {
 	forEachSerializer(func(name string, spec xconn.SerializerSpec) {
-		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+		t.Run("With"+name, func(t *testing.T) {
 			callee, caller := connectedLocalSessions(t, spec.Serializer())
-			testRegisterCall(t, callee, caller)
-		})
+			regResp := callee.Register("io.xconn.test",
+				func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+					return xconn.NewInvocationResult("hello")
+				}).Do()
+			require.NoError(t, regResp.Err)
+			var wg sync.WaitGroup
+			for i := 0; i < 16; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					callResponse := caller.Call("io.xconn.test").Do()
+					require.NoError(t, callResponse.Err)
+					require.NotNil(t, callResponse)
+					require.Equal(t, "hello", callResponse.ArgStringOr(0, ""))
+				}()
+			}
+			wg.Wait()
 
-		// msgpack is broken in nexus
-		if name == msgPackSerializer {
-			return
-		}
-		t.Run("NexusRouterWith"+name, func(t *testing.T) {
-			session := connect(t, spec)
-			testRegisterCall(t, session, session)
+			require.NoError(t, regResp.Unregister())
+
+			callResp := caller.Call("io.xconn.test").Do()
+			require.EqualError(t, callResp.Err, "wamp.error.no_such_procedure")
 		})
 	})
 }
-
-func testPublishSubscribe(t *testing.T, subscriber, publisher *xconn.Session) {
-	eventCh := make(chan *xconn.Event, 100)
-
-	subResp := subscriber.Subscribe("foo.bar",
-		func(event *xconn.Event) {
-			eventCh <- event
-		}).Do()
-	require.NoError(t, subResp.Err)
-
-	for i := 0; i < 16; i++ {
-		go func() {
-			pubResp := publisher.Publish("foo.bar").ExcludeMe(false).Do()
-			require.NoError(t, pubResp.Err)
-		}()
-	}
-
-	for i := 0; i < 16; i++ {
-		ev := <-eventCh
-		require.NotNil(t, ev)
-	}
-
-	require.NoError(t, subResp.Unsubscribe())
-
-	pubResp := publisher.Publish("foo.bar").Do()
-	require.NoError(t, pubResp.Err)
-
-	select {
-	case <-eventCh:
-		t.Fatal("received event after unsubscribe")
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
 func TestPublishSubscribe(t *testing.T) {
 	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
-		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+		t.Run("With"+name, func(t *testing.T) {
 			subscriber, publisher := connectedLocalSessions(t, serializerSpec.Serializer())
-			testPublishSubscribe(t, subscriber, publisher)
-		})
+			eventCh := make(chan *xconn.Event, 100)
 
-		// msgpack is broken in nexus
-		if name == msgPackSerializer {
-			return
-		}
+			subResp := subscriber.Subscribe("foo.bar",
+				func(event *xconn.Event) {
+					eventCh <- event
+				}).Do()
+			require.NoError(t, subResp.Err)
 
-		t.Run("NexusRouterWith"+name, func(t *testing.T) {
-			session := connect(t, serializerSpec)
-			testPublishSubscribe(t, session, session)
-		})
-	})
-}
-
-func testProgressiveCallResults(t *testing.T, callee, caller *xconn.Session) {
-	registerResponse := callee.Register("foo.bar.progress",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			// Send progress
-			for i := 1; i <= 3; i++ {
-				err := invocation.SendProgress([]any{i}, nil)
-				require.NoError(t, err)
+			for i := 0; i < 16; i++ {
+				go func() {
+					pubResp := publisher.Publish("foo.bar").ExcludeMe(false).Do()
+					require.NoError(t, pubResp.Err)
+				}()
 			}
 
-			// Return final result
-			return xconn.NewInvocationResult("done")
-		}).Do()
-	require.NoError(t, registerResponse.Err)
+			for i := 0; i < 16; i++ {
+				ev := <-eventCh
+				require.NotNil(t, ev)
+			}
 
-	t.Run("ProgressiveCall", func(t *testing.T) {
-		// Store received progress updates
-		progressUpdates := make([]int, 0)
+			require.NoError(t, subResp.Unsubscribe())
 
-		callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.ProgressResult) {
-			progress, _ := util.AsInt(progressiveResult.Args()[0])
-			// Collect received progress
-			progressUpdates = append(progressUpdates, progress)
-		}).Do()
-		require.NoError(t, callResponse.Err)
+			pubResp := publisher.Publish("foo.bar").Do()
+			require.NoError(t, pubResp.Err)
 
-		// Verify progressive updates received correctly
-		require.Equal(t, []int{1, 2, 3}, progressUpdates)
-
-		// Verify the final result
-		require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
+			select {
+			case <-eventCh:
+				t.Fatal("received event after unsubscribe")
+			case <-time.After(100 * time.Millisecond):
+			}
+		})
 	})
 }
 
 func TestProgressiveCallResults(t *testing.T) {
 	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
-		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+		t.Run("With"+name, func(t *testing.T) {
 			callee, caller := connectedLocalSessions(t, serializerSpec.Serializer())
-			testProgressiveCallResults(t, callee, caller)
+			registerResponse := callee.Register("foo.bar.progress",
+				func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+					// Send progress
+					for i := 1; i <= 3; i++ {
+						err := invocation.SendProgress([]any{i}, nil)
+						require.NoError(t, err)
+					}
+
+					// Return final result
+					return xconn.NewInvocationResult("done")
+				}).Do()
+			require.NoError(t, registerResponse.Err)
+
+			t.Run("ProgressiveCall", func(t *testing.T) {
+				// Store received progress updates
+				progressUpdates := make([]int, 0)
+
+				callResponse := caller.Call("foo.bar.progress").ProgressReceiver(func(progressiveResult *xconn.ProgressResult) {
+					progress, _ := util.AsInt(progressiveResult.Args()[0])
+					// Collect received progress
+					progressUpdates = append(progressUpdates, progress)
+				}).Do()
+				require.NoError(t, callResponse.Err)
+
+				// Verify progressive updates received correctly
+				require.Equal(t, []int{1, 2, 3}, progressUpdates)
+
+				// Verify the final result
+				require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
+			})
 		})
-
-		// msgpack is broken in nexus
-		if name == msgPackSerializer {
-			return
-		}
-
-		t.Run("NexusRouterWith"+name, func(t *testing.T) {
-			session := connect(t, serializerSpec)
-			testProgressiveCallResults(t, session, session)
-		})
-	})
-}
-
-func testProgressiveCallInvocation(t *testing.T, callee, caller *xconn.Session) {
-	// Store progress updates
-	progressUpdates := make([]int, 0)
-	registerResponse := callee.Register("foo.bar.progress",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress, _ := util.AsInt(invocation.Args()[0])
-			progressUpdates = append(progressUpdates, progress)
-			if invocation.Progress() {
-				return xconn.NewInvocationError(xconn.ErrNoResult)
-			}
-
-			return xconn.NewInvocationResult("done")
-		}).Do()
-	require.NoError(t, registerResponse.Err)
-
-	t.Run("ProgressiveCall", func(t *testing.T) {
-		totalChunks := 6
-		chunkIndex := 1
-
-		callResponse := caller.Call("foo.bar.progress").
-			ProgressSender(func(ctx context.Context) *xconn.Progress {
-				defer func() { chunkIndex++ }()
-
-				time.Sleep(10 * time.Millisecond)
-
-				if chunkIndex == totalChunks-1 {
-					return xconn.NewFinalProgress(chunkIndex)
-				} else {
-					return xconn.NewProgress(chunkIndex)
-				}
-			}).Do()
-		require.NoError(t, callResponse.Err)
-
-		// Verify progressive updates received correctly
-		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
-
-		// Verify the final result
-		require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
 	})
 }
 
 func TestProgressiveCallInvocation(t *testing.T) {
 	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
-		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+		t.Run("With"+name, func(t *testing.T) {
 			callee, caller := connectedLocalSessions(t, serializerSpec.Serializer())
-			testProgressiveCallInvocation(t, callee, caller)
+			// Store progress updates
+			progressUpdates := make([]int, 0)
+			registerResponse := callee.Register("foo.bar.progress",
+				func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+					progress, _ := util.AsInt(invocation.Args()[0])
+					progressUpdates = append(progressUpdates, progress)
+					if invocation.Progress() {
+						return xconn.NewInvocationError(xconn.ErrNoResult)
+					}
+
+					return xconn.NewInvocationResult("done")
+				}).Do()
+			require.NoError(t, registerResponse.Err)
+
+			t.Run("ProgressiveCall", func(t *testing.T) {
+				totalChunks := 6
+				chunkIndex := 1
+
+				callResponse := caller.Call("foo.bar.progress").
+					ProgressSender(func(ctx context.Context) *xconn.Progress {
+						defer func() { chunkIndex++ }()
+
+						time.Sleep(10 * time.Millisecond)
+
+						if chunkIndex == totalChunks-1 {
+							return xconn.NewFinalProgress(chunkIndex)
+						} else {
+							return xconn.NewProgress(chunkIndex)
+						}
+					}).Do()
+				require.NoError(t, callResponse.Err)
+
+				// Verify progressive updates received correctly
+				require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
+
+				// Verify the final result
+				require.Equal(t, "done", callResponse.ArgStringOr(0, ""))
+			})
 		})
-
-		// msgpack is broken in nexus
-		if name == msgPackSerializer {
-			return
-		}
-
-		t.Run("NexusRouterWith"+name, func(t *testing.T) {
-			session := connect(t, serializerSpec)
-			testProgressiveCallInvocation(t, session, session)
-		})
-	})
-}
-
-func testCallProgressiveProgress(t *testing.T, callee, caller *xconn.Session) {
-	// Store progress updates
-	progressUpdates := make([]int, 0)
-	registerResponse := callee.Register("foo.bar.progress",
-		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
-			progress, _ := util.AsInt(invocation.Args()[0])
-			progressUpdates = append(progressUpdates, progress)
-
-			if invocation.Progress() {
-				err := invocation.SendProgress([]any{progress}, nil)
-				require.NoError(t, err)
-				return xconn.NewInvocationError(xconn.ErrNoResult)
-			}
-
-			return xconn.NewInvocationResult(progress)
-		}).Do()
-
-	require.NoError(t, registerResponse.Err)
-
-	t.Run("ProgressiveCall", func(t *testing.T) {
-		receivedProgressBack := make([]int, 0)
-		totalChunks := 6
-		chunkIndex := 1
-
-		callResponse := caller.Call("foo.bar.progress").
-			ProgressSender(func(ctx context.Context) *xconn.Progress {
-				defer func() { chunkIndex++ }()
-
-				time.Sleep(10 * time.Millisecond)
-
-				if chunkIndex == totalChunks-1 {
-					return xconn.NewFinalProgress(chunkIndex)
-				} else {
-					return xconn.NewProgress(chunkIndex)
-				}
-			}).
-			ProgressReceiver(func(result *xconn.ProgressResult) {
-				progress, _ := util.AsInt(result.Args()[0])
-				receivedProgressBack = append(receivedProgressBack, progress)
-			}).Do()
-
-		require.NoError(t, callResponse.Err)
-
-		finalResult, _ := util.AsInt(callResponse.Args()[0])
-		receivedProgressBack = append(receivedProgressBack, finalResult)
-
-		// Verify progressive updates received correctly
-		require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
-
-		// Verify progressive updates mirrored correctly
-		require.Equal(t, progressUpdates, receivedProgressBack)
 	})
 }
 
 func TestCallProgressiveProgress(t *testing.T) {
 	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
-		t.Run("NXTRouterWith"+name, func(t *testing.T) {
+		t.Run("With"+name, func(t *testing.T) {
 			callee, caller := connectedLocalSessions(t, serializerSpec.Serializer())
-			testCallProgressiveProgress(t, callee, caller)
-		})
+			// Store progress updates
+			progressUpdates := make([]int, 0)
+			registerResponse := callee.Register("foo.bar.progress",
+				func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+					progress, _ := util.AsInt(invocation.Args()[0])
+					progressUpdates = append(progressUpdates, progress)
 
-		// msgpack is broken in nexus
-		if name == "msgpack" {
-			return
-		}
+					if invocation.Progress() {
+						err := invocation.SendProgress([]any{progress}, nil)
+						require.NoError(t, err)
+						return xconn.NewInvocationError(xconn.ErrNoResult)
+					}
 
-		t.Run("NexusRouterWith"+name, func(t *testing.T) {
-			session := connect(t, serializerSpec)
-			testCallProgressiveProgress(t, session, session)
+					return xconn.NewInvocationResult(progress)
+				}).Do()
+
+			require.NoError(t, registerResponse.Err)
+
+			t.Run("ProgressiveCall", func(t *testing.T) {
+				receivedProgressBack := make([]int, 0)
+				totalChunks := 6
+				chunkIndex := 1
+
+				callResponse := caller.Call("foo.bar.progress").
+					ProgressSender(func(ctx context.Context) *xconn.Progress {
+						defer func() { chunkIndex++ }()
+
+						time.Sleep(10 * time.Millisecond)
+
+						if chunkIndex == totalChunks-1 {
+							return xconn.NewFinalProgress(chunkIndex)
+						} else {
+							return xconn.NewProgress(chunkIndex)
+						}
+					}).
+					ProgressReceiver(func(result *xconn.ProgressResult) {
+						progress, _ := util.AsInt(result.Args()[0])
+						receivedProgressBack = append(receivedProgressBack, progress)
+					}).Do()
+
+				require.NoError(t, callResponse.Err)
+
+				finalResult, _ := util.AsInt(callResponse.Args()[0])
+				receivedProgressBack = append(receivedProgressBack, finalResult)
+
+				// Verify progressive updates received correctly
+				require.Equal(t, []int{1, 2, 3, 4, 5}, progressUpdates)
+
+				// Verify progressive updates mirrored correctly
+				require.Equal(t, progressUpdates, receivedProgressBack)
+			})
 		})
 	})
 }
