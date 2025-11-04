@@ -70,8 +70,11 @@ func (a *Authenticator) Authenticate(request auth.Request) (auth.Response, error
 }
 
 func main() {
-	r := xconn.NewRouter()
-	if err := r.AddRealm(realm); err != nil {
+	r, err := xconn.NewRouter(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := r.AddRealm(realm, xconn.DefaultRealmConfig()); err != nil {
 		log.Fatal(err)
 	}
 	defer r.Close()

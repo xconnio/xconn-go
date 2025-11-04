@@ -11,11 +11,10 @@ import (
 )
 
 func startRouterWithManagementAPIs(t *testing.T) (*xconn.Router, *xconn.Session) {
-	r := xconn.NewRouter()
-	err := r.AddRealm(realmName)
+	r, err := xconn.NewRouter(&xconn.RouterConfig{Management: true})
 	require.NoError(t, err)
-	require.NoError(t, r.AddRealm(xconn.ManagementRealm))
-	require.NoError(t, r.EnableManagementAPI())
+	err = r.AddRealm(realmName, xconn.DefaultRealmConfig())
+	require.NoError(t, err)
 
 	callerSession, err := xconn.ConnectInMemory(r, xconn.ManagementRealm)
 	require.NoError(t, err)
@@ -108,7 +107,7 @@ func TestManagementSessionList(t *testing.T) {
 
 func TestManagementSessionKill(t *testing.T) {
 	r, session := startRouterWithManagementAPIs(t)
-	require.NoError(t, r.AddRealm("realm1"))
+	require.NoError(t, r.AddRealm("realm1", &xconn.RealmConfig{}))
 
 	sessionToKill, err := xconn.ConnectInMemory(r, "realm1")
 	require.NoError(t, err)
@@ -123,7 +122,7 @@ func TestManagementSessionKill(t *testing.T) {
 
 func TestManagementSessionLog(t *testing.T) {
 	r, session := startRouterWithManagementAPIs(t)
-	require.NoError(t, r.AddRealm("realm1"))
+	require.NoError(t, r.AddRealm("realm1", &xconn.RealmConfig{}))
 
 	sessionToLog, err := xconn.ConnectInMemory(r, "realm1")
 	require.NoError(t, err)

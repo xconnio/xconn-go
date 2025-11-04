@@ -13,6 +13,39 @@ import (
 
 const ManagementRealm = "io.xconn.mgmt"
 
+type LogLevel log.Level
+
+const (
+	LogLevelTrace = LogLevel(log.TraceLevel)
+	LogLevelDebug = LogLevel(log.DebugLevel)
+	LogLevelInfo  = LogLevel(log.InfoLevel)
+	LogLevelWarn  = LogLevel(log.WarnLevel)
+	LogLevelError = LogLevel(log.ErrorLevel)
+)
+
+type RouterConfig struct {
+	Management bool
+	LogLevel   LogLevel
+}
+
+func DefaultRouterConfig() *RouterConfig {
+	return &RouterConfig{
+		LogLevel: LogLevel(log.DebugLevel),
+	}
+}
+
+type RealmConfig struct {
+	AutoDiscloseCaller    bool
+	AutoDisclosePublisher bool
+	Meta                  bool
+	Authorizer            Authorizer
+	Roles                 []RealmRole
+}
+
+func DefaultRealmConfig() *RealmConfig {
+	return &RealmConfig{}
+}
+
 type Router struct {
 	realms internal.Map[string, *Realm]
 
@@ -26,14 +59,36 @@ type Router struct {
 	stopTrackCh chan struct{}
 }
 
-func NewRouter() *Router {
-	return &Router{
+func NewRouter(cfg *RouterConfig) (*Router, error) {
+	r := &Router{
 		realms:      internal.Map[string, *Realm]{},
 		stopTrackCh: make(chan struct{}),
 	}
+
+	if cfg == nil {
+		return r, nil
+	}
+
+	if cfg.Management {
+		if err := r.AddRealm(ManagementRealm, &RealmConfig{}); err != nil {
+			return nil, err
+		}
+
+		if err := r.enableManagementAPI(); err != nil {
+			return nil, err
+		}
+	}
+
+	if cfg.LogLevel == 0 {
+		cfg.LogLevel = LogLevelInfo
+	}
+
+	log.SetLevel(log.Level(cfg.LogLevel))
+
+	return r, nil
 }
 
-func (r *Router) AddRealm(name string) error {
+func (r *Router) AddRealm(name string, cfg *RealmConfig) error {
 	_, ok := r.realms.Load(name)
 	if ok {
 		return fmt.Errorf("realm '%s' already registered", name)
@@ -52,6 +107,37 @@ func (r *Router) AddRealm(name string) error {
 
 	if err := realm.AddRole(RealmRole{Name: "trusted", Permissions: perms}); err != nil {
 		return err
+	}
+
+	if cfg == nil {
+		r.realms.Store(name, realm)
+		return nil
+	}
+
+	if cfg.AutoDiscloseCaller {
+		realm.AutoDiscloseCaller(true)
+	}
+
+	if cfg.AutoDisclosePublisher {
+		realm.AutoDisclosePublisher(true)
+	}
+
+	if cfg.Meta {
+		if err := r.EnableMetaAPI(name); err != nil {
+			return err
+		}
+	}
+
+	if cfg.Authorizer != nil {
+		if err := r.SetRealmAuthorizer(name, cfg.Authorizer); err != nil {
+			return err
+		}
+	}
+
+	for _, role := range cfg.Roles {
+		if err := realm.AddRole(role); err != nil {
+			return err
+		}
 	}
 
 	r.realms.Store(name, realm)
@@ -182,10 +268,10 @@ func (r *Router) EnableMetaAPI(realm string) error {
 	}
 
 	r.metaAPI.Store(realm, metaAPI)
-	return r.AutoDiscloseCaller(realm, true)
+	return r.autoDiscloseCaller(realm, true)
 }
 
-func (r *Router) EnableManagementAPI() error {
+func (r *Router) enableManagementAPI() error {
 	if r.managementAPI {
 		fmt.Println("management API is already enabled")
 		return nil
@@ -203,7 +289,7 @@ func (r *Router) EnableManagementAPI() error {
 	}
 
 	r.managementAPI = true
-	return r.AutoDiscloseCaller(ManagementRealm, true)
+	return r.autoDiscloseCaller(ManagementRealm, true)
 }
 
 func (r *Router) setMessageRateTracking(enabled bool) {
@@ -235,23 +321,13 @@ func (r *Router) setMessageRateTracking(enabled bool) {
 	}
 }
 
-func (r *Router) AutoDiscloseCaller(realm string, disclose bool) error {
+func (r *Router) autoDiscloseCaller(realm string, disclose bool) error {
 	realmObj, ok := r.realms.Load(realm)
 	if !ok {
 		return fmt.Errorf("could not find realm: %s", realm)
 	}
 
 	realmObj.AutoDiscloseCaller(disclose)
-	return nil
-}
-
-func (r *Router) AutoDisclosePublisher(realm string, disclose bool) error {
-	realmObj, ok := r.realms.Load(realm)
-	if !ok {
-		return fmt.Errorf("could not find realm: %s", realm)
-	}
-
-	realmObj.AutoDisclosePublisher(disclose)
 	return nil
 }
 

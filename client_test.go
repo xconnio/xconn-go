@@ -44,8 +44,9 @@ func connectInMemory(t *testing.T, router *xconn.Router, realm string,
 }
 
 func connectedLocalSessions(t *testing.T, serializer serializers.Serializer) (*xconn.Session, *xconn.Session) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 
 	callee := connectInMemory(t, router, realmName, serializer)
@@ -286,8 +287,9 @@ func TestInMemorySession(t *testing.T) {
 			role := "trusted"
 			procedure := "com.hello"
 
-			router := xconn.NewRouter()
-			err := router.AddRealm(realmName)
+			router, err := xconn.NewRouter(nil)
+			require.NoError(t, err)
+			err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 			require.NoError(t, err)
 
 			session, err := xconn.ConnectInMemory(router, realmName)
@@ -320,8 +322,9 @@ func createUnixPath(t *testing.T) string {
 func TestUnixSocket(t *testing.T) {
 	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
 		t.Run("UnixSocketWith"+name, func(t *testing.T) {
-			router := xconn.NewRouter()
-			err := router.AddRealm("unix")
+			router, err := xconn.NewRouter(nil)
+			require.NoError(t, err)
+			err = router.AddRealm("unix", &xconn.RealmConfig{})
 			require.NoError(t, err)
 			server := xconn.NewServer(router, nil, nil)
 
@@ -359,18 +362,20 @@ func TestUnixSocket(t *testing.T) {
 }
 
 func TestAddRealm(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 
 	// adding same realm twice should return error
-	err = router.AddRealm(realmName)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.EqualError(t, err, fmt.Sprintf("realm '%s' already registered", realmName))
 }
 
 func TestPerformance(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm("realm1")
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm("realm1", &xconn.RealmConfig{})
 	require.NoError(t, err)
 
 	err = router.AddRealmRole("realm1", xconn.RealmRole{Name: "anonymous", Permissions: []xconn.Permission{{

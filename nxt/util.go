@@ -32,10 +32,17 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	router := xconn.NewRouter()
+	routerConfig := &xconn.RouterConfig{}
+	if config.Config.Management {
+		routerConfig.Management = true
+	}
+	router, err := xconn.NewRouter(routerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create router: %w", err)
+	}
 
 	for _, realm := range config.Realms {
-		if err := router.AddRealm(realm.Name); err != nil {
+		if err := router.AddRealm(realm.Name, xconn.DefaultRealmConfig()); err != nil {
 			return nil, fmt.Errorf("unable to add realm: %w", err)
 		}
 		for _, role := range realm.Roles {
@@ -57,12 +64,6 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 			if err != nil {
 				return nil, err
 			}
-		}
-	}
-
-	if config.Config.Management {
-		if err = router.EnableManagementAPI(); err != nil {
-			return nil, err
 		}
 	}
 
