@@ -6,7 +6,6 @@ import (
 	"net"
 	"testing"
 
-	"github.com/gammazero/nexus/v3/client"
 	"github.com/stretchr/testify/require"
 
 	"github.com/xconnio/xconn-go"
@@ -37,8 +36,8 @@ func TestAccept(t *testing.T) {
 	}()
 
 	wsURL := fmt.Sprintf("ws://%s/ws", listener.Addr().String())
-	config := client.Config{Realm: "realm1"}
-	cl, err := client.ConnectNet(context.Background(), wsURL, config)
+
+	session, err := xconn.ConnectAnonymous(context.Background(), wsURL, "realm1")
 	require.NoError(t, err)
-	require.NotNil(t, cl)
+	require.NotNil(t, session)
 }
