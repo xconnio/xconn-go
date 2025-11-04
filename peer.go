@@ -166,6 +166,111 @@ func (b *baseSession) Close() error {
 	return b.client.Close()
 }
 
+type MockBaseSession struct {
+	IDVal       uint64
+	RealmVal    string
+	AuthIDVal   string
+	AuthRoleVal string
+
+	SerializerVal serializers.Serializer
+	NetConnVal    net.Conn
+
+	ReadFunc            func() ([]byte, error)
+	WriteFunc           func([]byte) error
+	TryWriteFunc        func([]byte) (bool, error)
+	ReadMessageFunc     func() (messages.Message, error)
+	WriteMessageFunc    func(messages.Message) error
+	TryWriteMessageFunc func(messages.Message) (bool, error)
+	EnableLogFunc       func(session *Session, topic string)
+	DisableLogFunc      func()
+	CloseFunc           func() error
+}
+
+func (m *MockBaseSession) ID() uint64 {
+	return m.IDVal
+}
+
+func (m *MockBaseSession) Realm() string {
+	return m.RealmVal
+}
+
+func (m *MockBaseSession) AuthID() string {
+	return m.AuthIDVal
+}
+
+func (m *MockBaseSession) AuthRole() string {
+	return m.AuthRoleVal
+}
+
+func (m *MockBaseSession) Serializer() serializers.Serializer {
+	return m.SerializerVal
+}
+
+func (m *MockBaseSession) NetConn() net.Conn {
+	return m.NetConnVal
+}
+
+func (m *MockBaseSession) Read() ([]byte, error) {
+	if m.ReadFunc == nil {
+		return nil, fmt.Errorf("not implemented")
+	}
+	return m.ReadFunc()
+}
+
+func (m *MockBaseSession) Write(b []byte) error {
+	if m.WriteFunc == nil {
+		return fmt.Errorf("not implemented")
+	}
+	return m.WriteFunc(b)
+}
+
+func (m *MockBaseSession) TryWrite(b []byte) (bool, error) {
+	if m.TryWriteFunc == nil {
+		return false, fmt.Errorf("not implemented")
+	}
+	return m.TryWriteFunc(b)
+}
+
+func (m *MockBaseSession) ReadMessage() (messages.Message, error) {
+	if m.ReadMessageFunc == nil {
+		return nil, fmt.Errorf("not implemented")
+	}
+	return m.ReadMessageFunc()
+}
+
+func (m *MockBaseSession) WriteMessage(msg messages.Message) error {
+	if m.WriteMessageFunc == nil {
+		return fmt.Errorf("not implemented")
+	}
+	return m.WriteMessageFunc(msg)
+}
+
+func (m *MockBaseSession) TryWriteMessage(msg messages.Message) (bool, error) {
+	if m.TryWriteMessageFunc == nil {
+		return false, fmt.Errorf("not implemented")
+	}
+	return m.TryWriteMessageFunc(msg)
+}
+
+func (m *MockBaseSession) EnableLogPublishing(session *Session, topic string) {
+	if m.EnableLogFunc != nil {
+		m.EnableLogFunc(session, topic)
+	}
+}
+
+func (m *MockBaseSession) DisableLogPublishing() {
+	if m.DisableLogFunc != nil {
+		m.DisableLogFunc()
+	}
+}
+
+func (m *MockBaseSession) Close() error {
+	if m.CloseFunc != nil {
+		return m.CloseFunc()
+	}
+	return m.CloseFunc()
+}
+
 type wsMsg struct {
 	opCode  ws.OpCode
 	payload []byte

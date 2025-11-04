@@ -74,3 +74,17 @@ func TestInMemoryPeer(t *testing.T) {
 		return true
 	}, time.Second, 50*time.Millisecond)
 }
+
+func TestMockBaseSession(t *testing.T) {
+	mock := &xconn.MockBaseSession{
+		IDVal:     42,
+		RealmVal:  "test.realm",
+		ReadFunc:  func() ([]byte, error) { return []byte("hello"), nil },
+		WriteFunc: func(b []byte) error { return nil },
+	}
+
+	data, err := mock.Read()
+	require.NoError(t, err)
+	require.Equal(t, []byte("hello"), data)
+	require.Equal(t, uint64(42), mock.ID())
+}
