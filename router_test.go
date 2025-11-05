@@ -222,9 +222,11 @@ func TestRouterMetaSessionCount(t *testing.T) {
 	require.NoError(t, session2.Leave())
 
 	t.Run("CountAfterAdminSessionLeaves", func(t *testing.T) {
-		resp := session.Call(xconn.MetaProcedureSessionCount).Do()
-		require.NoError(t, resp.Err)
-		require.Equal(t, uint64(2), resp.ArgUInt64Or(0, 0))
+		require.Eventually(t, func() bool {
+			resp := session.Call(xconn.MetaProcedureSessionCount).Do()
+			require.NoError(t, resp.Err)
+			return uint64(2) == resp.Args()[0]
+		}, time.Second, 10*time.Millisecond)
 	})
 }
 
