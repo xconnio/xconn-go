@@ -123,6 +123,10 @@ func (v Value) UInt64() (uint64, error) {
 		return val, nil
 	case uint:
 		return uint64(val), nil
+	case uint8:
+		return uint64(val), nil
+	case uint16:
+		return uint64(val), nil
 	case uint32:
 		return uint64(val), nil
 	case int64:
