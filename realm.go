@@ -284,17 +284,8 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 
 		return nil
 	case messages.MessageTypeGoodbye:
-		if err := r.dealer.RemoveSession(baseSession.ID()); err != nil {
-			return err
-		}
-
-		client, exists := r.clients.LoadAndDelete(baseSession.ID())
-		if !exists {
-			return fmt.Errorf("goodbye: client does not exist")
-		}
-
 		goodbye := messages.NewGoodBye(CloseGoodByeAndOut, nil)
-		success, err := client.TryWriteMessage(goodbye)
+		success, err := baseSession.TryWriteMessage(goodbye)
 		if err != nil {
 			return err
 		}
@@ -303,7 +294,7 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 			log.Debugf("dropped GOODBYE message for blocked peer: %d", baseSession.ID())
 		}
 
-		_ = client.Close()
+		_ = baseSession.Close()
 		return nil
 	default:
 		return fmt.Errorf("unknown message type: %v", msg.Type())
