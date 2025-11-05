@@ -195,7 +195,12 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 		Server:            true,
 		KeepAliveInterval: config.KeepAliveInterval,
 		KeepAliveTimeout:  config.KeepAliveTimeout,
+		OutQueueSize:      config.OutQueueSize,
 	}
+	if peerConfig.OutQueueSize == 0 {
+		peerConfig.OutQueueSize = RouterOutQueueSizeDefault
+	}
+
 	peer, err := NewWebSocketPeer(conn, peerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
@@ -246,8 +251,8 @@ func (r *RawSocketAcceptor) Spec(serializerID SerializerID) (serializers.Seriali
 	return serializer, nil
 }
 
-func (r *RawSocketAcceptor) Accept(conn net.Conn) (BaseSession, error) {
-	peer, serializerID, err := UpgradeRawSocket(conn)
+func (r *RawSocketAcceptor) Accept(conn net.Conn, config *RawSocketServerConfig) (BaseSession, error) {
+	peer, serializerID, err := UpgradeRawSocket(conn, config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
 	}
@@ -265,7 +270,7 @@ func (r *RawSocketAcceptor) Accept(conn net.Conn) (BaseSession, error) {
 	return Accept(peer, hello, serializer, r.Authenticator)
 }
 
-func UpgradeRawSocket(conn net.Conn) (Peer, transports.Serializer, error) {
+func UpgradeRawSocket(conn net.Conn, config *RawSocketServerConfig) (Peer, transports.Serializer, error) {
 	maxMessageSize := transports.ProtocolMaxMsgSize
 
 	handshakeRequestRaw := make([]byte, 4)
@@ -290,8 +295,17 @@ func UpgradeRawSocket(conn net.Conn) (Peer, transports.Serializer, error) {
 		return nil, 0, err
 	}
 
+	if config == nil {
+		config = DefaultRawSocketServerConfig()
+	}
+
 	peerConfig := RawSocketPeerConfig{
-		Serializer: handshakeResponse.Serializer(),
+		Serializer:   handshakeResponse.Serializer(),
+		OutQueueSize: config.OutQueueSize,
+	}
+
+	if peerConfig.OutQueueSize == 0 {
+		peerConfig.OutQueueSize = RouterOutQueueSizeDefault
 	}
 
 	return NewRawSocketPeer(conn, peerConfig), handshakeRequest.Serializer(), nil

@@ -75,38 +75,14 @@ type WSDialerConfig struct {
 	NetDial           func(ctx context.Context, network, addr string) (net.Conn, error)
 	KeepAliveInterval time.Duration
 	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
 }
 
 type WebSocketServerConfig struct {
 	SubProtocols      []string
 	KeepAliveInterval time.Duration
 	KeepAliveTimeout  time.Duration
-}
-
-type WSPeerConfig struct {
-	Protocol          string
-	Binary            bool
-	Server            bool
-	KeepAliveInterval time.Duration
-	KeepAliveTimeout  time.Duration
-}
-
-type RawSocketDialerConfig struct {
-	Serializer        transports.Serializer
-	NetDial           func(ctx context.Context, network, addr string) (net.Conn, error)
-	DialTimeout       time.Duration
-	KeepAliveInterval time.Duration
-	KeepAliveTimeout  time.Duration
-}
-
-type RawSocketPeerConfig struct {
-	Serializer transports.Serializer
-}
-
-type ServerConfig struct {
-	Throttle          *Throttle
-	KeepAliveInterval time.Duration
-	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
 }
 
 func DefaultWebSocketServerConfig() *WebSocketServerConfig {
@@ -117,6 +93,48 @@ func DefaultWebSocketServerConfig() *WebSocketServerConfig {
 			CborWebsocketProtocol,
 		},
 	}
+}
+
+type WSPeerConfig struct {
+	Protocol          string
+	Binary            bool
+	Server            bool
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
+}
+
+type RawSocketDialerConfig struct {
+	Serializer        transports.Serializer
+	NetDial           func(ctx context.Context, network, addr string) (net.Conn, error)
+	DialTimeout       time.Duration
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
+}
+
+type RawSocketServerConfig struct {
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
+}
+
+func DefaultRawSocketServerConfig() *RawSocketServerConfig {
+	return &RawSocketServerConfig{}
+}
+
+type RawSocketPeerConfig struct {
+	Serializer        transports.Serializer
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
+}
+
+type ServerConfig struct {
+	Throttle          *Throttle
+	KeepAliveInterval time.Duration
+	KeepAliveTimeout  time.Duration
+	OutQueueSize      int
 }
 
 type SerializerID transports.Serializer

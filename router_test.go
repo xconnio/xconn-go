@@ -74,11 +74,11 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create sessions with authid "test"
-	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "trusted", &serializers.JSONSerializer{})
+	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "trusted", &serializers.JSONSerializer{}, 0)
 	require.NoError(t, err)
 	session1 := xconn.NewSession(baseSession, baseSession.Serializer())
 
-	baseSession1, err := xconn.ConnectInMemoryBase(router, realmName, "test", "trusted", &serializers.JSONSerializer{})
+	baseSession1, err := xconn.ConnectInMemoryBase(router, realmName, "test", "trusted", &serializers.JSONSerializer{}, 0)
 	require.NoError(t, err)
 	session2 := xconn.NewSession(baseSession1, baseSession.Serializer())
 
@@ -116,11 +116,11 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create sessions with authrole "test"
-	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "test", &serializers.JSONSerializer{})
+	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "test", &serializers.JSONSerializer{}, 0)
 	require.NoError(t, err)
 	session1 := xconn.NewSession(baseSession, baseSession.Serializer())
 
-	baseSession1, err := xconn.ConnectInMemoryBase(router, realmName, "test", "test", &serializers.JSONSerializer{})
+	baseSession1, err := xconn.ConnectInMemoryBase(router, realmName, "test", "test", &serializers.JSONSerializer{}, 0)
 	require.NoError(t, err)
 	session2 := xconn.NewSession(baseSession1, baseSession.Serializer())
 
@@ -198,7 +198,7 @@ func TestRouterMetaSessionCount(t *testing.T) {
 	})
 
 	// Connect second session with role=admin
-	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "admin", &serializers.JSONSerializer{})
+	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "admin", &serializers.JSONSerializer{}, 0)
 	require.NoError(t, err)
 	session2 := xconn.NewSession(baseSession, baseSession.Serializer())
 
@@ -241,7 +241,7 @@ func TestRouterMetaSessionList(t *testing.T) {
 	})
 
 	// Connect second session with role=admin
-	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "admin", &serializers.JSONSerializer{})
+	baseSession, err := xconn.ConnectInMemoryBase(router, realmName, "test", "admin", &serializers.JSONSerializer{}, 0)
 	require.NoError(t, err)
 	session2 := xconn.NewSession(baseSession, baseSession.Serializer())
 
@@ -305,7 +305,7 @@ func TestAuthorization(t *testing.T) {
 
 	createSession := func(role string) *xconn.Session {
 		authID := fmt.Sprintf("%012x", rand.Uint64())[:12] // #nosec
-		baseSession, err := xconn.ConnectInMemoryBase(router, realmName, authID, role, &serializers.JSONSerializer{})
+		baseSession, err := xconn.ConnectInMemoryBase(router, realmName, authID, role, &serializers.JSONSerializer{}, 0)
 		require.NoError(t, err)
 		return xconn.NewSession(baseSession, baseSession.Serializer())
 	}
@@ -487,7 +487,7 @@ func TestCustomAuthorizer(t *testing.T) {
 
 	createSession := func(role string) *xconn.Session {
 		authID := fmt.Sprintf("%012x", rand.Uint64())[:12] // #nosec
-		baseSession, err := xconn.ConnectInMemoryBase(router, realmName, authID, role, &serializers.JSONSerializer{})
+		baseSession, err := xconn.ConnectInMemoryBase(router, realmName, authID, role, &serializers.JSONSerializer{}, 0)
 		require.NoError(t, err)
 		return xconn.NewSession(baseSession, baseSession.Serializer())
 	}
@@ -663,7 +663,7 @@ func TestBlockedLocalClient(t *testing.T) {
 
 	// subscribe to topic 'io.xconn.test'
 	authID := fmt.Sprintf("%012x", rand.Uint64())[:12] // #nosec
-	baseSession, err := xconn.ConnectInMemoryBase(router, "realm1", authID, "trusted", &serializers.MsgPackSerializer{})
+	baseSession, err := xconn.ConnectInMemoryBase(router, "realm1", authID, "trusted", &serializers.MsgPackSerializer{}, 0)
 	require.NoError(t, err)
 
 	// publisher client

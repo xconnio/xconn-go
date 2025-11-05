@@ -37,7 +37,7 @@ func connectInMemory(t *testing.T, router *xconn.Router, realm string,
 	authID := fmt.Sprintf("%012x", rand.Uint64())[:12]
 	authRole := "trusted"
 
-	base, err := xconn.ConnectInMemoryBase(router, realm, authID, authRole, serializer)
+	base, err := xconn.ConnectInMemoryBase(router, realm, authID, authRole, serializer, 0)
 	require.NoError(t, err)
 
 	return xconn.NewSession(base, base.Serializer())
