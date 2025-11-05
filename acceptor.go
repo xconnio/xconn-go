@@ -198,8 +198,9 @@ func UpgradeWebSocket(conn net.Conn, config *WebSocketServerConfig) (Peer, error
 		OutQueueSize:      config.OutQueueSize,
 	}
 	if peerConfig.OutQueueSize == 0 {
-		peerConfig.OutQueueSize = 64
+		peerConfig.OutQueueSize = RouterOutQueueSizeDefault
 	}
+
 	peer, err := NewWebSocketPeer(conn, peerConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init reader/writer: %w", err)
@@ -304,7 +305,7 @@ func UpgradeRawSocket(conn net.Conn, config *RawSocketServerConfig) (Peer, trans
 	}
 
 	if peerConfig.OutQueueSize == 0 {
-		peerConfig.OutQueueSize = 64
+		peerConfig.OutQueueSize = RouterOutQueueSizeDefault
 	}
 
 	return NewRawSocketPeer(conn, peerConfig), handshakeRequest.Serializer(), nil

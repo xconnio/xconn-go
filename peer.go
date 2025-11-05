@@ -18,6 +18,11 @@ import (
 	"github.com/xconnio/wampproto-go/transports"
 )
 
+const (
+	ClientOutQueueSizeDefault = 16
+	RouterOutQueueSizeDefault = 64
+)
+
 func NewBaseSession(id uint64, realm, authID, authRole string, cl Peer, serializer serializers.Serializer) BaseSession {
 	return &baseSession{
 		id:         id,
@@ -195,7 +200,7 @@ func NewWebSocketPeer(conn net.Conn, peerConfig WSPeerConfig) (Peer, error) {
 	}
 
 	if peerConfig.OutQueueSize == 0 {
-		peerConfig.OutQueueSize = 16
+		peerConfig.OutQueueSize = ClientOutQueueSizeDefault
 	}
 
 	peer := &WebSocketPeer{
@@ -440,7 +445,7 @@ type RawSocketPeer struct {
 
 func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
 	if peerConfig.OutQueueSize == 0 {
-		peerConfig.OutQueueSize = 16
+		peerConfig.OutQueueSize = ClientOutQueueSizeDefault
 	}
 
 	peer := &RawSocketPeer{
@@ -741,8 +746,9 @@ func (l *localPeer) Close() error {
 
 func newLocalPeer(conn, otherSide net.Conn, outQueueSize int) *localPeer {
 	if outQueueSize == 0 {
-		outQueueSize = 16
+		outQueueSize = ClientOutQueueSizeDefault
 	}
+
 	p := &localPeer{
 		conn:        conn,
 		other:       otherSide,
