@@ -157,7 +157,7 @@ func Accept(peer Peer, hello *messages.Hello, serializer serializers.Serializer,
 
 Welcomed:
 	d, _ := a.SessionDetails()
-	details := NewBaseSession(d.ID(), d.Realm(), d.AuthID(), d.AuthRole(), peer, serializer)
+	details := NewBaseSession(d.ID(), d.Realm(), d.AuthID(), d.AuthRole(), d.AuthMethod(), d.AuthExtra(), peer, serializer)
 	return details, nil
 }
 

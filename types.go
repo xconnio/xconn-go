@@ -46,6 +46,8 @@ type BaseSession interface {
 	Realm() string
 	AuthID() string
 	AuthRole() string
+	AuthMethod() string
+	AuthExtra() map[string]any
 
 	Serializer() serializers.Serializer
 	NetConn() net.Conn
@@ -1034,8 +1036,9 @@ type RealmRole struct {
 
 type SessionDetails = wampproto.SessionDetails
 
-func NewSessionDetails(id uint64, realm, authID, authRole string) *SessionDetails {
-	return wampproto.NewSessionDetails(id, realm, authID, authRole, false, wampproto.RouterRoles)
+func NewSessionDetails(
+	id uint64, realm, authID, authRole, authMethod string, authExtra map[string]any) *SessionDetails {
+	return wampproto.NewSessionDetails(id, realm, authID, authRole, authMethod, false, wampproto.RouterRoles, authExtra)
 }
 
 type Authorizer interface {

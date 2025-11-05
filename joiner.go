@@ -194,7 +194,8 @@ func Join(cl Peer, realm string, serializer serializers.Serializer,
 				return nil, err
 			}
 
-			base := NewBaseSession(details.ID(), details.Realm(), details.AuthID(), details.AuthRole(), cl, serializer)
+			base := NewBaseSession(details.ID(), details.Realm(), details.AuthID(), details.AuthRole(),
+				details.AuthMethod(), details.AuthExtra(), cl, serializer)
 			return base, nil
 		}
 
