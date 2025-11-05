@@ -286,7 +286,7 @@ func TestRouterMetaSessionGet(t *testing.T) {
 	require.NoError(t, err)
 
 	expectedDetails := map[string]any{"authid": session.Details().AuthID(), "authmethod": "", "authprovider": "",
-		"authrole": "trusted", "session": session.ID()}
+		"authrole": "trusted", "session": session.ID(), "authextra": map[string]any{}}
 	resp := session.Call(xconn.MetaProcedureSessionGet).Arg(session.ID()).Do()
 	require.NoError(t, resp.Err)
 	require.Equal(t, expectedDetails, resp.Args()[0])
