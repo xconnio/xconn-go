@@ -32,7 +32,7 @@ func (r *Realm) AttachClient(base BaseSession) error {
 	r.clients.Store(base.ID(), base)
 
 	details := wampproto.NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole(),
-		base.Serializer().Static(), wampproto.RouterRoles)
+		base.AuthMethod(), base.Serializer().Static(), wampproto.RouterRoles, base.AuthExtra())
 
 	if err := r.broker.AddSession(details); err != nil {
 		return err

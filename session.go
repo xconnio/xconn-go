@@ -77,7 +77,8 @@ func NewSession(base BaseSession, serializer serializers.Serializer) *Session {
 
 		leaveChan: make(chan struct{}, 1),
 
-		details:   NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole()),
+		details: NewSessionDetails(base.ID(), base.Realm(), base.AuthID(), base.AuthRole(), base.AuthMethod(),
+			base.AuthExtra()),
 		connected: true,
 	}
 

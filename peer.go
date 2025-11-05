@@ -23,22 +23,27 @@ const (
 	RouterOutQueueSizeDefault = 64
 )
 
-func NewBaseSession(id uint64, realm, authID, authRole string, cl Peer, serializer serializers.Serializer) BaseSession {
+func NewBaseSession(id uint64, realm, authID, authRole, authMethod string, authExtra map[string]any, cl Peer,
+	serializer serializers.Serializer) BaseSession {
 	return &baseSession{
 		id:         id,
 		realm:      realm,
 		authID:     authID,
 		authRole:   authRole,
+		authMethod: authMethod,
+		authExtra:  authExtra,
 		client:     cl,
 		serializer: serializer,
 	}
 }
 
 type baseSession struct {
-	id       uint64
-	realm    string
-	authID   string
-	authRole string
+	id         uint64
+	realm      string
+	authID     string
+	authRole   string
+	authMethod string
+	authExtra  map[string]any
 
 	client     Peer
 	serializer serializers.Serializer
@@ -48,6 +53,14 @@ type baseSession struct {
 	topic       string
 
 	sync.Mutex
+}
+
+func (b *baseSession) AuthMethod() string {
+	return b.authMethod
+}
+
+func (b *baseSession) AuthExtra() map[string]any {
+	return b.authExtra
 }
 
 func (b *baseSession) EnableLogPublishing(session *Session, topic string) {

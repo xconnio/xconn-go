@@ -63,7 +63,8 @@ func (m *meta) onJoin(base BaseSession) {
 		"session":      base.ID(),
 		"authid":       base.AuthID(),
 		"authrole":     base.AuthRole(),
-		"authmethod":   "",
+		"authmethod":   base.AuthMethod(),
+		"authextra":    base.AuthExtra(),
 		"authprovider": "",
 	}
 
@@ -263,7 +264,8 @@ func (m *meta) handleSessionGet(_ context.Context, invocation *Invocation) *Invo
 		"session":      client.ID(),
 		"authid":       client.AuthID(),
 		"authrole":     client.AuthRole(),
-		"authmethod":   "",
+		"authmethod":   client.AuthMethod(),
+		"authextra":    client.AuthExtra(),
 		"authprovider": "",
 	}
 	return NewInvocationResult(details)
