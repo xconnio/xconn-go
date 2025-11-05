@@ -23,8 +23,9 @@ import (
 const realmName = "test"
 
 func TestRouterMetaKill(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
@@ -65,8 +66,9 @@ func TestRouterMetaKill(t *testing.T) {
 }
 
 func TestRouterMetaKillByAuthID(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
@@ -107,8 +109,9 @@ func TestRouterMetaKillByAuthID(t *testing.T) {
 }
 
 func TestRouterMetaKillByAuthRole(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
@@ -149,9 +152,9 @@ func TestRouterMetaKillByAuthRole(t *testing.T) {
 }
 
 func TestRouterMetaKillAll(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
 	require.NoError(t, err)
+	require.NoError(t, router.AddRealm(realmName, xconn.DefaultRealmConfig()))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	session, err := xconn.ConnectInMemory(router, realmName)
@@ -183,8 +186,9 @@ func TestRouterMetaKillAll(t *testing.T) {
 }
 
 func TestRouterMetaSessionCount(t *testing.T) {
-	router := xconn.NewRouter()
-	require.NoError(t, router.AddRealm(realmName))
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	require.NoError(t, router.AddRealm(realmName, xconn.DefaultRealmConfig()))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	// Connect first session
@@ -225,8 +229,9 @@ func TestRouterMetaSessionCount(t *testing.T) {
 }
 
 func TestRouterMetaSessionList(t *testing.T) {
-	router := xconn.NewRouter()
-	require.NoError(t, router.AddRealm(realmName))
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	require.NoError(t, router.AddRealm(realmName, xconn.DefaultRealmConfig()))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	// Connect first session
@@ -272,8 +277,9 @@ func TestRouterMetaSessionList(t *testing.T) {
 }
 
 func TestRouterMetaSessionGet(t *testing.T) {
-	router := xconn.NewRouter()
-	require.NoError(t, router.AddRealm(realmName))
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	require.NoError(t, router.AddRealm(realmName, xconn.DefaultRealmConfig()))
 	require.NoError(t, router.EnableMetaAPI(realmName))
 
 	session, err := xconn.ConnectInMemory(router, realmName)
@@ -291,8 +297,9 @@ func TestRouterMetaSessionGet(t *testing.T) {
 }
 
 func TestAuthorization(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 
 	addRole := func(name string, permissions []xconn.Permission) {
@@ -386,8 +393,9 @@ func TestAuthorization(t *testing.T) {
 }
 
 func TestRealmAlias(t *testing.T) {
-	r := xconn.NewRouter()
-	err := r.AddRealm("hello")
+	r, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = r.AddRealm("hello", &xconn.RealmConfig{})
 	require.NoError(t, err)
 
 	require.True(t, r.HasRealm("hello"))
@@ -400,8 +408,12 @@ func TestRealmAlias(t *testing.T) {
 }
 
 func TestAutoDiscloseCallerAndPublisher(t *testing.T) {
-	router := xconn.NewRouter()
-	err := router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	err = router.AddRealm(realmName, &xconn.RealmConfig{
+		AutoDiscloseCaller:    true,
+		AutoDisclosePublisher: true,
+	})
 	require.NoError(t, err)
 
 	callee, err := xconn.ConnectInMemory(router, realmName)
@@ -422,40 +434,16 @@ func TestAutoDiscloseCallerAndPublisher(t *testing.T) {
 		publishDetailsCh <- event.Details()
 	}).Do()
 
-	t.Run("DisabledByDefault", func(t *testing.T) {
-		caller.Call("io.xconn.test").Do()
-		require.Equal(t, map[string]any{}, <-callDetailsCh)
-
-		caller.Publish("io.xconn.test").Do()
-		require.Equal(t, map[string]any{}, <-publishDetailsCh)
-	})
-
 	t.Run("Enable", func(t *testing.T) {
 		expectedCallerDetails := map[string]any{"caller": caller.ID(),
 			"caller_authid": caller.Details().AuthID(), "caller_authrole": "trusted", "procedure": "io.xconn.test"}
-		err = router.AutoDiscloseCaller(realmName, true)
-		require.NoError(t, err)
 		caller.Call("io.xconn.test").Do()
 		require.Equal(t, expectedCallerDetails, <-callDetailsCh)
 
 		expectedPublisherDetails := map[string]any{"publisher": caller.ID(),
 			"publisher_authid": caller.Details().AuthID(), "publisher_authrole": "trusted", "topic": "io.xconn.test"}
-		err = router.AutoDisclosePublisher(realmName, true)
-		require.NoError(t, err)
 		caller.Publish("io.xconn.test").Do()
 		require.Equal(t, expectedPublisherDetails, <-publishDetailsCh)
-	})
-
-	t.Run("Disable", func(t *testing.T) {
-		err = router.AutoDiscloseCaller(realmName, false)
-		require.NoError(t, err)
-		caller.Call("io.xconn.test").Do()
-		require.Equal(t, map[string]any{}, <-callDetailsCh)
-
-		err = router.AutoDisclosePublisher(realmName, false)
-		require.NoError(t, err)
-		caller.Publish("io.xconn.test").Do()
-		require.Equal(t, map[string]any{}, <-publishDetailsCh)
 	})
 }
 
@@ -479,10 +467,11 @@ func (a *testAuthorizer) Authorize(baseSession xconn.BaseSession, msg messages.M
 }
 
 func TestCustomAuthorizer(t *testing.T) {
-	router := xconn.NewRouter()
-	router.AddRealm(realmName)
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	require.NoError(t, router.AddRealm(realmName, xconn.DefaultRealmConfig()))
 
-	err := router.SetRealmAuthorizer(realmName, &testAuthorizer{})
+	err = router.SetRealmAuthorizer(realmName, &testAuthorizer{})
 	require.NoError(t, err)
 
 	createSession := func(role string) *xconn.Session {
@@ -638,9 +627,10 @@ func testBlockedSubscriberCaller(t *testing.T, baseSession xconn.BaseSession, se
 }
 
 func initRouterWithRealm1(t *testing.T) *xconn.Router {
-	router := xconn.NewRouter()
-	require.NoError(t, router.AddRealm("realm1"))
-	err := router.AddRealmRole("realm1", xconn.RealmRole{
+	router, err := xconn.NewRouter(nil)
+	require.NoError(t, err)
+	require.NoError(t, router.AddRealm("realm1", &xconn.RealmConfig{}))
+	err = router.AddRealmRole("realm1", xconn.RealmRole{
 		Name: "anonymous",
 		Permissions: []xconn.Permission{
 			{
