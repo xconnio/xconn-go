@@ -70,7 +70,19 @@ func NewRouter(cfg *RouterConfig) (*Router, error) {
 	}
 
 	if cfg.Management {
-		if err := r.AddRealm(ManagementRealm, &RealmConfig{}); err != nil {
+		if err := r.AddRealm(ManagementRealm, &RealmConfig{
+			Roles: []RealmRole{{
+				Name: "anonymous",
+				Permissions: []Permission{
+					{
+						URI:            "io.xconn.mgmt.",
+						MatchPolicy:    "prefix",
+						AllowCall:      true,
+						AllowSubscribe: true,
+					},
+				},
+			}},
+		}); err != nil {
 			return nil, err
 		}
 
