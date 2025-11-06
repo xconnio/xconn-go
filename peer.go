@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -34,7 +35,76 @@ func NewBaseSession(id uint64, realm, authID, authRole, authMethod string, authE
 		authExtra:  authExtra,
 		client:     cl,
 		serializer: serializer,
+		tracker:    newMessageTracker(),
 	}
+}
+
+type messageTracker struct {
+	started     bool
+	rxCount     uint64
+	txCount     uint64
+	rxRate      uint64
+	txRate      uint64
+	stopTrackCh chan struct{}
+	mu          sync.RWMutex
+}
+
+func newMessageTracker() *messageTracker {
+	return &messageTracker{
+		stopTrackCh: make(chan struct{}),
+	}
+}
+
+func (m *messageTracker) IncRx() {
+	atomic.AddUint64(&m.rxCount, 1)
+}
+
+func (m *messageTracker) IncTx() {
+	atomic.AddUint64(&m.txCount, 1)
+}
+
+func (m *messageTracker) Rates() (rxRate, txRate uint64) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.rxRate, m.txRate
+}
+
+func (m *messageTracker) Start(interval time.Duration) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.started {
+		return false
+	}
+	m.started = true
+
+	go m.trackLoop(interval)
+	return true
+}
+
+func (m *messageTracker) trackLoop(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			rx := atomic.SwapUint64(&m.rxCount, 0)
+			tx := atomic.SwapUint64(&m.txCount, 0)
+
+			m.mu.Lock()
+			m.rxRate = rx / uint64(interval.Seconds())
+			m.txRate = tx / uint64(interval.Seconds())
+			m.mu.Unlock()
+
+		case <-m.stopTrackCh:
+			return
+		}
+	}
+}
+
+func (m *messageTracker) Stop() {
+	close(m.stopTrackCh)
 }
 
 type baseSession struct {
@@ -52,6 +122,8 @@ type baseSession struct {
 	publishLogs bool
 	topic       string
 
+	tracker *messageTracker
+
 	sync.Mutex
 }
 
@@ -64,6 +136,7 @@ func (b *baseSession) AuthExtra() map[string]any {
 }
 
 func (b *baseSession) EnableLogPublishing(session *Session, topic string) {
+	b.tracker.Start(time.Second)
 	b.Lock()
 	defer b.Unlock()
 
@@ -73,6 +146,7 @@ func (b *baseSession) EnableLogPublishing(session *Session, topic string) {
 }
 
 func (b *baseSession) DisableLogPublishing() {
+	b.tracker.Stop()
 	b.Lock()
 	defer b.Unlock()
 
@@ -99,12 +173,18 @@ func (b *baseSession) ReadMessage() (messages.Message, error) {
 	var pub *PublishRequest
 	b.Lock()
 	if b.publishLogs {
-		pub = b.session.Publish(b.topic).Arg(constructReceivedMsgLog(msg))
+		rxRate, txRate := b.tracker.Rates()
+		pub = b.session.Publish(b.topic).Arg(map[string]any{
+			"message": constructReceivedMsgLog(msg),
+			"rx_rate": rxRate,
+			"tx_rate": txRate,
+		})
 	}
 	b.Unlock()
 
 	if pub != nil {
 		_ = pub.Do()
+		b.tracker.IncRx()
 	}
 
 	return msg, nil
@@ -119,12 +199,18 @@ func (b *baseSession) constructWriteMessage(message messages.Message) ([]byte, e
 	var pub *PublishRequest
 	b.Lock()
 	if b.publishLogs {
-		pub = b.session.Publish(b.topic).Arg(constructSendingMsgLog(message))
+		rxRate, txRate := b.tracker.Rates()
+		pub = b.session.Publish(b.topic).Arg(map[string]any{
+			"message": constructSendingMsgLog(message),
+			"rx_rate": rxRate,
+			"tx_rate": txRate,
+		})
 	}
 	b.Unlock()
 
 	if pub != nil {
 		_ = pub.Do()
+		b.tracker.IncTx()
 	}
 
 	return payload, nil
