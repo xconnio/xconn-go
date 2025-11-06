@@ -271,10 +271,12 @@ func TestRouterMetaSessionList(t *testing.T) {
 	require.NoError(t, session2.Leave())
 
 	t.Run("ListAfterAdminSessionLeaves", func(t *testing.T) {
-		resp := session.Call(xconn.MetaProcedureSessionList).Do()
-		require.NoError(t, resp.Err)
-		ids := resp.ArgListOr(0, nil)
-		require.Len(t, ids, 2)
+		require.Eventually(t, func() bool {
+			resp := session.Call(xconn.MetaProcedureSessionList).Do()
+			require.NoError(t, resp.Err)
+			ids := resp.ArgListOr(0, nil)
+			return len(ids) == 2
+		}, time.Second, 10*time.Millisecond)
 	})
 }
 
