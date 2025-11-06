@@ -625,9 +625,6 @@ func testBlockedSubscriberCaller(t *testing.T, baseSession xconn.BaseSession, se
 	// The callee is blocked so the router should respond with an error
 	callResp := session.Call("io.xconn.test").Do()
 	require.EqualError(t, callResp.Err, "wamp.error.network_failure: callee blocked, cannot call procedure")
-
-	err = session.Leave()
-	require.NoError(t, err)
 }
 
 func initRouterWithRealm1(t *testing.T) *xconn.Router {
@@ -772,4 +769,47 @@ func TestBlockedCaller(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestBlockedCalleeNotBlockCaller(t *testing.T) {
+	// start server
+	router := initRouterWithRealm1(t)
+	server := xconn.NewServer(router, nil, nil)
+
+	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "localhost:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+	logrus.SetLevel(logrus.DebugLevel)
+
+	parsedURL, err := netURL.Parse(fmt.Sprintf("ws://%s", listener.Addr()))
+	require.NoError(t, err)
+
+	peer, _, err := xconn.DialWebSocket(context.Background(), parsedURL, &xconn.WSDialerConfig{
+		SubProtocols: []string{xconn.CBORSerializerSpec.SubProtocol()},
+	})
+	require.NoError(t, err)
+
+	baseSession, err := xconn.Join(peer, "realm1", &serializers.CBORSerializer{},
+		auth.NewAnonymousAuthenticator("", nil))
+	require.NoError(t, err)
+
+	caller, err := xconn.ConnectAnonymous(context.Background(),
+		fmt.Sprintf("ws://%s", listener.Addr()), "realm1")
+	require.NoError(t, err)
+
+	callee, err := xconn.ConnectAnonymous(context.Background(),
+		fmt.Sprintf("ws://%s", listener.Addr()), "realm1")
+	require.NoError(t, err)
+
+	regResp := callee.Register("io.xconn.test1",
+		func(ctx context.Context, invocation *xconn.Invocation) *xconn.InvocationResult {
+			return xconn.NewInvocationResult("Hello")
+		}).Do()
+	require.NoError(t, regResp.Err)
+
+	testBlockedSubscriberCaller(t, baseSession, caller)
+
+	callResp := caller.Call("io.xconn.test1").Do()
+	require.NoError(t, callResp.Err)
+	require.Equal(t, "Hello", callResp.ArgStringOr(0, ""))
 }
