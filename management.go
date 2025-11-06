@@ -431,8 +431,12 @@ func (m *management) handleSessionLoggingSet(_ context.Context, invocation *Invo
 		return NewInvocationError("wamp.error.not_found", "session not found")
 	}
 
-	if sessionID == m.session.ID() || sessionID == invocation.Caller() {
-		return NewInvocationError("wamp.error.invalid_argument", "invalid session id")
+	if sessionID == m.session.ID() {
+		return NewInvocationError("wamp.error.invalid_argument", "cannot subscribe to logs of the management session")
+	}
+
+	if sessionID == invocation.Caller() {
+		return NewInvocationError("wamp.error.invalid_argument", "caller cannot subscribe to its own logs")
 	}
 
 	if enable {
