@@ -943,6 +943,9 @@ type RegisterResponse struct {
 }
 
 func (r RegisterResponse) Unregister() error {
+	if r.registration == nil {
+		return fmt.Errorf("empty registration")
+	}
 	return r.registration.unregister()
 }
 
@@ -952,6 +955,9 @@ type SubscribeResponse struct {
 }
 
 func (r SubscribeResponse) Unsubscribe() error {
+	if r.subscription == nil {
+		return fmt.Errorf("empty subscription")
+	}
 	return r.subscription.unsubscribe()
 }
 
