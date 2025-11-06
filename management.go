@@ -116,7 +116,7 @@ func (m *management) collectStats(proc *process.Process) (map[string]any, error)
 }
 
 // startMemoryLogging starts the periodic memory logging.
-func (m *management) startMemoryLogging(interval time.Duration) error {
+func (m *management) startMemoryLogging(interval time.Duration, logToStdout bool) error {
 	if m.memRunning {
 		return fmt.Errorf("memory logging is already running")
 	}
@@ -146,14 +146,16 @@ func (m *management) startMemoryLogging(interval time.Duration) error {
 					continue
 				}
 
-				if m.router.trackingMsg.Load() {
-					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs | Msg/sec=%d",
-						statsMap["cpu_usage"], statsMap["memory_usage"], float64(statsMap["virt_memory"].(uint64))/1024/1024,
-						float64(statsMap["res_memory"].(uint64))/1024/1024, statsMap["uptime"], statsMap["messages_per_second"])
-				} else {
-					log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs",
-						statsMap["cpu_usage"], statsMap["memory_usage"], float64(statsMap["virt_memory"].(uint64))/1024/1024,
-						float64(statsMap["res_memory"].(uint64))/1024/1024, statsMap["uptime"])
+				if logToStdout {
+					if m.router.trackingMsg.Load() {
+						log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs | Msg/sec=%d",
+							statsMap["cpu_usage"], statsMap["memory_usage"], float64(statsMap["virt_memory"].(uint64))/1024/1024,
+							float64(statsMap["res_memory"].(uint64))/1024/1024, statsMap["uptime"], statsMap["messages_per_second"])
+					} else {
+						log.Infof("CPU=%.2f%% | MEM=%.2f%% | VIRT=%.1fMB | RES=%.1fMB | Uptime=%.1fs",
+							statsMap["cpu_usage"], statsMap["memory_usage"], float64(statsMap["virt_memory"].(uint64))/1024/1024,
+							float64(statsMap["res_memory"].(uint64))/1024/1024, statsMap["uptime"])
+					}
 				}
 
 				// TODO: Publish only if there are subscribers
@@ -191,6 +193,8 @@ func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocat
 	intervalMS, err := invocation.KwargInt64("interval")
 	intervalProvided := err == nil
 
+	logToStdout := invocation.KwargBoolOr("log-to-stdout", false)
+
 	if intervalMS == 0 {
 		if m.interval > 0 {
 			intervalMS = int64(m.interval / time.Millisecond)
@@ -209,7 +213,7 @@ func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocat
 		if m.memRunning {
 			m.stopMemoryLogging()
 		}
-		if err := m.startMemoryLogging(interval); err != nil {
+		if err := m.startMemoryLogging(interval, logToStdout); err != nil {
 			return NewInvocationError("wamp.error.internal_error", err.Error())
 		}
 
@@ -222,7 +226,7 @@ func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocat
 		if m.memRunning {
 			log.Infof("Changing memory logging interval to %v", interval)
 			m.stopMemoryLogging()
-			_ = m.startMemoryLogging(interval)
+			_ = m.startMemoryLogging(interval, logToStdout)
 		} else {
 			log.Infof("Updated memory logging interval to %v (will apply when started)", interval)
 		}
