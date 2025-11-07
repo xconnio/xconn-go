@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
@@ -102,7 +103,35 @@ func (l *Listener) Port() int {
 	return 0
 }
 
+func ensureUnixSocketAvailable(udsPath string) error {
+	conn, err := net.DialTimeout(string(NetworkUnix), udsPath, time.Second)
+	if err == nil {
+		_ = conn.Close()
+		return fmt.Errorf("socket at %s is already in use", udsPath)
+	}
+
+	fileInfo, err := os.Lstat(udsPath)
+	if err == nil {
+		if fileInfo.Mode()&os.ModeSocket == 0 {
+			return fmt.Errorf("file at %s exists and is not a unix socket", udsPath)
+		}
+
+		if err := os.Remove(udsPath); err != nil {
+			return fmt.Errorf("failed to remove old unix socket file: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("error checking unix socket path: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Server) ListenAndServeWebSocket(network Network, address string) (*Listener, error) {
+	if network == NetworkUnix {
+		if err := ensureUnixSocketAvailable(address); err != nil {
+			return nil, err
+		}
+	}
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -231,6 +260,11 @@ func (s *Server) startConnectionLoop(ln net.Listener, listener ListenerType) {
 }
 
 func (s *Server) ListenAndServeRawSocket(network Network, address string) (*Listener, error) {
+	if network == NetworkUnix {
+		if err := ensureUnixSocketAvailable(address); err != nil {
+			return nil, err
+		}
+	}
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
@@ -240,6 +274,11 @@ func (s *Server) ListenAndServeRawSocket(network Network, address string) (*List
 }
 
 func (s *Server) ListenAndServeUniversal(network Network, address string) (*Listener, error) {
+	if network == NetworkUnix {
+		if err := ensureUnixSocketAvailable(address); err != nil {
+			return nil, err
+		}
+	}
 	ln, err := net.Listen(string(network), address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
