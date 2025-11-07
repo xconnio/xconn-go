@@ -104,7 +104,15 @@ func (m *messageTracker) trackLoop(interval time.Duration) {
 }
 
 func (m *messageTracker) Stop() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if !m.started {
+		return
+	}
+
 	close(m.stopTrackCh)
+	m.started = false
 }
 
 type baseSession struct {
