@@ -538,6 +538,7 @@ type RawSocketPeer struct {
 	ctrlChan      chan rsMsg
 	doneWriting   chan struct{}
 	closed        bool
+	pingCh        chan struct{}
 
 	sync.Mutex
 }
@@ -554,10 +555,58 @@ func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
 		writeChan:     make(chan []byte, peerConfig.OutQueueSize),
 		ctrlChan:      make(chan rsMsg, 2),
 		doneWriting:   make(chan struct{}),
+		pingCh:        make(chan struct{}, 1),
 	}
 
 	go peer.writer()
+
+	if peerConfig.KeepAliveInterval != 0 {
+		go peer.startPinger(peerConfig.KeepAliveInterval, peerConfig.KeepAliveTimeout)
+	}
+
 	return peer
+}
+
+func (r *RawSocketPeer) startPinger(keepaliveInterval, keepaliveTimeout time.Duration) {
+	if keepaliveInterval == 0 {
+		keepaliveInterval = 30 * time.Second
+	}
+
+	if keepaliveTimeout == 0 {
+		keepaliveTimeout = 10 * time.Second
+	}
+
+	if keepaliveTimeout >= keepaliveInterval {
+		log.Debugf("adjusting keepaliveTimeout (%s) to half of interval (%s)", keepaliveTimeout, keepaliveInterval)
+		keepaliveTimeout = keepaliveInterval / 2
+	}
+
+	ticker := time.NewTicker(keepaliveInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		randomBytes := make([]byte, 4)
+		if _, err := rand.Read(randomBytes); err != nil {
+			log.Debugln("failed to generate random bytes:", err)
+			continue
+		}
+
+		select {
+		case r.ctrlChan <- rsMsg{payload: randomBytes, msgType: transports.MessagePing}:
+		default:
+			log.Debugln("failed to send ping: ctrlChan full")
+			_ = r.Close()
+			return
+		}
+
+		select {
+		case <-r.pingCh:
+		case <-time.After(keepaliveTimeout):
+			log.Debugln("ping timeout, closing connection")
+			_ = r.Close()
+			return
+		}
+	}
 }
 
 func (r *RawSocketPeer) TryWrite(data []byte) (bool, error) {
@@ -662,11 +711,19 @@ func (r *RawSocketPeer) Read() ([]byte, error) {
 	if header.Kind() == transports.MessageWamp {
 		return payload, nil
 	} else if header.Kind() == transports.MessagePing {
-		r.ctrlChan <- rsMsg{payload: payload, msgType: transports.MessagePong}
+		select {
+		case r.ctrlChan <- rsMsg{payload: payload, msgType: transports.MessagePong}:
+		default:
+			log.Debugln("failed to send pong: ctrlChan full")
+		}
 
 		return r.Read()
 	} else if header.Kind() == transports.MessagePong {
-		// FIXME: implement a timer that gets reset on successful arrival of pong
+		select {
+		case r.pingCh <- struct{}{}:
+		default:
+		}
+
 		return r.Read()
 	} else {
 		return nil, fmt.Errorf("unknown message type: %v", header.Kind())

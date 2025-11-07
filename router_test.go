@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"math/rand"
+	"net"
 	netURL "net/url"
 	"testing"
 	"time"
@@ -628,7 +629,7 @@ func testBlockedSubscriberCaller(t *testing.T, baseSession xconn.BaseSession, se
 }
 
 func initRouterWithRealm1(t *testing.T) *xconn.Router {
-	router, err := xconn.NewRouter(nil)
+	router, err := xconn.NewRouter(&xconn.RouterConfig{LogLevel: xconn.LogLevelDebug})
 	require.NoError(t, err)
 	require.NoError(t, router.AddRealm("realm1", &xconn.RealmConfig{}))
 	err = router.AddRealmRole("realm1", xconn.RealmRole{
@@ -812,4 +813,72 @@ func TestBlockedCalleeNotBlockCaller(t *testing.T) {
 	callResp := caller.Call("io.xconn.test1").Do()
 	require.NoError(t, callResp.Err)
 	require.Equal(t, "Hello", callResp.ArgStringOr(0, ""))
+}
+
+func TestRawSocketKeepAlive(t *testing.T) {
+	router := initRouterWithRealm1(t)
+	err := router.EnableMetaAPI("realm1")
+	require.NoError(t, err)
+
+	server := xconn.NewServer(router, nil, &xconn.ServerConfig{
+		KeepAliveInterval: 10 * time.Millisecond,
+		KeepAliveTimeout:  100 * time.Millisecond,
+	})
+
+	listener, err := server.ListenAndServeRawSocket(xconn.NetworkTCP, "localhost:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	parsedURL, err := netURL.Parse(fmt.Sprintf("rs://%s", listener.Addr()))
+	require.NoError(t, err)
+
+	// Dial the RawSocket server
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(context.Background(), "tcp", parsedURL.Host)
+	require.NoError(t, err)
+	header := transports.NewHandshake(transports.Serializer(xconn.CBORSerializerSpec.SerializerID()),
+		transports.DefaultMaxMsgSize)
+	headerRaw, err := transports.SendHandshake(header)
+	require.NoError(t, err)
+	_, err = conn.Write(headerRaw)
+	require.NoError(t, err)
+	responseHeader := make([]byte, 4)
+	_, err = conn.Read(responseHeader)
+	require.NoError(t, err)
+	_, err = transports.ReceiveHandshake(responseHeader)
+	require.NoError(t, err)
+
+	// send hello
+	j := wampproto.NewJoiner("realm1", &serializers.CBORSerializer{}, auth.NewAnonymousAuthenticator("", nil))
+	hello, err := j.SendHello()
+	require.NoError(t, err)
+	msgHeader := transports.NewMessageHeader(transports.MessageWamp, len(hello))
+	_, err = conn.Write(transports.SendMessageHeader(msgHeader))
+	require.NoError(t, err)
+	_, err = conn.Write(hello)
+	require.NoError(t, err)
+
+	// receive welcome
+	headerRaw1 := make([]byte, 4)
+	_, err = conn.Read(headerRaw1)
+	require.NoError(t, err)
+	readHeader, err := transports.ReceiveMessageHeader(headerRaw1)
+	require.NoError(t, err)
+	payload := make([]byte, readHeader.Length())
+	_, err = conn.Read(payload)
+	require.NoError(t, err)
+
+	session, err := xconn.ConnectInMemory(router, "realm1")
+	require.NoError(t, err)
+
+	callResp := session.Call(xconn.MetaProcedureSessionCount).Do()
+	require.NoError(t, callResp.Err)
+	require.Equal(t, int(callResp.ArgUInt64Or(0, 0)), 3)
+
+	// session should be closed as pings go unanswered
+	require.Eventually(t, func() bool {
+		callResp = session.Call(xconn.MetaProcedureSessionCount).Do()
+		sessionLen := callResp.ArgUInt64Or(0, 1)
+		return sessionLen == 2
+	}, 2*time.Second, 10*time.Millisecond)
 }
