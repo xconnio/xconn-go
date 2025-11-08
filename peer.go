@@ -76,6 +76,7 @@ func (m *messageTracker) Start(interval time.Duration) bool {
 	if m.started {
 		return false
 	}
+
 	m.started = true
 
 	go m.trackLoop(interval)
@@ -104,7 +105,15 @@ func (m *messageTracker) trackLoop(interval time.Duration) {
 }
 
 func (m *messageTracker) Stop() {
-	close(m.stopTrackCh)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	select {
+	case <-m.stopTrackCh:
+	default:
+	}
+
+	m.started = false
 }
 
 type baseSession struct {
