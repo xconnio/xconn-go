@@ -76,6 +76,7 @@ func (m *messageTracker) Start(interval time.Duration) bool {
 	if m.started {
 		return false
 	}
+
 	m.started = true
 
 	go m.trackLoop(interval)
@@ -107,11 +108,11 @@ func (m *messageTracker) Stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !m.started {
-		return
+	select {
+	case <-m.stopTrackCh:
+	default:
 	}
 
-	close(m.stopTrackCh)
 	m.started = false
 }
 
