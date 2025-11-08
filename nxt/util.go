@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -35,6 +36,13 @@ func StartServerFromConfigFile(configFile string) ([]io.Closer, error) {
 	routerConfig := &xconn.RouterConfig{}
 	if config.Config.Management {
 		routerConfig.Management = true
+	}
+	if config.Config.Loglevel != "" {
+		loglevel, err := parseLogLevel(config.Config.Loglevel)
+		if err != nil {
+			return nil, err
+		}
+		routerConfig.LogLevel = loglevel
 	}
 	router, err := xconn.NewRouter(routerConfig)
 	if err != nil {
@@ -147,4 +155,23 @@ func resolveUnixSocketPath(addr string) (string, error) {
 	}
 
 	return filepath.Join(home, addr[1:]), nil
+}
+
+func parseLogLevel(s string) (xconn.LogLevel, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "trace":
+		return xconn.LogLevelTrace, nil
+	case "debug":
+		return xconn.LogLevelDebug, nil
+	case "info":
+		return xconn.LogLevelInfo, nil
+	case "warn":
+		return xconn.LogLevelWarn, nil
+	case "error":
+		return xconn.LogLevelError, nil
+	case "":
+		return xconn.LogLevelInfo, nil
+	default:
+		return 0, fmt.Errorf("invalid log level %q: must be one of: 'trace', 'debug', 'info', 'warn', 'error'", s)
+	}
 }
