@@ -4,12 +4,15 @@ import (
 	"context"
 	crand "crypto/rand"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	netURL "net/url"
 	"testing"
 	"time"
 
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
@@ -866,6 +869,55 @@ func TestRawSocketKeepAlive(t *testing.T) {
 	require.NoError(t, err)
 	payload := make([]byte, readHeader.Length())
 	_, err = conn.Read(payload)
+	require.NoError(t, err)
+
+	session, err := xconn.ConnectInMemory(router, "realm1")
+	require.NoError(t, err)
+
+	callResp := session.Call(xconn.MetaProcedureSessionCount).Do()
+	require.NoError(t, callResp.Err)
+	require.Equal(t, int(callResp.ArgUInt64Or(0, 0)), 3)
+
+	// session should be closed as pings go unanswered
+	require.Eventually(t, func() bool {
+		callResp = session.Call(xconn.MetaProcedureSessionCount).Do()
+		sessionLen := callResp.ArgUInt64Or(0, 1)
+		return sessionLen == 2
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func TestWebSocketKeepAlive(t *testing.T) {
+	router := initRouterWithRealm1(t)
+	err := router.EnableMetaAPI("realm1")
+	require.NoError(t, err)
+
+	server := xconn.NewServer(router, nil, &xconn.ServerConfig{
+		KeepAliveInterval: 10 * time.Millisecond,
+		KeepAliveTimeout:  100 * time.Millisecond,
+	})
+
+	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, "localhost:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	// Dial the websocket server
+	wsDialer := ws.Dialer{
+		Protocols: []string{"wamp.2.cbor"},
+	}
+	conn, _, _, err := wsDialer.Dial(context.Background(), fmt.Sprintf("ws://%s", listener.Addr()))
+	require.NoError(t, err)
+
+	// send hello
+	j := wampproto.NewJoiner("realm1", &serializers.CBORSerializer{}, auth.NewAnonymousAuthenticator("", nil))
+	hello, err := j.SendHello()
+	require.NoError(t, err)
+	err = wsutil.WriteClientMessage(conn, ws.OpBinary, hello)
+	require.NoError(t, err)
+
+	// receive welcome
+	_, reader, err := wsutil.NextReader(conn, ws.StateClientSide)
+	require.NoError(t, err)
+	_, err = io.ReadAll(reader)
 	require.NoError(t, err)
 
 	session, err := xconn.ConnectInMemory(router, "realm1")
