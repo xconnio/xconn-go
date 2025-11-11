@@ -627,7 +627,7 @@ func testBlockedSubscriberCaller(t *testing.T, baseSession xconn.BaseSession, se
 	require.EqualError(t, callResp.Err, "wamp.error.network_failure: callee blocked, cannot call procedure")
 }
 
-func initRouterWithRealm1(t *testing.T) *xconn.Router {
+func initRouterWithRealm1(t testing.TB) *xconn.Router {
 	router, err := xconn.NewRouter(nil)
 	require.NoError(t, err)
 	require.NoError(t, router.AddRealm("realm1", &xconn.RealmConfig{}))
