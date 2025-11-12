@@ -33,13 +33,16 @@ const (
 )
 
 type Server struct {
-	router            *Router
-	wsAcceptor        *WebSocketAcceptor
-	rsAcceptor        *RawSocketAcceptor
-	throttle          *Throttle
-	keepAliveInterval time.Duration
-	keepAliveTimeout  time.Duration
-	outQueueSize      int
+	router                 *Router
+	wsAcceptor             *WebSocketAcceptor
+	rsAcceptor             *RawSocketAcceptor
+	throttle               *Throttle
+	keepAliveInterval      time.Duration
+	keepAliveTimeout       time.Duration
+	outQueueSize           int
+	noOfWSListeners        int
+	noOfRSListeners        int
+	noOfUniversalListeners int
 }
 
 func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *ServerConfig) *Server {
@@ -62,6 +65,9 @@ func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *S
 		server.keepAliveInterval = config.KeepAliveInterval
 		server.keepAliveTimeout = config.KeepAliveTimeout
 		server.outQueueSize = config.OutQueueSize
+		server.noOfWSListeners = config.NoOfWSListeners
+		server.noOfRSListeners = config.NoOfRSListeners
+		server.noOfUniversalListeners = config.NoOfUniversalListeners
 	}
 
 	return server
@@ -137,7 +143,7 @@ func (s *Server) ListenAndServeWebSocket(network Network, address string) (*List
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	return s.Serve(ln, ListenerWebSocket), nil
+	return s.Serve(ln, ListenerWebSocket, s.noOfWSListeners), nil
 }
 
 type connWithPrependedReader struct {
@@ -270,7 +276,7 @@ func (s *Server) ListenAndServeRawSocket(network Network, address string) (*List
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	return s.Serve(ln, ListenerRawSocket), nil
+	return s.Serve(ln, ListenerRawSocket, s.noOfRSListeners), nil
 }
 
 func (s *Server) ListenAndServeUniversal(network Network, address string) (*Listener, error) {
@@ -284,11 +290,16 @@ func (s *Server) ListenAndServeUniversal(network Network, address string) (*List
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	return s.Serve(ln, ListenerUniversalTCP), nil
+	return s.Serve(ln, ListenerUniversalTCP, s.noOfUniversalListeners), nil
 }
 
-func (s *Server) Serve(listener net.Listener, protocol ListenerType) *Listener {
-	go s.startConnectionLoop(listener, protocol)
+func (s *Server) Serve(listener net.Listener, protocol ListenerType, noOfListeners int) *Listener {
+	if noOfListeners == 0 {
+		noOfListeners = 1
+	}
+	for i := 0; i < noOfListeners; i++ {
+		go s.startConnectionLoop(listener, protocol)
+	}
 
 	addr := listener.Addr()
 	return &Listener{
