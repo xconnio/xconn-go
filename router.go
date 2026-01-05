@@ -204,16 +204,17 @@ func (r *Router) DetachClient(base BaseSession) error {
 		return fmt.Errorf("could not find realm: %s", base.Realm())
 	}
 
-	if err := realm.DetachClient(base); err == nil {
-		metaObj, ok := r.metaAPI.Load(base.Realm())
-		if ok {
-			metaObj.onLeave(base)
-		}
-
-		return nil
-	} else {
+	if err := realm.DetachClient(base); err != nil {
 		return err
 	}
+
+	defer base.Close()
+
+	if metaObj, ok := r.metaAPI.Load(base.Realm()); ok {
+		metaObj.onLeave(base)
+	}
+
+	return nil
 }
 
 func (r *Router) AddRealmRole(realm string, role RealmRole) error {
