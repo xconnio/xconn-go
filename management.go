@@ -183,12 +183,8 @@ func (m *management) stopMemoryLogging() {
 }
 
 func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocation) *InvocationResult {
-	enable := invocation.KwargBoolOr("enable", false)
-	disable := invocation.KwargBoolOr("disable", false)
-
-	if enable && disable {
-		return NewInvocationError("wamp.error.invalid_argument", "only one of 'enable' or 'disable' can be true")
-	}
+	enable, err := invocation.KwargBool("enable")
+	enableProvided := err == nil
 
 	intervalMS, err := invocation.KwargInt64("interval")
 	intervalProvided := err == nil
@@ -209,17 +205,18 @@ func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocat
 	}
 
 	switch {
-	case enable:
-		if m.memRunning {
-			m.stopMemoryLogging()
-		}
-		if err := m.startMemoryLogging(interval, logToStdout); err != nil {
-			return NewInvocationError("wamp.error.internal_error", err.Error())
-		}
-
-	case disable:
-		if m.memRunning {
-			m.stopMemoryLogging()
+	case enableProvided:
+		if enable {
+			if m.memRunning {
+				m.stopMemoryLogging()
+			}
+			if err := m.startMemoryLogging(interval, logToStdout); err != nil {
+				return NewInvocationError("wamp.error.internal_error", err.Error())
+			}
+		} else {
+			if m.memRunning {
+				m.stopMemoryLogging()
+			}
 		}
 
 	case intervalProvided:
@@ -232,7 +229,7 @@ func (m *management) handleSetStatsStatus(_ context.Context, invocation *Invocat
 		}
 
 	default:
-		return NewInvocationError("wamp.error.invalid_argument", "no valid kwargs provided (enable, disable, or interval)")
+		return NewInvocationError("wamp.error.invalid_argument", "no valid kwargs provided (enable, or interval)")
 	}
 
 	return NewInvocationResult()
