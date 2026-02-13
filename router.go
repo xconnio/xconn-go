@@ -134,12 +134,6 @@ func (r *Router) AddRealm(name string, cfg *RealmConfig) error {
 		realm.AutoDisclosePublisher(true)
 	}
 
-	if cfg.Meta {
-		if err := r.EnableMetaAPI(name); err != nil {
-			return err
-		}
-	}
-
 	if cfg.Authorizer != nil {
 		if err := r.SetRealmAuthorizer(name, cfg.Authorizer); err != nil {
 			return err
@@ -153,6 +147,11 @@ func (r *Router) AddRealm(name string, cfg *RealmConfig) error {
 	}
 
 	r.realms.Store(name, realm)
+
+	if cfg.Meta {
+		return r.EnableMetaAPI(name)
+	}
+
 	return nil
 }
 
