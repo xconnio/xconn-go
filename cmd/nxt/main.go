@@ -85,8 +85,8 @@ func Run(args []string) error {
 		return err
 	}
 
-	configDirPath := filepath.Join(*configDir, DirectoryConfig)
-	configFile := filepath.Join(configDirPath, "config.yaml")
+	configDirPath := filepath.Clean(filepath.Join(*configDir, DirectoryConfig))
+	configFile := filepath.Clean(filepath.Join(configDirPath, "config.yaml"))
 
 	switch cmd {
 	case "init":
