@@ -7,11 +7,14 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
-    main: ./cmd/xconn/
+    main: ./cmd/nxt/
     goos:
       - linux
       - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
 
 
 archives:
