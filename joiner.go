@@ -158,8 +158,10 @@ func DialRawSocket(ctx context.Context, url *netURL.URL, config *RawSocketDialer
 	}
 
 	return NewRawSocketPeer(conn, RawSocketPeerConfig{
-		Serializer:   config.Serializer,
-		OutQueueSize: config.OutQueueSize,
+		Serializer:        config.Serializer,
+		OutQueueSize:      config.OutQueueSize,
+		KeepAliveInterval: config.KeepAliveInterval,
+		KeepAliveTimeout:  config.KeepAliveTimeout,
 	}), nil
 }
 
