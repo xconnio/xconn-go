@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -e
 
 REPO="xconnio/xconn-go"
 BIN_NAME="nxt"
