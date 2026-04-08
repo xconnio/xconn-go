@@ -124,6 +124,17 @@ if err != nil {
 
 ## Standalone Router
 This repo contains a command-line tool to run the router with a static config.
+
+### Installation
+```bash
+curl -fsSL https://get.xconn.io/nxt | sh
+```
+or
+```bash
+sudo snap install nxt-router --classic --edge
+```
+### Build
+
 ```bash
 git clone git@github.com:xconnio/xconn-go
 cd xconn-go
