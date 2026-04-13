@@ -164,7 +164,6 @@ func ConnectInMemoryBase(router *Router, realm, authID, authRole string,
 
 			if err = router.ReceiveMessage(routerSession, msg); err != nil {
 				log.Println(err)
-				return
 			}
 		}
 	}()
