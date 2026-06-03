@@ -18,6 +18,9 @@ const (
 
 	MetaTopicSessionJoin  = "wamp.session.on_join"
 	MetaTopicSessionLeave = "wamp.session.on_leave"
+
+	authID   = "authid"
+	authRole = "authrole"
 )
 
 type meta struct {
@@ -61,8 +64,8 @@ func (m *meta) start() error {
 func (m *meta) onJoin(base BaseSession) {
 	details := map[string]any{
 		"session":      base.ID(),
-		"authid":       base.AuthID(),
-		"authrole":     base.AuthRole(),
+		authID:         base.AuthID(),
+		authRole:       base.AuthRole(),
 		"authmethod":   base.AuthMethod(),
 		"authextra":    base.AuthExtra(),
 		"authprovider": "",
@@ -262,8 +265,8 @@ func (m *meta) handleSessionGet(_ context.Context, invocation *Invocation) *Invo
 
 	details := map[string]any{
 		"session":      client.ID(),
-		"authid":       client.AuthID(),
-		"authrole":     client.AuthRole(),
+		authID:         client.AuthID(),
+		authRole:       client.AuthRole(),
 		"authmethod":   client.AuthMethod(),
 		"authextra":    client.AuthExtra(),
 		"authprovider": "",
