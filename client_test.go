@@ -35,7 +35,7 @@ func forEachSerializer(fn func(name string, spec xconn.SerializerSpec)) {
 func connectInMemory(t *testing.T, router *xconn.Router, realm string,
 	serializer serializers.Serializer) *xconn.Session {
 	authID := fmt.Sprintf("%012x", rand.Uint64())[:12]
-	authRole := "trusted"
+	authRole := trustedRole
 
 	base, err := xconn.ConnectInMemoryBase(router, realm, authID, authRole, serializer, 0)
 	require.NoError(t, err)
@@ -284,7 +284,7 @@ func TestCallProgressiveProgress(t *testing.T) {
 func TestInMemorySession(t *testing.T) {
 	forEachSerializer(func(name string, serializerSpec xconn.SerializerSpec) {
 		t.Run(name, func(t *testing.T) {
-			role := "trusted"
+			role := trustedRole
 			procedure := "com.hello"
 
 			router, err := xconn.NewRouter(nil)

@@ -351,8 +351,8 @@ func sessionToMap(s BaseSession) map[string]any {
 	}
 
 	return map[string]any{
-		"authid":     s.AuthID(),
-		"authrole":   s.AuthRole(),
+		authID:       s.AuthID(),
+		authRole:     s.AuthRole(),
 		"sessionID":  s.ID(),
 		"serializer": serializer,
 	}

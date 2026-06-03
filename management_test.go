@@ -10,6 +10,12 @@ import (
 	"github.com/xconnio/xconn-go"
 )
 
+const (
+	mgmtKeyInterval = "interval"
+	mgmtKeyLimit    = "limit"
+	mgmtKeyOffset   = "offset"
+)
+
 func startRouterWithManagementAPIs(t *testing.T) (*xconn.Router, *xconn.Session) {
 	r, err := xconn.NewRouter(&xconn.RouterConfig{Management: true})
 	require.NoError(t, err)
@@ -31,8 +37,8 @@ func TestManagementStatsAPIs(t *testing.T) {
 	require.NoError(t, subResp.Err)
 
 	callResp := session.Call(xconn.ManagementProcedureStatsStatusSet).Kwargs(map[string]any{
-		"interval": 100,
-		"enable":   true,
+		mgmtKeyInterval: 100,
+		"enable":        true,
 	}).Do()
 	require.NoError(t, callResp.Err)
 
@@ -43,7 +49,8 @@ func TestManagementStatsAPIs(t *testing.T) {
 
 	callResp = session.Call(xconn.ManagementProcedureStatsStatusGet).Do()
 	require.NoError(t, callResp.Err)
-	require.Equal(t, map[string]any{"interval": int64(100), "running": true}, callResp.ArgDictOr(0, xconn.Dict{}).Raw())
+	require.Equal(t, map[string]any{mgmtKeyInterval: int64(100), "running": true},
+		callResp.ArgDictOr(0, xconn.Dict{}).Raw())
 
 	callResp = session.Call(xconn.ManagementProcedureStatsStatusSet).Kwarg("disable", true).Do()
 	require.NoError(t, callResp.Err)
@@ -51,7 +58,8 @@ func TestManagementStatsAPIs(t *testing.T) {
 
 	callResp = session.Call(xconn.ManagementProcedureStatsStatusGet).Do()
 	require.NoError(t, callResp.Err)
-	require.Equal(t, map[string]any{"interval": int64(100), "running": false}, callResp.ArgDictOr(0, xconn.Dict{}).Raw())
+	require.Equal(t, map[string]any{mgmtKeyInterval: int64(100), "running": false},
+		callResp.ArgDictOr(0, xconn.Dict{}).Raw())
 
 	callResp = session.Call(xconn.ManagementProcedureStatsGet).Do()
 	require.NoError(t, callResp.Err)
@@ -84,22 +92,22 @@ func TestManagementSessionList(t *testing.T) {
 	require.Len(t, callResp.ArgListOr(0, []xconn.Value{}), 22)
 
 	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Kwargs(map[string]any{
-		"limit":  10,
-		"offset": 0,
+		mgmtKeyLimit:  10,
+		mgmtKeyOffset: 0,
 	}).Do()
 	require.NoError(t, callResp.Err)
 	require.Len(t, callResp.ArgListOr(0, []xconn.Value{}), 10)
 
 	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Kwargs(map[string]any{
-		"limit":  10,
-		"offset": 10,
+		mgmtKeyLimit:  10,
+		mgmtKeyOffset: 10,
 	}).Do()
 	require.NoError(t, callResp.Err)
 	require.Len(t, callResp.ArgListOr(0, []xconn.Value{}), 10)
 
 	callResp = session.Call(xconn.ManagementProcedureListSession).Arg("io.xconn.mgmt").Kwargs(map[string]any{
-		"limit":  10,
-		"offset": 20,
+		mgmtKeyLimit:  10,
+		mgmtKeyOffset: 20,
 	}).Do()
 	require.NoError(t, callResp.Err)
 	require.Len(t, callResp.ArgListOr(0, []xconn.Value{}), 2)
