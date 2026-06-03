@@ -30,6 +30,7 @@ const (
 	TransportWebSocket
 	TransportRawSocket
 	TransportInMemory
+	TransportYamux
 )
 
 var (
