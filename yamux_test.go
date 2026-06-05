@@ -2,6 +2,7 @@ package xconn_test
 
 import (
 	"context"
+	"io"
 	"sync"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ const (
 	prefixMatch   = "prefix"
 )
 
-func startYamuxRouter(t *testing.T) (addr string) {
+func startYamuxRouter(t *testing.T) (addr string, listener *xconn.YamuxListener) {
 	t.Helper()
 
 	router, err := xconn.NewRouter(nil)
@@ -38,15 +39,15 @@ func startYamuxRouter(t *testing.T) (addr string) {
 
 	server := xconn.NewServer(router, nil, nil)
 
-	listener, err := server.ListenAndServeYamux(xconn.NetworkTCP, "localhost:0")
+	listener, err = server.ListenAndServeYamux(xconn.NetworkTCP, "localhost:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = listener.Close() })
 
-	return listener.Addr().String()
+	return listener.Addr().String(), listener
 }
 
 func TestYamuxWAMPSession(t *testing.T) {
-	addr := startYamuxRouter(t)
+	addr, _ := startYamuxRouter(t)
 
 	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
 	require.NoError(t, err)
@@ -67,7 +68,7 @@ func TestYamuxWAMPSession(t *testing.T) {
 }
 
 func TestClientConnectYamux(t *testing.T) {
-	addr := startYamuxRouter(t)
+	addr, _ := startYamuxRouter(t)
 
 	client := xconn.Client{}
 	sess, err := client.ConnectYamux(context.Background(), addr, realmName)
@@ -82,7 +83,7 @@ func TestClientConnectYamux(t *testing.T) {
 }
 
 func TestDialYamuxWithJSONSerializer(t *testing.T) {
-	addr := startYamuxRouter(t)
+	addr, _ := startYamuxRouter(t)
 
 	sess, err := xconn.DialYamux(context.Background(), addr, realmName, &xconn.YamuxDialerConfig{
 		SerializerSpec: xconn.JSONSerializerSpec,
@@ -104,7 +105,7 @@ func TestDialYamuxWithJSONSerializer(t *testing.T) {
 }
 
 func TestYamuxSessionClose(t *testing.T) {
-	addr := startYamuxRouter(t)
+	addr, _ := startYamuxRouter(t)
 
 	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
 	require.NoError(t, err)
@@ -121,7 +122,7 @@ func TestYamuxSessionClose(t *testing.T) {
 // hold independent WAMP sessions on the same server.
 func TestYamuxMultipleClients(t *testing.T) {
 	const n = 5
-	addr := startYamuxRouter(t)
+	addr, _ := startYamuxRouter(t)
 
 	var wg sync.WaitGroup
 	for range n {
@@ -141,7 +142,7 @@ func TestYamuxMultipleClients(t *testing.T) {
 }
 
 func TestYamuxPublishSubscribe(t *testing.T) {
-	addr := startYamuxRouter(t)
+	addr, _ := startYamuxRouter(t)
 
 	subscriber, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
 	require.NoError(t, err)
@@ -166,4 +167,185 @@ func TestYamuxPublishSubscribe(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("event not received")
 	}
+}
+
+func TestYamuxRawStream(t *testing.T) {
+	addr, listener := startYamuxRouter(t)
+
+	streamData := make(chan []byte, 1)
+	go func() {
+		stream := <-listener.AcceptStream()
+		buf, err := io.ReadAll(stream)
+		if err == nil {
+			streamData <- buf
+		}
+		_ = stream.Close()
+	}()
+
+	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sess.Close() })
+
+	stream, err := sess.OpenStream()
+	require.NoError(t, err)
+
+	_, err = stream.Write([]byte("raw file data"))
+	require.NoError(t, err)
+	_ = stream.Close()
+
+	received := <-streamData
+	require.Equal(t, "raw file data", string(received))
+}
+
+func TestYamuxConnHandler(t *testing.T) {
+	addr, listener := startYamuxRouter(t)
+
+	// Server opens a stream to the client and writes a greeting.
+	go func() {
+		event := <-listener.Conns()
+		stream, err := event.Conn.OpenStream()
+		if err != nil {
+			return
+		}
+		_, _ = stream.Write([]byte("hello from server"))
+		_ = stream.Close()
+	}()
+
+	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sess.Close() })
+
+	stream, err := sess.AcceptStream()
+	require.NoError(t, err)
+	defer stream.Close()
+
+	buf := make([]byte, 32)
+	n, err := stream.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, "hello from server", string(buf[:n]))
+}
+
+func TestYamuxStreamHasAuthenticatedSession(t *testing.T) {
+	addr, listener := startYamuxRouter(t)
+
+	sessionIDCh := make(chan uint64, 1)
+	go func() {
+		stream := <-listener.AcceptStream()
+		sessionIDCh <- stream.Session.ID()
+		_ = stream.Close()
+	}()
+
+	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sess.Close() })
+
+	stream, err := sess.OpenStream()
+	require.NoError(t, err)
+	_ = stream.Close()
+
+	serverSessionID := <-sessionIDCh
+	require.NotZero(t, serverSessionID)
+}
+
+func TestYamuxConnHandlerContextCancelledOnClose(t *testing.T) {
+	addr, listener := startYamuxRouter(t)
+
+	ctxDone := make(chan struct{})
+	go func() {
+		event := <-listener.Conns()
+		<-event.Ctx.Done()
+		close(ctxDone)
+	}()
+
+	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
+	require.NoError(t, err)
+
+	_ = sess.Close()
+
+	select {
+	case <-ctxDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("YamuxConnEvent.Ctx was not cancelled after session close")
+	}
+}
+
+func TestYamuxMultipleConcurrentStreams(t *testing.T) {
+	const n = 5
+	addr, listener := startYamuxRouter(t)
+
+	for range n {
+		go func() {
+			stream := <-listener.AcceptStream()
+			defer stream.Close()
+			buf := make([]byte, 1)
+			if _, err := io.ReadFull(stream, buf); err != nil {
+				return
+			}
+			_, _ = stream.Write(buf)
+		}()
+	}
+
+	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sess.Close() })
+
+	var wg sync.WaitGroup
+	for i := range n {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			stream, err := sess.OpenStream()
+			require.NoError(t, err)
+			defer stream.Close()
+
+			sent := []byte{byte(i)}
+			_, err = stream.Write(sent)
+			require.NoError(t, err)
+
+			// Read the echo and verify it matches what we sent.
+			got := make([]byte, 1)
+			_, err = io.ReadFull(stream, got)
+			require.NoError(t, err)
+			require.Equal(t, sent, got)
+		}(i)
+	}
+
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("not all concurrent streams were handled")
+	}
+}
+
+func TestYamuxBidirectionalStream(t *testing.T) {
+	addr, listener := startYamuxRouter(t)
+
+	go func() {
+		stream := <-listener.AcceptStream()
+		defer stream.Close()
+		buf := make([]byte, 5)
+		if _, err := io.ReadFull(stream, buf); err != nil {
+			return
+		}
+		_, _ = stream.Write(buf)
+	}()
+
+	sess, err := xconn.DialYamux(context.Background(), addr, realmName, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sess.Close() })
+
+	stream, err := sess.OpenStream()
+	require.NoError(t, err)
+	defer stream.Close()
+
+	_, err = stream.Write([]byte("hello"))
+	require.NoError(t, err)
+
+	buf := make([]byte, 5)
+	_, err = io.ReadFull(stream, buf)
+	require.NoError(t, err)
+	require.Equal(t, "hello", string(buf))
 }

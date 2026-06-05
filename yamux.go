@@ -3,6 +3,7 @@ package xconn
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -12,10 +13,67 @@ import (
 	"github.com/xconnio/wampproto-go/transports"
 )
 
+// yamuxConfig returns a yamux config tuned for throughput.
+// The default 256 KB window stalls badly over high-latency links.
+// 4 MB gives enough headroom for typical internet paths without wasting memory.
+func yamuxConfig() *yamux.Config {
+	cfg := yamux.DefaultConfig()
+	cfg.MaxStreamWindowSize = 4 * 1024 * 1024 // 4 MB
+	cfg.LogOutput = io.Discard                // default writes to stderr
+	return cfg
+}
+
+// YamuxConn is delivered on YamuxListener.Conns when a yamux client connects and authenticates.
+// Ctx is cancelled when the client disconnects, allowing callers to clean up.
+type YamuxConn struct {
+	Ctx     context.Context
+	Session BaseSession
+	Conn    *YamuxClientConn
+}
+
+// YamuxStream is delivered on YamuxListener.AcceptStream when a client opens a raw stream.
+type YamuxStream struct {
+	Session BaseSession
+	net.Conn
+}
+
+// YamuxClientConn is the server-side handle for a connected yamux client.
+// It allows the server to open raw streams to the client.
+type YamuxClientConn struct {
+	yamuxSess *yamux.Session
+}
+
+// OpenStream opens a new raw stream to the connected yamux client.
+func (c *YamuxClientConn) OpenStream() (net.Conn, error) {
+	stream, err := c.yamuxSess.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open yamux stream: %w", err)
+	}
+	return stream, nil
+}
+
 // YamuxSession is the client-side WAMP session over a yamux-multiplexed connection.
 type YamuxSession struct {
 	*Session
 	yamuxSess *yamux.Session
+}
+
+// OpenStream opens a new raw stream to the server for non-WAMP data transfer.
+func (y *YamuxSession) OpenStream() (net.Conn, error) {
+	stream, err := y.yamuxSess.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open yamux stream: %w", err)
+	}
+	return stream, nil
+}
+
+// AcceptStream waits for the server to open a raw stream to this client.
+func (y *YamuxSession) AcceptStream() (net.Conn, error) {
+	stream, err := y.yamuxSess.Accept()
+	if err != nil {
+		return nil, fmt.Errorf("failed to accept yamux stream: %w", err)
+	}
+	return stream, nil
 }
 
 // Close sends a WAMP GOODBYE and closes the underlying yamux session.
@@ -67,7 +125,7 @@ func DialYamux(ctx context.Context, address, realm string, config *YamuxDialerCo
 		return nil, fmt.Errorf("failed to dial %s: %w", address, err)
 	}
 
-	yamuxSess, err := yamux.Client(conn, nil)
+	yamuxSess, err := yamux.Client(conn, yamuxConfig())
 	if err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("failed to create yamux session: %w", err)

@@ -2,6 +2,7 @@ package xconn
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -41,6 +42,8 @@ type Server struct {
 	keepAliveInterval time.Duration
 	keepAliveTimeout  time.Duration
 	outQueueSize      int
+	yamuxConns        chan *YamuxConn
+	yamuxStreams      chan *YamuxStream
 }
 
 func NewServer(router *Router, authenticator auth.ServerAuthenticator, config *ServerConfig) *Server {
@@ -298,9 +301,26 @@ func (s *Server) Serve(listener net.Listener, protocol ListenerType) *Listener {
 	}
 }
 
+// YamuxListener is returned by ListenAndServeYamux.
+type YamuxListener struct {
+	*Listener
+	conns   <-chan *YamuxConn
+	streams <-chan *YamuxStream
+}
+
+// Conns receives one event per authenticated yamux client connection.
+func (l *YamuxListener) Conns() <-chan *YamuxConn {
+	return l.conns
+}
+
+// AcceptStream receives one event per raw stream opened by a client.
+func (l *YamuxListener) AcceptStream() <-chan *YamuxStream {
+	return l.streams
+}
+
 // ListenAndServeYamux starts a yamux listener. Each TCP connection is multiplexed.
 // The first stream carries WAMP, establishing an authenticated session.
-func (s *Server) ListenAndServeYamux(network Network, address string) (*Listener, error) {
+func (s *Server) ListenAndServeYamux(network Network, address string) (*YamuxListener, error) {
 	if network == NetworkUnix {
 		if err := ensureUnixSocketAvailable(address); err != nil {
 			return nil, err
@@ -311,8 +331,17 @@ func (s *Server) ListenAndServeYamux(network Network, address string) (*Listener
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
+	conns := make(chan *YamuxConn, 8)
+	streams := make(chan *YamuxStream, 8)
+	s.yamuxConns = conns
+	s.yamuxStreams = streams
+
 	go s.startYamuxConnectionLoop(ln)
-	return &Listener{closer: ln, addr: ln.Addr()}, nil
+	return &YamuxListener{
+		Listener: &Listener{closer: ln, addr: ln.Addr()},
+		conns:    conns,
+		streams:  streams,
+	}, nil
 }
 
 func (s *Server) startYamuxConnectionLoop(ln net.Listener) {
@@ -329,7 +358,7 @@ func (s *Server) startYamuxConnectionLoop(ln net.Listener) {
 // HandleYamuxClient handles a single TCP connection as a yamux session.
 // The first accepted stream carries the WAMP protocol.
 func (s *Server) HandleYamuxClient(conn net.Conn) {
-	yamuxSess, err := yamux.Server(conn, nil)
+	yamuxSess, err := yamux.Server(conn, yamuxConfig())
 	if err != nil {
 		log.Debugf("failed to create yamux session: %v", err)
 		_ = conn.Close()
@@ -361,6 +390,18 @@ func (s *Server) HandleYamuxClient(conn net.Conn) {
 		return
 	}
 
+	// ctx is cancelled when this connection closes so Conns consumers can clean up.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if s.yamuxConns != nil {
+		s.yamuxConns <- &YamuxConn{Ctx: ctx, Session: base, Conn: &YamuxClientConn{yamuxSess: yamuxSess}}
+	}
+
+	if s.yamuxStreams != nil {
+		go s.acceptYamuxStreams(yamuxSess, base)
+	}
+
 	log.Debugf("attached yamux client %d", base.ID())
 
 	var limiter *ratelimit.Limiter
@@ -387,4 +428,14 @@ func (s *Server) HandleYamuxClient(conn net.Conn) {
 
 	_ = yamuxSess.Close()
 	log.Debugf("detached yamux client %d", base.ID())
+}
+
+func (s *Server) acceptYamuxStreams(yamuxSess *yamux.Session, base BaseSession) {
+	for {
+		stream, err := yamuxSess.Accept()
+		if err != nil {
+			return
+		}
+		s.yamuxStreams <- &YamuxStream{Session: base, Conn: stream}
+	}
 }
