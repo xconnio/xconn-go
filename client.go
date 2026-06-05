@@ -85,6 +85,20 @@ func (c *Client) Connect(ctx context.Context, uri string, realm string) (*Sessio
 	}
 }
 
+// ConnectYamux connects to a WAMP router over a yamux-multiplexed TCP connection.
+// The returned YamuxSession supports opening raw streams.
+func (c *Client) ConnectYamux(ctx context.Context, address, realm string) (*YamuxSession, error) {
+	return DialYamux(ctx, address, realm, &YamuxDialerConfig{
+		SerializerSpec:    c.SerializerSpec,
+		Authenticator:     c.Authenticator,
+		NetDial:           c.NetDial,
+		DialTimeout:       c.DialTimeout,
+		KeepAliveInterval: c.KeepAliveInterval,
+		KeepAliveTimeout:  c.KeepAliveTimeout,
+		OutQueueSize:      c.OutQueueSize,
+	})
+}
+
 func connect(ctx context.Context, uri, realm string, authenticator auth.ClientAuthenticator) (*Session, error) {
 	client := Client{
 		Authenticator: authenticator,
