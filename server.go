@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/yamux"
 	"github.com/projectdiscovery/ratelimit"
 	log "github.com/sirupsen/logrus"
 
@@ -296,95 +295,4 @@ func (s *Server) Serve(listener net.Listener, protocol ListenerType) *Listener {
 		closer: listener,
 		addr:   addr,
 	}
-}
-
-// ListenAndServeYamux starts a yamux listener. Each TCP connection is multiplexed.
-// The first stream carries WAMP, establishing an authenticated session.
-func (s *Server) ListenAndServeYamux(network Network, address string) (*Listener, error) {
-	if network == NetworkUnix {
-		if err := ensureUnixSocketAvailable(address); err != nil {
-			return nil, err
-		}
-	}
-	ln, err := net.Listen(string(network), address)
-	if err != nil {
-		return nil, fmt.Errorf("failed to listen: %w", err)
-	}
-
-	go s.startYamuxConnectionLoop(ln)
-	return &Listener{closer: ln, addr: ln.Addr()}, nil
-}
-
-func (s *Server) startYamuxConnectionLoop(ln net.Listener) {
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			_ = ln.Close()
-			return
-		}
-		go s.HandleYamuxClient(conn)
-	}
-}
-
-// HandleYamuxClient handles a single TCP connection as a yamux session.
-// The first accepted stream carries the WAMP protocol.
-func (s *Server) HandleYamuxClient(conn net.Conn) {
-	yamuxSess, err := yamux.Server(conn, nil)
-	if err != nil {
-		log.Debugf("failed to create yamux session: %v", err)
-		_ = conn.Close()
-		return
-	}
-
-	wampStream, err := yamuxSess.Accept()
-	if err != nil {
-		log.Debugf("failed to accept WAMP stream: %v", err)
-		_ = yamuxSess.Close()
-		return
-	}
-
-	config := DefaultRawSocketServerConfig()
-	config.KeepAliveInterval = s.keepAliveInterval
-	config.KeepAliveTimeout = s.keepAliveTimeout
-	config.OutQueueSize = s.outQueueSize
-
-	base, err := s.rsAcceptor.Accept(wampStream, config)
-	if err != nil {
-		log.Debugf("failed to accept yamux WAMP stream: %v", err)
-		_ = yamuxSess.Close()
-		return
-	}
-
-	if err = s.router.AttachClient(base); err != nil {
-		log.Debugf("failed to attach yamux client: %v", err)
-		_ = yamuxSess.Close()
-		return
-	}
-
-	log.Debugf("attached yamux client %d", base.ID())
-
-	var limiter *ratelimit.Limiter
-	if s.throttle != nil {
-		limiter = s.throttle.Create()
-	}
-
-	for {
-		msg, err := base.ReadMessage()
-		if err != nil {
-			log.Debugf("failed to read yamux client message: %v", err)
-			_ = s.router.DetachClient(base)
-			break
-		}
-
-		if limiter != nil {
-			limiter.Take()
-		}
-
-		if err = s.router.ReceiveMessage(base, msg); err != nil {
-			log.Debugf("error feeding yamux client message to router: %v", err)
-		}
-	}
-
-	_ = yamuxSess.Close()
-	log.Debugf("detached yamux client %d", base.ID())
 }
