@@ -4,7 +4,6 @@ go 1.22
 
 require (
 	github.com/gobwas/ws v1.4.0
-	github.com/hashicorp/yamux v0.1.2
 	github.com/projectdiscovery/ratelimit v0.0.50
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.3
