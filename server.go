@@ -2,13 +2,17 @@ package xconn
 
 import (
 	"bufio"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
+	"github.com/quic-go/quic-go"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
@@ -295,4 +299,92 @@ func (s *Server) Serve(listener net.Listener, protocol ListenerType) *Listener {
 		closer: listener,
 		addr:   addr,
 	}
+}
+
+// ListenAndServeQUIC starts a QUIC listener.
+// The first stream of each connection carries WAMP, establishing an authenticated session.
+func (s *Server) ListenAndServeQUIC(address string, tlsConfig *tls.Config) (*Listener, error) {
+	if tlsConfig == nil {
+		return nil, fmt.Errorf("tls config is required for QUIC")
+	}
+
+	if !slices.Contains(tlsConfig.NextProtos, NextProtoWAMP) {
+		tlsConfig = tlsConfig.Clone()
+		tlsConfig.NextProtos = append(tlsConfig.NextProtos, NextProtoWAMP)
+	}
+
+	ln, err := quic.ListenAddr(address, tlsConfig, DefaultQuicConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %w", err)
+	}
+
+	go s.startQUICConnectionLoop(ln)
+	return &Listener{closer: ln, addr: ln.Addr()}, nil
+}
+
+func (s *Server) startQUICConnectionLoop(ln *quic.Listener) {
+	for {
+		conn, err := ln.Accept(context.Background())
+		if err != nil {
+			_ = ln.Close()
+			return
+		}
+		go s.HandleQUICClient(conn)
+	}
+}
+
+// HandleQUICClient handles a single QUIC connection.
+// The first accepted stream carries the WAMP protocol.
+func (s *Server) HandleQUICClient(conn *quic.Conn) {
+	wampStream, err := conn.AcceptStream(context.Background())
+	if err != nil {
+		log.Debugf("failed to accept WAMP stream: %v", err)
+		_ = conn.CloseWithError(0, "")
+		return
+	}
+
+	config := DefaultRawSocketServerConfig()
+	config.KeepAliveInterval = s.keepAliveInterval
+	config.KeepAliveTimeout = s.keepAliveTimeout
+	config.OutQueueSize = s.outQueueSize
+
+	base, err := s.rsAcceptor.Accept(newQUICStreamConn(conn, wampStream), config)
+	if err != nil {
+		log.Debugf("failed to accept quic WAMP stream: %v", err)
+		_ = conn.CloseWithError(0, "")
+		return
+	}
+
+	if err = s.router.AttachClient(base); err != nil {
+		log.Debugf("failed to attach quic client: %v", err)
+		_ = conn.CloseWithError(0, "")
+		return
+	}
+
+	log.Debugf("attached quic client %d", base.ID())
+
+	var limiter *ratelimit.Limiter
+	if s.throttle != nil {
+		limiter = s.throttle.Create()
+	}
+
+	for {
+		msg, err := base.ReadMessage()
+		if err != nil {
+			log.Debugf("failed to read quic client message: %v", err)
+			_ = s.router.DetachClient(base)
+			break
+		}
+
+		if limiter != nil {
+			limiter.Take()
+		}
+
+		if err = s.router.ReceiveMessage(base, msg); err != nil {
+			log.Debugf("error feeding quic client message to router: %v", err)
+		}
+	}
+
+	_ = conn.CloseWithError(0, "")
+	log.Debugf("detached quic client %d", base.ID())
 }
