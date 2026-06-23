@@ -300,8 +300,10 @@ func UpgradeRawSocket(conn net.Conn, config *RawSocketServerConfig) (Peer, trans
 	}
 
 	peerConfig := RawSocketPeerConfig{
-		Serializer:   handshakeResponse.Serializer(),
-		OutQueueSize: config.OutQueueSize,
+		Serializer:        handshakeResponse.Serializer(),
+		OutQueueSize:      config.OutQueueSize,
+		KeepAliveInterval: config.KeepAliveInterval,
+		KeepAliveTimeout:  config.KeepAliveTimeout,
 	}
 
 	if peerConfig.OutQueueSize == 0 {
