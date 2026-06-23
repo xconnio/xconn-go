@@ -32,12 +32,11 @@ func forEachSerializer(fn func(name string, spec xconn.SerializerSpec)) {
 	}
 }
 
-func connectInMemory(t *testing.T, router *xconn.Router, realm string,
-	serializer serializers.Serializer) *xconn.Session {
+func connectInMemory(t *testing.T, router *xconn.Router, serializer serializers.Serializer) *xconn.Session {
 	authID := fmt.Sprintf("%012x", rand.Uint64())[:12]
 	authRole := trustedRole
 
-	base, err := xconn.ConnectInMemoryBase(router, realm, authID, authRole, serializer, 0)
+	base, err := xconn.ConnectInMemoryBase(router, realmName, authID, authRole, serializer, 0)
 	require.NoError(t, err)
 
 	return xconn.NewSession(base, base.Serializer())
@@ -49,9 +48,9 @@ func connectedLocalSessions(t *testing.T, serializer serializers.Serializer) (*x
 	err = router.AddRealm(realmName, xconn.DefaultRealmConfig())
 	require.NoError(t, err)
 
-	callee := connectInMemory(t, router, realmName, serializer)
+	callee := connectInMemory(t, router, serializer)
 
-	caller := connectInMemory(t, router, realmName, serializer)
+	caller := connectInMemory(t, router, serializer)
 	return callee, caller
 }
 
