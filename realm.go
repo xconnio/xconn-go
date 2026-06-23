@@ -152,10 +152,43 @@ func (r *Realm) authorize(baseSession BaseSession, msg messages.Message, uri str
 	return false, nil
 }
 
+func (r *Realm) handleCancel(baseSession BaseSession, cancel *messages.Cancel) error {
+	msgs, err := r.dealer.ReceiveCancel(baseSession.ID(), cancel)
+	if err != nil {
+		return err
+	}
+
+	for _, msg := range msgs {
+		client, exists := r.clients.Load(msg.Recipient)
+		if !exists {
+			// Recipient may have already disconnected (e.g. callee gone before INTERRUPT
+			// could be delivered); log and continue so remaining messages still go out.
+			log.Debugf("cancel: recipient %d not found, skipping message type %d", msg.Recipient, msg.Message.Type())
+			continue
+		}
+
+		success, err := client.TryWriteMessage(msg.Message)
+		if err != nil {
+			return err
+		}
+
+		if !success {
+			messageName := messageNameByID(msg.Message.Type())
+			log.Debugf("dropped %s message for blocked peer: %d", messageName, msg.Recipient)
+		}
+	}
+
+	return nil
+}
+
 func (r *Realm) handleDealerBoundMessage(baseSession BaseSession, msg messages.Message) error {
 	msgWithRecipient, err := r.dealer.ReceiveMessage(baseSession.ID(), msg)
 	if err != nil {
 		return err
+	}
+
+	if msgWithRecipient == nil {
+		return nil
 	}
 
 	client, exists := r.clients.Load(msgWithRecipient.Recipient)
@@ -229,6 +262,9 @@ func (r *Realm) ReceiveMessage(baseSession BaseSession, msg messages.Message) er
 		return r.handleDealerBoundMessage(baseSession, msg)
 	case messages.MessageTypeYield, messages.MessageTypeUnregister, messages.MessageTypeError:
 		return r.handleDealerBoundMessage(baseSession, msg)
+	case messages.MessageTypeCancel:
+		cancel := msg.(*messages.Cancel)
+		return r.handleCancel(baseSession, cancel)
 	case messages.MessageTypeSubscribe:
 		sub := msg.(*messages.Subscribe)
 		authorized, err := r.authorize(baseSession, msg, sub.Topic(), sub.RequestID(), true)

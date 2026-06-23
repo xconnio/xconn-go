@@ -38,6 +38,7 @@ type Session struct {
 	callRequests       sync.Map
 	progressHandlers   sync.Map
 	progressFunc       sync.Map
+	invocationCancels  sync.Map
 
 	// publish subscribe data structures
 	subscribeRequests   sync.Map
@@ -137,7 +138,10 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		result := msg.(*messages.Result)
 		request, exists := s.callRequests.Load(result.RequestID())
 		if !exists {
-			return fmt.Errorf("received RESULT for unknown request")
+			// Stale result for a request that was already cancelled or timed out.
+			// This is a benign race: discard and keep the session alive.
+			log.Debugf("received RESULT for unknown request %d, discarding", result.RequestID())
+			return nil
 		}
 
 		progress, _ := result.Details()[wampproto.OptionProgress].(bool)
@@ -196,9 +200,17 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 			s.progressFunc.Delete(invocation.RequestID())
 		}
 
+		ctx, cancel := context.WithCancel(context.Background())
+		s.invocationCancels.Store(invocation.RequestID(), cancel)
 		go func() {
+			defer func() {
+				if !progress {
+					s.invocationCancels.Delete(invocation.RequestID())
+					cancel()
+				}
+			}()
 			var msgToSend messages.Message
-			res := endpoint(context.Background(), inv)
+			res := endpoint(ctx, inv)
 			if res.Err == ErrNoResult {
 				return
 			} else if res.Err != "" {
@@ -220,6 +232,12 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 				return
 			}
 		}()
+
+	case messages.MessageTypeInterrupt:
+		interrupt := msg.(*messages.Interrupt)
+		if cancel, exists := s.invocationCancels.LoadAndDelete(interrupt.RequestID()); exists {
+			cancel.(context.CancelFunc)()
+		}
 
 	case messages.MessageTypeSubscribed:
 		subscribed := msg.(*messages.Subscribed)
@@ -266,7 +284,8 @@ func (s *Session) processIncomingMessage(msg messages.Message) error {
 		case messages.MessageTypeCall:
 			response, exists := s.callRequests.LoadAndDelete(errorMsg.RequestID())
 			if !exists {
-				return fmt.Errorf("received ERROR for invalid call request")
+				log.Debugf("received ERROR for unknown call request %d, discarding", errorMsg.RequestID())
+				return nil
 			}
 
 			err := &Error{URI: errorMsg.URI(), Args: errorMsg.Args(), Kwargs: errorMsg.KwArgs()}
@@ -411,7 +430,7 @@ func (s *Session) call(ctx context.Context, call *messages.Call) CallResponse {
 		return CallResponse{Err: err}
 	}
 
-	return s.waitForCallResult(ctx, channel)
+	return s.waitForCallResult(ctx, call.RequestID(), channel)
 }
 
 func (s *Session) Call(procedure string) *CallRequest {
@@ -488,7 +507,11 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 		for callInProgress {
 			prog := progressFunc(ctx)
 			if prog.Err != nil {
-				// TODO: implement call canceling
+				cancelMsg := messages.NewCancel(call.RequestID(),
+					map[string]any{wampproto.OptionMode: wampproto.CancelModeKillNoWait})
+				if payload, err := s.serializer.Serialize(cancelMsg); err == nil {
+					_ = s.base.Write(payload)
+				}
 				return
 			}
 			call = messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.Kwargs)
@@ -504,7 +527,7 @@ func (s *Session) callProgressive(ctx context.Context, procedure string,
 		}
 	}()
 
-	return s.waitForCallResult(ctx, channel)
+	return s.waitForCallResult(ctx, call.RequestID(), channel)
 }
 
 func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
@@ -539,7 +562,11 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 		for callInProgress {
 			prog := progressFunc(ctx)
 			if prog.Err != nil {
-				// TODO: implement call canceling
+				cancelMsg := messages.NewCancel(call.RequestID(),
+					map[string]any{wampproto.OptionMode: wampproto.CancelModeKillNoWait})
+				if payload, err := s.serializer.Serialize(cancelMsg); err == nil {
+					_ = s.base.Write(payload)
+				}
 				return
 			}
 			call := messages.NewCall(call.RequestID(), prog.Options, procedure, prog.Args, prog.Kwargs)
@@ -555,7 +582,7 @@ func (s *Session) callProgressiveProgress(ctx context.Context, procedure string,
 		}
 	}()
 
-	return s.waitForCallResult(ctx, channel)
+	return s.waitForCallResult(ctx, call.RequestID(), channel)
 }
 
 func (s *Session) callWithRequest(ctx context.Context, request *CallRequest) CallResponse {
@@ -572,7 +599,7 @@ func (s *Session) callWithRequest(ctx context.Context, request *CallRequest) Cal
 	}
 }
 
-func (s *Session) waitForCallResult(ctx context.Context, channel chan *callResponse) CallResponse {
+func (s *Session) waitForCallResult(ctx context.Context, requestID uint64, channel chan *callResponse) CallResponse {
 	select {
 	case response := <-channel:
 		if response.error != nil {
@@ -586,7 +613,32 @@ func (s *Session) waitForCallResult(ctx context.Context, channel chan *callRespo
 		}
 		return r
 	case <-ctx.Done():
-		return CallResponse{Err: fmt.Errorf("call request timed out")}
+		cancelMsg := messages.NewCancel(requestID, map[string]any{wampproto.OptionMode: wampproto.CancelModeKillNoWait})
+		payload, err := s.serializer.Serialize(cancelMsg)
+		if err != nil {
+			return CallResponse{Err: fmt.Errorf("failed to serialize cancel: %w", err)}
+		}
+		if err = s.base.Write(payload); err != nil {
+			return CallResponse{Err: fmt.Errorf("failed to send cancel: %w", err)}
+		}
+		cancelAck := time.NewTimer(3 * time.Second)
+		defer cancelAck.Stop()
+		select {
+		case response := <-channel:
+			if response.error != nil {
+				return CallResponse{Err: response.error}
+			}
+			return CallResponse{
+				args:    NewList(response.msg.Args()),
+				kwargs:  NewDict(response.msg.KwArgs()),
+				details: NewDict(response.msg.Details()),
+			}
+		case <-s.leaveChan:
+			return CallResponse{Err: fmt.Errorf("connection closed unexpectedly")}
+		case <-cancelAck.C:
+			s.callRequests.Delete(requestID)
+			return CallResponse{Err: ctx.Err()}
+		}
 	case <-s.leaveChan:
 		return CallResponse{Err: fmt.Errorf("connection closed unexpectedly")}
 	}
