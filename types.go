@@ -30,6 +30,7 @@ const (
 	TransportWebSocket
 	TransportRawSocket
 	TransportInMemory
+	TransportQUIC
 )
 
 var (
@@ -1049,4 +1050,9 @@ func NewSessionDetails(
 
 type Authorizer interface {
 	Authorize(baseSession BaseSession, msg messages.Message) (bool, error)
+}
+
+// MultiplexedSession is implemented by session types that support opening raw streams alongside the WAMP connection.
+type MultiplexedSession interface {
+	OpenStream() (net.Conn, error)
 }

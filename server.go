@@ -2,13 +2,18 @@ package xconn
 
 import (
 	"bufio"
+	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
+	"github.com/quic-go/quic-go"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/xconnio/wampproto-go/auth"
@@ -295,4 +300,190 @@ func (s *Server) Serve(listener net.Listener, protocol ListenerType) *Listener {
 		closer: listener,
 		addr:   addr,
 	}
+}
+
+// ListenAndServeQUIC starts a QUIC listener. Each QUIC connection is multiplexed:
+// every incoming stream that begins with the RawSocket magic byte establishes an
+// independent WAMP session; other streams are delivered as raw data streams.
+func (s *Server) ListenAndServeQUIC(address string, tlsConfig *tls.Config) (*QUICListener, error) {
+	if tlsConfig == nil {
+		return nil, fmt.Errorf("tls config is required for QUIC")
+	}
+
+	if !slices.Contains(tlsConfig.NextProtos, NextProtoWAMP) {
+		tlsConfig = tlsConfig.Clone()
+		tlsConfig.NextProtos = append(tlsConfig.NextProtos, NextProtoWAMP)
+	}
+
+	ln, err := quic.ListenAddr(address, tlsConfig, DefaultQuicConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %w", err)
+	}
+
+	l := &QUICListener{
+		Listener: &Listener{closer: ln, addr: ln.Addr()},
+		server:   s,
+		conns:    make(chan *QUICConn, 8),
+		streams:  make(chan *QUICStream, 8),
+		done:     make(chan struct{}),
+	}
+	go l.startConnectionLoop(ln)
+	return l, nil
+}
+
+// QUICListener is returned by ListenAndServeQUIC.
+type QUICListener struct {
+	*Listener
+	server  *Server
+	conns   chan *QUICConn
+	streams chan *QUICStream
+	done    chan struct{}
+	sync.Once
+	sync.WaitGroup
+}
+
+// Close closes the underlying QUIC listener and signals all internal goroutines to stop.
+func (l *QUICListener) Close() error {
+	err := l.Listener.Close()
+	l.Do(func() { close(l.done) })
+	return err
+}
+
+// Conns returns a channel that receives an event each time an authenticated QUIC client connects.
+func (l *QUICListener) Conns() <-chan *QUICConn {
+	return l.conns
+}
+
+// AcceptStream receives one event per raw stream opened by a client.
+func (l *QUICListener) AcceptStream() <-chan *QUICStream {
+	return l.streams
+}
+
+func (l *QUICListener) startConnectionLoop(ln *quic.Listener) {
+	defer func() {
+		// Ensure done is closed even if the loop exits without an explicit Close().
+		l.Do(func() { close(l.done) })
+		// Wait for all handler goroutines before closing channels so no sender
+		// races with the close.
+		l.Wait()
+		close(l.conns)
+		close(l.streams)
+	}()
+	for {
+		conn, err := ln.Accept(context.Background())
+		if err != nil {
+			return
+		}
+		l.Add(1)
+		go l.handleQUICConnection(conn)
+	}
+}
+
+// handleQUICConnection accepts every incoming stream on conn and dispatches each one independently.
+// WAMP streams (magic byte 0x7F) become new WAMP sessions.
+// Any other stream is delivered on the raw AcceptStream channel.
+func (l *QUICListener) handleQUICConnection(conn *quic.Conn) {
+	defer l.Done()
+
+	var streamWg sync.WaitGroup
+	defer streamWg.Wait()
+
+	for {
+		stream, err := conn.AcceptStream(context.Background())
+		if err != nil {
+			return
+		}
+		streamWg.Add(1)
+		go func(s *quic.Stream) {
+			defer streamWg.Done()
+			l.dispatchQUICStream(conn, s)
+		}(stream)
+	}
+}
+
+// dispatchQUICStream routes a stream: WAMP RawSocket magic (0x7F) → WAMP session, anything else → raw stream.
+func (l *QUICListener) dispatchQUICStream(conn *quic.Conn, stream *quic.Stream) {
+	streamConn := newQUICStreamConn(conn, stream)
+
+	// bufio.NewReader fills its internal buffer on the first read, so a single conn.Read call
+	// inside UpgradeRawSocket gets the full 4-byte handshake without us consuming it.
+	br := bufio.NewReader(streamConn)
+	magic, err := br.Peek(1)
+
+	// Wrap br so downstream code sees buffered data + raw stream as one net.Conn.
+	wrapped := connWithPrependedReader{
+		Reader: br,
+		Conn:   streamConn,
+	}
+
+	if err == nil && magic[0] == transports.MAGIC {
+		l.handleWAMPStream(conn, wrapped)
+	} else {
+		select {
+		case l.streams <- &QUICStream{Conn: wrapped}:
+		case <-l.done:
+		}
+	}
+}
+
+// handleWAMPStream runs a full WAMP session on a single stream: RawSocket handshake, router attach, message loop.
+func (l *QUICListener) handleWAMPStream(conn *quic.Conn, streamConn net.Conn) {
+	s := l.server
+
+	config := DefaultRawSocketServerConfig()
+	config.KeepAliveInterval = s.keepAliveInterval
+	config.KeepAliveTimeout = s.keepAliveTimeout
+	config.OutQueueSize = s.outQueueSize
+
+	base, err := s.rsAcceptor.Accept(streamConn, config)
+	if err != nil {
+		log.Debugf("failed to accept quic WAMP stream: %v", err)
+		return
+	}
+
+	if err = s.router.AttachClient(base); err != nil {
+		log.Debugf("failed to attach quic client: %v", err)
+		return
+	}
+
+	// sessCtx is per-session: cancelled when THIS session's loop exits, not
+	// when the whole QUIC connection closes.
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+
+	// Deliver the event asynchronously so the WAMP message loop can start
+	// immediately (mirroring the original single-session design). The goroutine
+	// blocks until the consumer drains Conns() or the listener shuts down.
+	go func() {
+		select {
+		case l.conns <- &QUICConn{Ctx: sessCtx, Session: base, Conn: &QUICClientConn{conn: conn}}:
+		case <-l.done:
+		}
+	}()
+
+	log.Debugf("attached quic client %d", base.ID())
+
+	var limiter *ratelimit.Limiter
+	if s.throttle != nil {
+		limiter = s.throttle.Create()
+	}
+
+	for {
+		msg, err := base.ReadMessage()
+		if err != nil {
+			log.Debugf("failed to read quic client message: %v", err)
+			_ = s.router.DetachClient(base)
+			break
+		}
+
+		if limiter != nil {
+			limiter.Take()
+		}
+
+		if err = s.router.ReceiveMessage(base, msg); err != nil {
+			log.Debugf("error feeding quic client message to router: %v", err)
+		}
+	}
+
+	sessCancel()
+	log.Debugf("detached quic client %d", base.ID())
 }
