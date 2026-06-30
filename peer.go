@@ -545,6 +545,7 @@ type RawSocketPeer struct {
 	serializer    transports.Serializer
 	writeChan     chan []byte
 	ctrlChan      chan rsMsg
+	closeChan     chan struct{}
 	doneWriting   chan struct{}
 	closed        bool
 
@@ -562,6 +563,7 @@ func NewRawSocketPeer(conn net.Conn, peerConfig RawSocketPeerConfig) Peer {
 		serializer:    peerConfig.Serializer,
 		writeChan:     make(chan []byte, peerConfig.OutQueueSize),
 		ctrlChan:      make(chan rsMsg, 2),
+		closeChan:     make(chan struct{}),
 		doneWriting:   make(chan struct{}),
 	}
 
@@ -634,6 +636,8 @@ func (r *RawSocketPeer) writer() {
 				_ = r.Close()
 				return
 			}
+		case <-r.closeChan:
+			return
 		}
 	}
 }
@@ -717,13 +721,9 @@ func (r *RawSocketPeer) Close() error {
 		return nil
 	}
 
-	select {
-	case <-r.doneWriting:
-	case <-time.After(1000 * time.Millisecond):
-		// writer still busy, timeout
-	}
-
 	r.closed = true
+	close(r.closeChan)
+	<-r.doneWriting
 	return r.conn.Close()
 }
 
