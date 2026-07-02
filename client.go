@@ -2,13 +2,16 @@ package xconn
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/quic-go/quic-go"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"
@@ -182,4 +185,40 @@ func ConnectInMemory(router *Router, realm string) (*Session, error) {
 	}
 
 	return NewSession(base, base.Serializer()), nil
+}
+
+// ConnectQUIC connects to a WAMP router over QUIC and opens the first WAMP session.
+// Additional sessions can be opened on the same connection via QUICSession.OpenSession.
+func ConnectQUIC(ctx context.Context, address, realm string, config *QUICDialerConfig) (*QUICSession, error) {
+	if config == nil {
+		config = &QUICDialerConfig{}
+	}
+
+	tlsConf := config.TLSConfig
+	if tlsConf == nil {
+		tlsConf = &tls.Config{NextProtos: []string{NextProtoWAMP}}
+	} else if !slices.Contains(tlsConf.NextProtos, NextProtoWAMP) {
+		tlsConf = tlsConf.Clone()
+		tlsConf.NextProtos = append(tlsConf.NextProtos, NextProtoWAMP)
+	}
+
+	dialCtx := ctx
+	if config.DialTimeout != 0 {
+		var cancel context.CancelFunc
+		dialCtx, cancel = context.WithTimeout(ctx, config.DialTimeout)
+		defer cancel()
+	}
+
+	rawConn, err := quic.DialAddr(dialCtx, address, tlsConf, DefaultQuicConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial %s: %w", address, err)
+	}
+
+	quicConn := &QUICConn{conn: rawConn}
+	sess, err := openQUICSession(ctx, quicConn, realm, config)
+	if err != nil {
+		_ = rawConn.CloseWithError(0, "")
+		return nil, err
+	}
+	return sess, nil
 }
