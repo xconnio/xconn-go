@@ -209,7 +209,11 @@ func ConnectQUIC(ctx context.Context, address, realm string, config *QUICDialerC
 		defer cancel()
 	}
 
-	rawConn, err := quic.DialAddr(dialCtx, address, tlsConf, DefaultQuicConfig())
+	quicCfg := DefaultQuicConfig()
+	if config.KeepAlivePeriod > 0 {
+		quicCfg.KeepAlivePeriod = config.KeepAlivePeriod
+	}
+	rawConn, err := quic.DialAddr(dialCtx, address, tlsConf, quicCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial %s: %w", address, err)
 	}

@@ -26,6 +26,7 @@ func DefaultQuicConfig() *quic.Config {
 	return &quic.Config{
 		MaxIncomingStreams:    1024,
 		MaxIncomingUniStreams: 1024,
+		KeepAlivePeriod:       15 * time.Second,
 	}
 }
 
@@ -134,11 +135,12 @@ func (q *QUICSession) Close() error {
 }
 
 type QUICDialerConfig struct {
-	SerializerSpec SerializerSpec
-	Authenticator  auth.ClientAuthenticator
-	TLSConfig      *tls.Config
-	DialTimeout    time.Duration
-	OutQueueSize   int
+	SerializerSpec  SerializerSpec
+	Authenticator   auth.ClientAuthenticator
+	TLSConfig       *tls.Config
+	DialTimeout     time.Duration
+	OutQueueSize    int
+	KeepAlivePeriod time.Duration
 }
 
 // openQUICSession opens one WAMP stream on quicConn, performs the RawSocket
