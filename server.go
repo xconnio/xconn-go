@@ -315,7 +315,11 @@ func (s *Server) ListenAndServeQUIC(address string, tlsConfig *tls.Config) (*QUI
 		tlsConfig.NextProtos = append(tlsConfig.NextProtos, NextProtoWAMP)
 	}
 
-	ln, err := quic.ListenAddr(address, tlsConfig, DefaultQuicConfig())
+	quicCfg := DefaultQuicConfig()
+	if s.keepAliveInterval > 0 {
+		quicCfg.KeepAlivePeriod = s.keepAliveInterval
+	}
+	ln, err := quic.ListenAddr(address, tlsConfig, quicCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
