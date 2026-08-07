@@ -31,6 +31,7 @@ const (
 	TransportRawSocket
 	TransportInMemory
 	TransportQUIC
+	TransportWebTransport
 )
 
 var (
