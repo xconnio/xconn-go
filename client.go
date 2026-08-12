@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/quic-go/quic-go"
+	"github.com/quic-go/webtransport-go"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 
@@ -224,5 +226,34 @@ func ConnectQUIC(ctx context.Context, address, realm string, config *QUICDialerC
 		_ = rawConn.CloseWithError(0, "")
 		return nil, err
 	}
+	return sess, nil
+}
+
+// ConnectWebTransport connects to a WAMP router over WebTransport (HTTP/3) and joins the given
+// realm. Additional raw streams and WAMP session can be opened on the same connection.
+func ConnectWebTransport(ctx context.Context, url, realm string,
+	config *WebTransportDialerConfig) (*WebTransportSession, error) {
+	if config == nil {
+		config = &WebTransportDialerConfig{}
+	}
+	if config.SerializerSpec == nil {
+		config.SerializerSpec = CBORSerializerSpec
+	}
+	if config.Authenticator == nil {
+		config.Authenticator = auth.NewAnonymousAuthenticator("", nil)
+	}
+
+	d := &webtransport.Transport{TLSClientConfig: config.TLSClientConfig}
+	_, wtSess, err := d.Dial(ctx, url, http.Header{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial WebTransport: %w", err)
+	}
+
+	sess, err := openWebTransportSession(ctx, wtSess, realm, config)
+	if err != nil {
+		_ = wtSess.CloseWithError(0, "")
+		return nil, err
+	}
+
 	return sess, nil
 }
