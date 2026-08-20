@@ -10,7 +10,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"net/http"
@@ -76,6 +78,25 @@ type webTransportStreamConn struct {
 
 func (c *webTransportStreamConn) LocalAddr() net.Addr  { return c.localAddr }
 func (c *webTransportStreamConn) RemoteAddr() net.Addr { return c.remoteAddr }
+
+// Read normalizes a clean shutdown (stream/session error code 0, as used by
+// Close throughout this package) into io.EOF, matching the net.Conn
+// convention that callers already handle for a closed stream.
+func (c *webTransportStreamConn) Read(b []byte) (int, error) {
+	n, err := c.Stream.Read(b)
+	if err != nil {
+		var streamErr *webtransport.StreamError
+		if errors.As(err, &streamErr) && streamErr.ErrorCode == 0 {
+			return n, io.EOF
+		}
+
+		var sessionErr *webtransport.SessionError
+		if errors.As(err, &sessionErr) && sessionErr.ErrorCode == 0 {
+			return n, io.EOF
+		}
+	}
+	return n, err
+}
 
 func newWebTransportStreamConn(session *webtransport.Session, stream *webtransport.Stream) net.Conn {
 	return &webTransportStreamConn{

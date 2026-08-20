@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -44,6 +45,20 @@ func (c *quicStreamConn) LocalAddr() net.Addr {
 
 func (c *quicStreamConn) RemoteAddr() net.Addr {
 	return c.remoteAddr
+}
+
+// Read normalizes a clean shutdown (application error code 0, as used by
+// Close throughout this package) into io.EOF, matching the net.Conn
+// convention that callers already handle for a closed stream.
+func (c *quicStreamConn) Read(b []byte) (int, error) {
+	n, err := c.Stream.Read(b)
+	if err != nil {
+		var appErr *quic.ApplicationError
+		if errors.As(err, &appErr) && appErr.ErrorCode == 0 {
+			return n, io.EOF
+		}
+	}
+	return n, err
 }
 
 func newQUICStreamConn(conn *quic.Conn, stream *quic.Stream) net.Conn {
