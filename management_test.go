@@ -52,7 +52,7 @@ func TestManagementStatsAPIs(t *testing.T) {
 	require.Equal(t, map[string]any{mgmtKeyInterval: int64(100), "running": true},
 		callResp.ArgDictOr(0, xconn.Dict{}).Raw())
 
-	callResp = session.Call(xconn.ManagementProcedureStatsStatusSet).Kwarg("disable", true).Do()
+	callResp = session.Call(xconn.ManagementProcedureStatsStatusSet).Kwarg("enable", false).Do()
 	require.NoError(t, callResp.Err)
 	require.NoError(t, callResp.Err)
 
