@@ -253,6 +253,15 @@ func (s *Server) ListenAndServeWebTransport(address string, tlsConfig *tls.Confi
 	wtServer := &webtransport.Server{
 		H3:          h3Server,
 		CheckOrigin: func(r *http.Request) bool { return true },
+		// Safari refuses the session before sending the extended CONNECT request if the
+		// server advertises SETTINGS_WT_MAX_SESSIONS without the WT_INITIAL_MAX_* settings
+		// (https://github.com/quic-go/webtransport-go/issues/355). A zero-value Config, as
+		// used before, omits those settings, so give it non-zero initial flow-control limits.
+		Config: &webtransport.Config{
+			MaxIncomingStreams:    100,
+			MaxIncomingUniStreams: 100,
+			MaxIncomingData:       16 * 1024 * 1024,
+		},
 	}
 
 	// Pre-bind the UDP socket so the actual address (including OS-assigned port
