@@ -401,3 +401,52 @@ func TestCallCancelingSubsequentCallsWork(t *testing.T) {
 		})
 	})
 }
+
+// TestCallerTransportLossUnblocksAllConcurrentCalls verifies that when a caller's own
+// transport is severed abruptly (not a clean Leave/GoodBye), every call still
+// blocked on that session unblocks with an error, not just the first one.
+func TestCallerTransportLossUnblocksAllConcurrentCalls(t *testing.T) {
+	forEachSerializer(func(name string, spec xconn.SerializerSpec) {
+		t.Run("With"+name, func(t *testing.T) {
+			router, err := xconn.NewRouter(nil)
+			require.NoError(t, err)
+			require.NoError(t, router.AddRealm(realmName, xconn.DefaultRealmConfig()))
+
+			callee := connectInMemory(t, router, spec.Serializer())
+
+			block := make(chan struct{})
+			regResp := callee.Register("io.xconn.block",
+				func(_ context.Context, _ *xconn.Invocation) *xconn.InvocationResult {
+					<-block
+					return xconn.NewInvocationResult()
+				}).Do()
+			require.NoError(t, regResp.Err)
+
+			callerBase, err := xconn.ConnectInMemoryBase(router, realmName, fmt.Sprintf("caller-%d", time.Now().UnixNano()),
+				trustedRole, spec.Serializer(), 0)
+			require.NoError(t, err)
+			caller := xconn.NewSession(callerBase, callerBase.Serializer())
+
+			const numCalls = 3
+			results := make(chan xconn.CallResponse, numCalls)
+			for i := 0; i < numCalls; i++ {
+				go func() {
+					results <- caller.Call("io.xconn.block").Do()
+				}()
+			}
+
+			// Let both calls actually reach the callee before severing the transport.
+			time.Sleep(100 * time.Millisecond)
+			require.NoError(t, callerBase.Close())
+
+			for i := 0; i < numCalls; i++ {
+				select {
+				case resp := <-results:
+					require.Error(t, resp.Err, "call %d should have unblocked with an error", i)
+				case <-time.After(2 * time.Second):
+					t.Fatalf("call %d never unblocked after the transport was severed", i)
+				}
+			}
+		})
+	})
+}
