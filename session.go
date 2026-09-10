@@ -52,6 +52,7 @@ type Session struct {
 	connected bool
 	onLeave   func()
 	leaveChan chan struct{}
+	leaveOnce sync.Once
 
 	sync.Mutex
 }
@@ -786,5 +787,5 @@ func (s *Session) markDisconnected() {
 	s.connected = false
 	s.Unlock()
 
-	s.leaveChan <- struct{}{}
+	s.leaveOnce.Do(func() { close(s.leaveChan) })
 }
