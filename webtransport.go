@@ -255,12 +255,15 @@ func (s *Server) ListenAndServeWebTransport(address string, tlsConfig *tls.Confi
 		CheckOrigin: func(r *http.Request) bool { return true },
 		// Safari refuses the session before sending the extended CONNECT request if the
 		// server advertises SETTINGS_WT_MAX_SESSIONS without the WT_INITIAL_MAX_* settings
-		// (https://github.com/quic-go/webtransport-go/issues/355). A zero-value Config, as
-		// used before, omits those settings, so give it non-zero initial flow-control limits.
+		// (https://github.com/quic-go/webtransport-go/issues/355). Modest limits (100
+		// streams / 16MB) cleared that check but still left Safari 26 sitting on "ready"
+		// without ever opening a stream, matching reports that Safari also withholds data
+		// until it sees flow-control headroom it's satisfied with. Match the values
+		// quic-go/webtransport-go's own Safari-targeted fix validated against (PR #261).
 		Config: &webtransport.Config{
-			MaxIncomingStreams:    100,
-			MaxIncomingUniStreams: 100,
-			MaxIncomingData:       16 * 1024 * 1024,
+			MaxIncomingStreams:    1 << 60,
+			MaxIncomingUniStreams: 1 << 60,
+			MaxIncomingData:       1 << 60,
 		},
 	}
 
