@@ -135,10 +135,13 @@ type RawSocketPeerConfig struct {
 }
 
 type ServerConfig struct {
-	Throttle          *Throttle
-	KeepAliveInterval time.Duration
-	KeepAliveTimeout  time.Duration
-	OutQueueSize      int
+	Throttle               *Throttle
+	KeepAliveInterval      time.Duration
+	KeepAliveTimeout       time.Duration
+	OutQueueSize           int
+	NoOfWSListeners        int
+	NoOfRSListeners        int
+	NoOfUniversalListeners int
 }
 
 type SerializerID transports.Serializer
