@@ -80,6 +80,7 @@ type QUICPeerSession struct {
 // QUICStream is delivered on QUICListener.AcceptStream when a client opens a raw stream.
 type QUICStream struct {
 	net.Conn
+	Session BaseSession // the authenticated WAMP session of the stream's connection
 }
 
 // QUICConn is the underlying QUIC connection, used for opening and accepting raw streams.

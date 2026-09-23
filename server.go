@@ -392,6 +392,7 @@ func (l *QUICListener) handleQUICConnection(conn *quic.Conn) {
 	var streamWg sync.WaitGroup
 	defer streamWg.Wait()
 
+	auth := newConnAuth()
 	for {
 		stream, err := conn.AcceptStream(context.Background())
 		if err != nil {
@@ -400,13 +401,13 @@ func (l *QUICListener) handleQUICConnection(conn *quic.Conn) {
 		streamWg.Add(1)
 		go func(s *quic.Stream) {
 			defer streamWg.Done()
-			l.dispatchQUICStream(conn, s)
+			l.dispatchQUICStream(conn, s, auth)
 		}(stream)
 	}
 }
 
 // dispatchQUICStream routes a stream: WAMP RawSocket magic (0x7F) → WAMP session, anything else → raw stream.
-func (l *QUICListener) dispatchQUICStream(conn *quic.Conn, stream *quic.Stream) {
+func (l *QUICListener) dispatchQUICStream(conn *quic.Conn, stream *quic.Stream, auth *connAuth) {
 	streamConn := newQUICStreamConn(conn, stream)
 
 	// bufio.NewReader fills its internal buffer on the first read, so a single conn.Read call
@@ -421,17 +422,20 @@ func (l *QUICListener) dispatchQUICStream(conn *quic.Conn, stream *quic.Stream) 
 	}
 
 	if err == nil && magic[0] == transports.MAGIC {
-		l.handleWAMPStream(conn, wrapped)
-	} else {
+		l.handleWAMPStream(conn, wrapped, auth)
+	} else if session, ok := auth.wait(conn.Context()); ok {
 		select {
-		case l.streams <- &QUICStream{Conn: wrapped}:
+		case l.streams <- &QUICStream{Conn: wrapped, Session: session}:
 		case <-l.done:
 		}
+	} else {
+		stream.CancelRead(rawStreamRejected)
+		stream.CancelWrite(rawStreamRejected)
 	}
 }
 
 // handleWAMPStream runs a full WAMP session on a single stream: RawSocket handshake, router attach, message loop.
-func (l *QUICListener) handleWAMPStream(conn *quic.Conn, streamConn net.Conn) {
+func (l *QUICListener) handleWAMPStream(conn *quic.Conn, streamConn net.Conn, auth *connAuth) {
 	s := l.server
 
 	config := DefaultRawSocketServerConfig()
@@ -449,6 +453,7 @@ func (l *QUICListener) handleWAMPStream(conn *quic.Conn, streamConn net.Conn) {
 		log.Debugf("failed to attach quic client: %v", err)
 		return
 	}
+	auth.authenticated(base)
 
 	// sessCtx is per-session: cancelled when THIS session's loop exits, not
 	// when the whole QUIC connection closes.

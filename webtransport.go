@@ -199,6 +199,7 @@ type WebTransportPeerSession struct {
 // WebTransportStream is delivered on WebTransportListener.AcceptStream for raw (non-WAMP) streams.
 type WebTransportStream struct {
 	net.Conn
+	Session BaseSession // the authenticated WAMP session of the stream's session
 }
 
 type WebTransportListener struct {
@@ -317,6 +318,7 @@ func (l *WebTransportListener) handleWebTransportSession(session *webtransport.S
 	var streamWg sync.WaitGroup
 	defer streamWg.Wait()
 
+	auth := newConnAuth()
 	for {
 		stream, err := session.AcceptStream(context.Background())
 		if err != nil {
@@ -325,14 +327,15 @@ func (l *WebTransportListener) handleWebTransportSession(session *webtransport.S
 		streamWg.Add(1)
 		go func(st *webtransport.Stream) {
 			defer streamWg.Done()
-			l.dispatchWebTransportStream(session, st)
+			l.dispatchWebTransportStream(session, st, auth)
 		}(stream)
 	}
 }
 
 // dispatchWebTransportStream routes a stream: WAMP RawSocket magic (0x7F) → WAMP session,
 // anything else → raw stream.
-func (l *WebTransportListener) dispatchWebTransportStream(session *webtransport.Session, stream *webtransport.Stream) {
+func (l *WebTransportListener) dispatchWebTransportStream(session *webtransport.Session, stream *webtransport.Stream,
+	auth *connAuth) {
 	streamConn := newWebTransportStreamConn(session, stream)
 
 	br := bufio.NewReader(streamConn)
@@ -344,17 +347,20 @@ func (l *WebTransportListener) dispatchWebTransportStream(session *webtransport.
 	}
 
 	if err == nil && magic[0] == transports.MAGIC {
-		l.handleWebTransportWAMPStream(wrapped)
-	} else {
+		l.handleWebTransportWAMPStream(wrapped, auth)
+	} else if wampSession, ok := auth.wait(session.Context()); ok {
 		select {
-		case l.streams <- &WebTransportStream{Conn: wrapped}:
+		case l.streams <- &WebTransportStream{Conn: wrapped, Session: wampSession}:
 		case <-l.done:
 		}
+	} else {
+		stream.CancelRead(rawStreamRejected)
+		stream.CancelWrite(rawStreamRejected)
 	}
 }
 
 // handleWebTransportWAMPStream runs a full WAMP session on a single WebTransport stream.
-func (l *WebTransportListener) handleWebTransportWAMPStream(streamConn net.Conn) {
+func (l *WebTransportListener) handleWebTransportWAMPStream(streamConn net.Conn, auth *connAuth) {
 	s := l.server
 
 	config := DefaultRawSocketServerConfig()
@@ -372,6 +378,7 @@ func (l *WebTransportListener) handleWebTransportWAMPStream(streamConn net.Conn)
 		log.Debugf("failed to attach WebTransport client: %v", err)
 		return
 	}
+	auth.authenticated(base)
 
 	sessCtx, sessCancel := context.WithCancel(context.Background())
 
