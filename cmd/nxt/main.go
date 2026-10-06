@@ -90,10 +90,16 @@ func Run(args []string) error {
 
 	switch cmd {
 	case "init":
-		if err := os.MkdirAll(configDirPath, os.ModePerm); err != nil {
+		root, err := os.OpenRoot(*configDir)
+		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(configFile, sampleConfig, 0600); err != nil {
+		defer root.Close()
+
+		if err := root.MkdirAll(DirectoryConfig, os.ModePerm); err != nil {
+			return err
+		}
+		if err := root.WriteFile(filepath.Join(DirectoryConfig, "config.yaml"), sampleConfig, 0600); err != nil {
 			return fmt.Errorf("unable to write config: %w", err)
 		}
 	case "start":
