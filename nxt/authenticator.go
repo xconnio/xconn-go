@@ -3,8 +3,7 @@ package nxt
 import (
 	"fmt"
 	"math/rand"
-
-	"golang.org/x/exp/slices"
+	"slices"
 
 	"github.com/xconnio/wampproto-go/auth"
 )

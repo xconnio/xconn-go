@@ -4,9 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/xconn-go"

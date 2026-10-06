@@ -57,6 +57,9 @@ linters:
       - linters:
           - errcheck
         text: .AbortWithReason
+      - linters:
+          - contextcheck
+        path: (cmd/)?xconn/
     paths:
       - third_party$
       - builtin$

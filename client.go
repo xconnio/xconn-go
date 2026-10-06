@@ -7,13 +7,13 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/webtransport-go"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 
 	"github.com/xconnio/wampproto-go"
 	"github.com/xconnio/wampproto-go/auth"
