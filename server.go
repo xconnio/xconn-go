@@ -461,8 +461,11 @@ func (l *QUICListener) handleWAMPStream(conn *quic.Conn, streamConn net.Conn, au
 
 	// Deliver the event asynchronously so the WAMP message loop can start
 	// immediately (mirroring the original single-session design). The goroutine
-	// blocks until the consumer drains Conns() or the listener shuts down.
+	// blocks until the consumer drains Conns() or the listener shuts down, and is
+	// counted so startConnectionLoop doesn't close conns while it may still send.
+	l.Add(1)
 	go func() {
+		defer l.Done()
 		select {
 		case l.conns <- &QUICPeerSession{Ctx: sessCtx, Session: base, QUICConn: &QUICConn{conn: conn}}:
 		case <-l.done:
