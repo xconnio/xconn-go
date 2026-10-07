@@ -617,23 +617,23 @@ func (r *RawSocketPeer) writer() {
 		case payload := <-r.writeChan:
 			header := transports.NewMessageHeader(transports.MessageWamp, len(payload))
 			if err := writeFull(r.conn, transports.SendMessageHeader(header)); err != nil {
-				_ = r.Close()
+				r.closeAfterWriteError()
 				return
 			}
 
 			if err := writeFull(r.conn, payload); err != nil {
-				_ = r.Close()
+				r.closeAfterWriteError()
 				return
 			}
 		case ctrlMsg := <-r.ctrlChan:
 			header := transports.NewMessageHeader(ctrlMsg.msgType, len(ctrlMsg.payload))
 			if err := writeFull(r.conn, transports.SendMessageHeader(header)); err != nil {
-				_ = r.Close()
+				r.closeAfterWriteError()
 				return
 			}
 
 			if err := writeFull(r.conn, ctrlMsg.payload); err != nil {
-				_ = r.Close()
+				r.closeAfterWriteError()
 				return
 			}
 		case <-r.closeChan:
@@ -715,16 +715,32 @@ func (r *RawSocketPeer) Write(data []byte) error {
 
 func (r *RawSocketPeer) Close() error {
 	r.Lock()
+	if r.closed {
+		r.Unlock()
+		return nil
+	}
+	r.closed = true
+	close(r.closeChan)
+	// Wait for the writer without holding the lock: a writer that fails a write at the same
+	// time closes the peer itself (closeAfterWriteError), which takes the lock.
+	r.Unlock()
+
+	<-r.doneWriting
+	return r.conn.Close()
+}
+
+// closeAfterWriteError closes the peer after the writer failed a write. It runs on the
+// writer goroutine, so unlike Close it must not wait for the writer to finish.
+func (r *RawSocketPeer) closeAfterWriteError() {
+	r.Lock()
 	defer r.Unlock()
 
 	if r.closed {
-		return nil
+		return
 	}
-
 	r.closed = true
 	close(r.closeChan)
-	<-r.doneWriting
-	return r.conn.Close()
+	_ = r.conn.Close()
 }
 
 type localPeer struct {

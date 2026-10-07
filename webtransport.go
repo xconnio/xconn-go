@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/projectdiscovery/ratelimit"
+	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"github.com/quic-go/webtransport-go"
 	log "github.com/sirupsen/logrus"
@@ -92,6 +93,13 @@ func (c *webTransportStreamConn) Read(b []byte) (int, error) {
 
 		var sessionErr *webtransport.SessionError
 		if errors.As(err, &sessionErr) && sessionErr.ErrorCode == 0 {
+			return n, io.EOF
+		}
+
+		// Closing the session closes its QUIC connection with H3_NO_ERROR: a normal close.
+		var appErr *quic.ApplicationError
+		if errors.As(err, &appErr) && (appErr.ErrorCode == 0 ||
+			appErr.ErrorCode == quic.ApplicationErrorCode(http3.ErrCodeNoError)) {
 			return n, io.EOF
 		}
 	}
