@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,9 +16,6 @@ import (
 	"github.com/xconnio/xconn-go"
 	xconnwebrtc "github.com/xconnio/xconn-webrtc-go"
 )
-
-// machineIDPath identifies this device to the cloud and in mDNS adverts.
-const machineIDPath = "/etc/machine-id"
 
 // CloudConfig is how Run attaches the device to the cloud and serves it on the LAN.
 type CloudConfig struct {
@@ -73,11 +69,10 @@ func runDeviceSession(parent context.Context, app *App, cfg *CloudConfig) (bool,
 		return false, err
 	}
 
-	machineID, err := os.ReadFile(machineIDPath)
+	machineIDStr, err := machineID()
 	if err != nil {
 		return false, fmt.Errorf("failed to read machine-id: %w", err)
 	}
-	machineIDStr := strings.TrimSpace(string(machineID))
 
 	router, err := NewDeviceRouter(cred.Realm)
 	if err != nil {

@@ -16,6 +16,7 @@ require (
 	github.com/xconnio/wampproto-go v0.0.0-20260623091423-ecb54c6c2318
 	github.com/xconnio/xconn-webrtc-go v0.0.0-20260813103409-68c1489ee71c
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546
+	golang.org/x/sys v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -58,7 +59,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.54.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 )
