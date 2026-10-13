@@ -21,6 +21,7 @@ const (
 	testAppRealm    = "io.xconn.test.app"
 	testDeviceRealm = "io.xconn.test.device"
 	testProcedure   = "io.xconn.test.echo"
+	testPrefix      = "io.xconn.test.app."
 	testUser        = "carol"
 	testPassword    = "s3cret"
 
@@ -63,10 +64,13 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 
 	callee, err := xconn.ConnectInMemory(appRouter, testAppRealm)
 	require.NoError(t, err)
-	resp := callee.Register(testProcedure, func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
+	echo := func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
 		return xconn.NewInvocationResult(inv.Args()...)
-	}).Do()
-	require.NoError(t, resp.Err)
+	}
+	for _, procedure := range []string{testProcedure, testPrefix + "echo"} {
+		resp := callee.Register(procedure, echo).Do()
+		require.NoError(t, resp.Err)
+	}
 
 	streamListener, err := net.Listen("unix", filepath.Join(dir, "streams.sock"))
 	require.NoError(t, err)
@@ -85,6 +89,7 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 		done <- xconnd.RunStandalone(ctx, &xconnd.App{
 			Session:      appSession,
 			Procedures:   []string{testProcedure},
+			Prefixes:     []string{testPrefix},
 			StreamSocket: streamListener.Addr().String(),
 		}, &xconnd.StandaloneConfig{
 			QUICAddress:         d.quicAddr,
@@ -165,6 +170,13 @@ func TestRunStandaloneBridgesProcedures(t *testing.T) {
 			resp := s.Call(testProcedure).Args("hello").Do()
 			require.NoError(t, resp.Err)
 			require.Equal(t, "hello", resp.Args()[0])
+
+			resp = s.Call(testPrefix + "echo").Args("prefixed").Do()
+			require.NoError(t, resp.Err)
+			require.Equal(t, "prefixed", resp.Args()[0])
+
+			resp = s.Call(testPrefix + "missing").Do()
+			require.ErrorContains(t, resp.Err, "no_such_procedure")
 		})
 	}
 }

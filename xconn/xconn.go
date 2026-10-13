@@ -29,6 +29,9 @@ type App struct {
 	Session *xconn.Session
 	// Procedures are the app-layer procedures remote clients may call.
 	Procedures []string
+	// Prefixes are relayed whole: remote clients may call every app-layer procedure
+	// under them.
+	Prefixes []string
 	// StreamSocket is the Unix socket the app listens on for relayed raw streams and data
 	// channels (see RelayHeader). Empty disables relaying.
 	StreamSocket string
