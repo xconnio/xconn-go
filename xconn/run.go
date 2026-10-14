@@ -69,7 +69,7 @@ func runDeviceSession(parent context.Context, app *App, cfg *CloudConfig) (bool,
 		return false, err
 	}
 
-	machineIDStr, err := machineID()
+	machineIDStr, err := MachineID()
 	if err != nil {
 		return false, fmt.Errorf("failed to read machine-id: %w", err)
 	}

@@ -4,7 +4,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-func machineID() (string, error) {
+// MachineID returns a unique, stable identifier for the current host.
+func MachineID() (string, error) {
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Cryptography`,
 		registry.QUERY_VALUE|registry.WOW64_64KEY)
 	if err != nil {

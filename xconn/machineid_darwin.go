@@ -6,7 +6,8 @@ import (
 	"strings"
 )
 
-func machineID() (string, error) {
+// MachineID returns a unique, stable identifier for the current host.
+func MachineID() (string, error) {
 	out, err := exec.Command("ioreg", "-rd1", "-c", "IOPlatformExpertDevice").Output()
 	if err != nil {
 		return "", err

@@ -5,7 +5,8 @@ import (
 	"strings"
 )
 
-func machineID() (string, error) {
+// MachineID returns a unique, stable identifier for the current host.
+func MachineID() (string, error) {
 	data, err := os.ReadFile("/etc/machine-id")
 	if err != nil {
 		return "", err
