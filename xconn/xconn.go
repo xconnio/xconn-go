@@ -27,8 +27,15 @@ type App struct {
 	// Session is a session on the app layer (see StartAppLayer) that bridged calls are
 	// forwarded through.
 	Session *xconn.Session
+	// NewSession, if set, opens another session on the app layer. Bridged calls then go
+	// through a session per remote caller instead of Session, closed when the caller
+	// leaves, so the app tells callers apart (e.g. to keep per-caller keys).
+	NewSession func() (*xconn.Session, error)
 	// Procedures are the app-layer procedures remote clients may call.
 	Procedures []string
+	// Prefixes are relayed whole: remote clients may call every app-layer procedure
+	// under them.
+	Prefixes []string
 	// StreamSocket is the Unix socket the app listens on for relayed raw streams and data
 	// channels (see RelayHeader). Empty disables relaying.
 	StreamSocket string

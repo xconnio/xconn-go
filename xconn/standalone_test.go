@@ -21,6 +21,8 @@ const (
 	testAppRealm    = "io.xconn.test.app"
 	testDeviceRealm = "io.xconn.test.device"
 	testProcedure   = "io.xconn.test.echo"
+	testPrefix      = "io.xconn.test.app."
+	testCaller      = "io.xconn.test.caller"
 	testUser        = "carol"
 	testPassword    = "s3cret"
 
@@ -32,6 +34,8 @@ const (
 type device struct {
 	quicAddr, wtURL string
 	streams         net.Listener
+	// left gets the app-layer sessions that left.
+	left chan uint64
 }
 
 // session is a client connection to a device: a WAMP session plus its raw streams.
@@ -63,10 +67,22 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 
 	callee, err := xconn.ConnectInMemory(appRouter, testAppRealm)
 	require.NoError(t, err)
-	resp := callee.Register(testProcedure, func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
+	echo := func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
 		return xconn.NewInvocationResult(inv.Args()...)
-	}).Do()
-	require.NoError(t, resp.Err)
+	}
+	for _, procedure := range []string{testProcedure, testPrefix + "echo"} {
+		resp := callee.Register(procedure, echo).Do()
+		require.NoError(t, resp.Err)
+	}
+	require.NoError(t, callee.Register(testCaller, func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
+		return xconn.NewInvocationResult(inv.Caller())
+	}).Do().Err)
+	left := make(chan uint64, 16)
+	require.NoError(t, callee.Subscribe("wamp.session.on_leave", func(event *xconn.Event) {
+		if id, err := event.ArgUInt64(0); err == nil {
+			left <- id
+		}
+	}).Do().Err)
 
 	streamListener, err := net.Listen("unix", filepath.Join(dir, "streams.sock"))
 	require.NoError(t, err)
@@ -75,7 +91,7 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 	tlsConfig, err := xconn.GenerateSelfSignedTLSConfig()
 	require.NoError(t, err)
 
-	d := &device{quicAddr: freeUDPAddr(t), streams: streamListener}
+	d := &device{quicAddr: freeUDPAddr(t), streams: streamListener, left: left}
 	wtAddr := freeUDPAddr(t)
 	d.wtURL = "https://" + wtAddr + xconnd.WebTransportPath
 
@@ -83,8 +99,12 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 	done := make(chan error, 1)
 	go func() {
 		done <- xconnd.RunStandalone(ctx, &xconnd.App{
-			Session:      appSession,
-			Procedures:   []string{testProcedure},
+			Session: appSession,
+			NewSession: func() (*xconn.Session, error) {
+				return xconn.ConnectInMemory(appRouter, testAppRealm)
+			},
+			Procedures:   []string{testProcedure, testCaller},
+			Prefixes:     []string{testPrefix},
 			StreamSocket: streamListener.Addr().String(),
 		}, &xconnd.StandaloneConfig{
 			QUICAddress:         d.quicAddr,
@@ -165,8 +185,45 @@ func TestRunStandaloneBridgesProcedures(t *testing.T) {
 			resp := s.Call(testProcedure).Args("hello").Do()
 			require.NoError(t, resp.Err)
 			require.Equal(t, "hello", resp.Args()[0])
+
+			resp = s.Call(testPrefix + "echo").Args("prefixed").Do()
+			require.NoError(t, resp.Err)
+			require.Equal(t, "prefixed", resp.Args()[0])
+
+			resp = s.Call(testPrefix + "missing").Do()
+			require.ErrorContains(t, resp.Err, "no_such_procedure")
 		})
 	}
+}
+
+func TestRunStandaloneSessionPerCaller(t *testing.T) {
+	d := startStandalone(t, nil, map[string]string{testUser: testPassword})
+	appCaller := func(s *session) uint64 {
+		resp := s.Call(testCaller).Do()
+		require.NoError(t, resp.Err)
+		id, err := resp.ArgUInt64(0)
+		require.NoError(t, err)
+		return id
+	}
+
+	a, err := connect(t, d, transportQUIC, cra(testUser, testPassword))
+	require.NoError(t, err)
+	b, err := connect(t, d, transportQUIC, cra(testUser, testPassword))
+	require.NoError(t, err)
+
+	callerA := appCaller(a)
+	require.Equal(t, callerA, appCaller(a))
+	require.NotEqual(t, callerA, appCaller(b))
+
+	require.NoError(t, a.Leave())
+	require.Eventually(t, func() bool {
+		select {
+		case id := <-d.left:
+			return id == callerA
+		default:
+			return false
+		}
+	}, 5*time.Second, 10*time.Millisecond)
 }
 
 func TestRunStandaloneRelaysStreams(t *testing.T) {
