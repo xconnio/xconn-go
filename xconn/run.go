@@ -17,7 +17,7 @@ import (
 	xconnwebrtc "github.com/xconnio/xconn-webrtc-go"
 )
 
-// CloudConfig is how Run attaches the device to the cloud and serves it on the LAN.
+// CloudConfig is how Run attaches the device to the cloud.
 type CloudConfig struct {
 	// Address is the cloud router's QUIC address (host:port), dialed with TLSConfig.
 	Address   string
@@ -37,16 +37,13 @@ type CloudConfig struct {
 	CredentialsFile string
 	// PrincipalsFile caches the authorized principals across restarts.
 	PrincipalsFile string
-	// LANPort is where the device realm is served over WebSocket to clients on the local
-	// network (and advertised via mDNS).
-	LANPort int
 	// ICEServers for WebRTC; empty means DefaultICEServers.
 	ICEServers []xconnwebrtc.ICEServer
 }
 
 // Run runs xconn for the cloud-attached device until ctx is done: it serves the device
-// realm on the LAN and to the cloud, bridging app's procedures onto it, first waiting for
-// the device to be attached and starting over after a detach.
+// realm to the cloud and to P2P (WebRTC) clients, bridging app's procedures onto it, first
+// waiting for the device to be attached and starting over after a detach.
 func Run(ctx context.Context, app *App, cfg *CloudConfig) error {
 	for {
 		again, err := runDeviceSession(ctx, app, cfg)
@@ -56,7 +53,7 @@ func Run(ctx context.Context, app *App, cfg *CloudConfig) error {
 	}
 }
 
-// runDeviceSession runs one connect/serve cycle: it bridges app onto the LAN-facing realm
+// runDeviceSession runs one connect/serve cycle: it bridges app onto the device router
 // and runs the cloud reconnect loop, then blocks until either parent is done or a detach
 // event. It returns true if the caller should start another cycle (detach happened), false
 // to shut down.
@@ -86,23 +83,14 @@ func runDeviceSession(parent context.Context, app *App, cfg *CloudConfig) (bool,
 	}
 
 	authenticator := NewAuthenticator(principals, cfg.PrincipalsFile)
-	server := xconn.NewServer(router, authenticator, &xconn.ServerConfig{})
-	listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, fmt.Sprintf("0.0.0.0:%d", cfg.LANPort))
-	if err != nil {
-		router.Close()
-		return false, err
-	}
-	defer listener.Close()
-
 	localSession, err := xconn.ConnectInMemory(router, cred.Realm)
 	if err != nil {
 		router.Close()
 		return false, err
 	}
 
-	// Bridge the app's procedures onto the LAN-facing realm -- any client reaching this
-	// device directly (mDNS discovery + WebSocket, no cloud hop) gets the same procedures
-	// as a cloud caller.
+	// Bridge the app's procedures onto the device router -- any client reaching this
+	// device directly (WebRTC, no cloud hop) gets the same procedures as a cloud caller.
 	if err := RegisterBridge(localSession, app); err != nil {
 		router.Close()
 		return false, err
