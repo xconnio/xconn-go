@@ -83,7 +83,7 @@ func StartAppLayer(realm, socketPath string) (*xconn.Router, *xconn.Listener, *x
 }
 
 // NewDeviceRouter returns a router serving the device-facing realm that remote clients
-// (cloud, LAN or standalone) call into.
+// (cloud, P2P or standalone) call into.
 func NewDeviceRouter(realm string) (*xconn.Router, error) {
 	router, err := xconn.NewRouter(xconn.DefaultRouterConfig())
 	if err != nil {
