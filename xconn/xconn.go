@@ -2,6 +2,7 @@ package xconn
 
 import (
 	"github.com/xconnio/wampproto-go"
+	"github.com/xconnio/wampproto-go/messages"
 	"github.com/xconnio/xconn-go"
 )
 
@@ -27,10 +28,12 @@ type App struct {
 	// Session is a session on the app layer (see StartAppLayer) that bridged calls are
 	// forwarded through.
 	Session *xconn.Session
-	// NewSession, if set, opens another session on the app layer. Bridged calls then go
+	// NewSession, if set, opens another session on the app layer for a remote caller, with
+	// the caller's authid and authrole (see xconn.ConnectInMemoryBase). Bridged calls then go
 	// through a session per remote caller instead of Session, closed when the caller
-	// leaves, so the app tells callers apart (e.g. to keep per-caller keys).
-	NewSession func() (*xconn.Session, error)
+	// leaves, so the app tells callers apart (e.g. to keep per-caller keys) and sees who
+	// they are (e.g. to only let some roles call a procedure).
+	NewSession func(authID, authRole string) (*xconn.Session, error)
 	// Procedures are the app-layer procedures remote clients may call.
 	Procedures []string
 	// Prefixes are relayed whole: remote clients may call every app-layer procedure
@@ -39,6 +42,19 @@ type App struct {
 	// StreamSocket is the Unix socket the app listens on for relayed raw streams and data
 	// channels (see RelayHeader). Empty disables relaying.
 	StreamSocket string
+}
+
+// appLayerAuthorizer lets sessions of any role do on the app layer what anonymous ones may:
+// call, register and subscribe.
+type appLayerAuthorizer struct{}
+
+func (appLayerAuthorizer) Authorize(_ xconn.BaseSession, msg messages.Message) (bool, error) {
+	switch msg.Type() {
+	case messages.MessageTypeCall, messages.MessageTypeRegister, messages.MessageTypeSubscribe:
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 // StartAppLayer serves realm on the Unix socket at socketPath: applications dial in there
@@ -63,6 +79,11 @@ func StartAppLayer(realm, socketPath string) (*xconn.Router, *xconn.Listener, *x
 			}},
 		}},
 	}); err != nil {
+		router.Close()
+		return nil, nil, nil, err
+	}
+	// The sessions App.NewSession opens for remote callers join with the callers' roles.
+	if err := router.SetRealmAuthorizer(realm, appLayerAuthorizer{}); err != nil {
 		router.Close()
 		return nil, nil, nil, err
 	}

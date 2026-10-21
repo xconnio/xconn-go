@@ -20,9 +20,10 @@ type callerSessions struct {
 	sessions map[uint64]*xconn.Session
 }
 
-// get returns caller's app-layer session, opening it on its first call. Without
+// get returns the app-layer session of inv's caller, opening it on its first call. Without
 // app.NewSession, or a disclosed caller, every call goes through app.Session.
-func (c *callerSessions) get(caller uint64) (*xconn.Session, error) {
+func (c *callerSessions) get(inv *xconn.Invocation) (*xconn.Session, error) {
+	caller := inv.Caller()
 	if c.app.NewSession == nil || caller == 0 {
 		return c.app.Session, nil
 	}
@@ -31,7 +32,7 @@ func (c *callerSessions) get(caller uint64) (*xconn.Session, error) {
 	if session, ok := c.sessions[caller]; ok {
 		return session, nil
 	}
-	session, err := c.app.NewSession()
+	session, err := c.app.NewSession(inv.CallerAuthID(), inv.CallerAuthRole())
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func bridgeHandler(callers *callerSessions, procedure string) xconn.InvocationHa
 		if called == "" {
 			called = inv.Procedure()
 		}
-		appSession, err := callers.get(inv.Caller())
+		appSession, err := callers.get(inv)
 		if err != nil {
 			return xconn.NewInvocationError(errOperationFailed, err.Error())
 		}
