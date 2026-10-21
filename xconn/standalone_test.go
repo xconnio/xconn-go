@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xconnio/wampproto-go/auth"
+	"github.com/xconnio/wampproto-go/serializers"
 	"github.com/xconnio/xconn-go"
 	xconnd "github.com/xconnio/xconn-go/xconn"
 )
@@ -75,7 +76,7 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 		require.NoError(t, resp.Err)
 	}
 	require.NoError(t, callee.Register(testCaller, func(_ context.Context, inv *xconn.Invocation) *xconn.InvocationResult {
-		return xconn.NewInvocationResult(inv.Caller())
+		return xconn.NewInvocationResult(inv.Caller(), inv.CallerAuthID(), inv.CallerAuthRole())
 	}).Do().Err)
 	left := make(chan uint64, 16)
 	require.NoError(t, callee.Subscribe("wamp.session.on_leave", func(event *xconn.Event) {
@@ -100,8 +101,13 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 	go func() {
 		done <- xconnd.RunStandalone(ctx, &xconnd.App{
 			Session: appSession,
-			NewSession: func() (*xconn.Session, error) {
-				return xconn.ConnectInMemory(appRouter, testAppRealm)
+			NewSession: func(authID, authRole string) (*xconn.Session, error) {
+				base, err := xconn.ConnectInMemoryBase(appRouter, testAppRealm, authID, authRole,
+					&serializers.MsgPackSerializer{}, 16)
+				if err != nil {
+					return nil, err
+				}
+				return xconn.NewSession(base, base.Serializer()), nil
 			},
 			Procedures:   []string{testProcedure, testCaller},
 			Prefixes:     []string{testPrefix},
@@ -203,6 +209,9 @@ func TestRunStandaloneSessionPerCaller(t *testing.T) {
 		require.NoError(t, resp.Err)
 		id, err := resp.ArgUInt64(0)
 		require.NoError(t, err)
+		// The app sees the remote caller, not the bridge.
+		require.Equal(t, testUser, resp.ArgStringOr(1, ""))
+		require.Equal(t, "owner", resp.ArgStringOr(2, ""))
 		return id
 	}
 
