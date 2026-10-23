@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -58,6 +59,12 @@ func freeUDPAddr(t *testing.T) string {
 // startStandalone runs an app layer with an echo procedure and serves it in standalone mode
 // over QUIC and WebTransport, with a generated self-signed certificate.
 func startStandalone(t *testing.T, keys []string, passwords map[string]string) *device {
+	t.Helper()
+	return startStandaloneWith(t, &xconnd.StandaloneConfig{Keys: keys, Passwords: passwords})
+}
+
+// startStandaloneWith is startStandalone with cfg's Keys, Passwords and Authenticator.
+func startStandaloneWith(t *testing.T, cfg *xconnd.StandaloneConfig) *device {
 	t.Helper()
 	dir := t.TempDir()
 
@@ -117,8 +124,9 @@ func startStandalone(t *testing.T, keys []string, passwords map[string]string) *
 			WebTransportAddress: wtAddr,
 			TLSConfig:           tlsConfig,
 			Realm:               testDeviceRealm,
-			Keys:                keys,
-			Passwords:           passwords,
+			Keys:                cfg.Keys,
+			Passwords:           cfg.Passwords,
+			Authenticator:       cfg.Authenticator,
 		})
 	}()
 	t.Cleanup(func() {
@@ -294,6 +302,52 @@ func TestStandaloneAuthenticator(t *testing.T) {
 				err := connectOnce(d, transport, a)
 				require.Error(t, err)
 			}
+		})
+	}
+}
+
+// changingAuthenticator lets in the wampcra users it's told about at the time, as owners.
+type changingAuthenticator struct {
+	mu        sync.Mutex
+	passwords map[string]string
+}
+
+func (a *changingAuthenticator) Methods() []auth.Method { return []auth.Method{auth.WAMPCRA} }
+
+func (a *changingAuthenticator) Authenticate(request auth.Request) (auth.Response, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	password, ok := a.passwords[request.AuthID()]
+	if !ok {
+		return nil, fmt.Errorf("unknown authid %s", request.AuthID())
+	}
+	return auth.NewCRAResponse(request.AuthID(), "owner", password, 0), nil
+}
+
+func TestStandaloneWithAuthenticator(t *testing.T) {
+	authenticator := &changingAuthenticator{passwords: map[string]string{}}
+	d := startStandaloneWith(t, &xconnd.StandaloneConfig{
+		Keys: []string{"ignored with an authenticator"}, Authenticator: authenticator,
+	})
+	for _, transport := range transports {
+		t.Run(transport, func(t *testing.T) {
+			require.Error(t, connectOnce(d, transport, cra(testUser, testPassword)), "not yet")
+
+			authenticator.mu.Lock()
+			authenticator.passwords[testUser] = testPassword
+			authenticator.mu.Unlock()
+			s, err := connect(t, d, transport, cra(testUser, testPassword))
+			require.NoError(t, err, "let in once it's told, while the device is served")
+			resp := s.Call(testCaller).Do()
+			require.NoError(t, resp.Err)
+			require.Equal(t, testUser, resp.ArgStringOr(1, ""))
+			require.Equal(t, "owner", resp.ArgStringOr(2, ""))
+			require.NoError(t, s.Leave())
+
+			authenticator.mu.Lock()
+			delete(authenticator.passwords, testUser)
+			authenticator.mu.Unlock()
+			require.Error(t, connectOnce(d, transport, cra(testUser, testPassword)), "and not once it's told otherwise")
 		})
 	}
 }

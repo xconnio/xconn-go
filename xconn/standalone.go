@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/xconnio/wampproto-go/auth"
 	"github.com/xconnio/xconn-go"
 	xconnwebrtc "github.com/xconnio/xconn-webrtc-go"
 )
@@ -30,6 +31,11 @@ type StandaloneConfig struct {
 	Keys []string
 	// Passwords are the wampcra username -> password pairs allowed to connect.
 	Passwords map[string]string
+	// Authenticator, if set, decides who may connect instead of Keys and Passwords, so
+	// who may can change while the device is served. It must give its sessions one of the
+	// device realm's authroles (see NewDeviceRouter): owner, as Keys and Passwords do, admin
+	// or member.
+	Authenticator auth.ServerAuthenticator
 	// ICEServers for WebRTC; empty means DefaultICEServers.
 	ICEServers []xconnwebrtc.ICEServer
 }
@@ -51,7 +57,10 @@ func RunStandalone(ctx context.Context, app *App, cfg *StandaloneConfig) error {
 	}
 	defer router.Close()
 
-	authenticator := NewStandaloneAuthenticator(cfg.Keys, cfg.Passwords)
+	authenticator := cfg.Authenticator
+	if authenticator == nil {
+		authenticator = NewStandaloneAuthenticator(cfg.Keys, cfg.Passwords)
+	}
 	server := xconn.NewServer(router, authenticator, &xconn.ServerConfig{})
 
 	// A nil channel never delivers, so a disabled transport simply drops out of the select.
@@ -89,7 +98,9 @@ func RunStandalone(ctx context.Context, app *App, cfg *StandaloneConfig) error {
 	if err := SetupWebRTC(localSession, router, authenticator, cfg.ICEServers, app.StreamSocket); err != nil {
 		return err
 	}
-	log.Printf("standalone mode: %d key(s) and %d user(s) authorized", len(cfg.Keys), len(cfg.Passwords))
+	if cfg.Authenticator == nil {
+		log.Printf("standalone mode: %d key(s) and %d user(s) authorized", len(cfg.Keys), len(cfg.Passwords))
+	}
 
 	relay := func(stream net.Conn) {
 		if app.StreamSocket == "" {
