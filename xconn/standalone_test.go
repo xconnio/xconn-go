@@ -34,8 +34,8 @@ const (
 
 // device is a standalone device served by startStandalone.
 type device struct {
-	quicAddr, wtURL string
-	streams         net.Listener
+	quicAddr, wtURL, wsURL string
+	streams                net.Listener
 	// left gets the app-layer sessions that left.
 	left chan uint64
 }
@@ -56,8 +56,18 @@ func freeUDPAddr(t *testing.T) string {
 	return addr
 }
 
+// freeTCPAddr returns a loopback TCP address that is free right now.
+func freeTCPAddr(t *testing.T) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := listener.Addr().String()
+	require.NoError(t, listener.Close())
+	return addr
+}
+
 // startStandalone runs an app layer with an echo procedure and serves it in standalone mode
-// over QUIC and WebTransport, with a generated self-signed certificate.
+// over QUIC, WebTransport and WebSocket, with a generated self-signed certificate.
 func startStandalone(t *testing.T, keys []string, passwords map[string]string) *device {
 	t.Helper()
 	return startStandaloneWith(t, &xconnd.StandaloneConfig{Keys: keys, Passwords: passwords})
@@ -102,6 +112,8 @@ func startStandaloneWith(t *testing.T, cfg *xconnd.StandaloneConfig) *device {
 	d := &device{quicAddr: freeUDPAddr(t), streams: streamListener, left: left}
 	wtAddr := freeUDPAddr(t)
 	d.wtURL = "https://" + wtAddr + xconnd.WebTransportPath
+	wsAddr := freeTCPAddr(t)
+	d.wsURL = "ws://" + wsAddr + "/ws"
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -122,6 +134,7 @@ func startStandaloneWith(t *testing.T, cfg *xconnd.StandaloneConfig) *device {
 		}, &xconnd.StandaloneConfig{
 			QUICAddress:         d.quicAddr,
 			WebTransportAddress: wtAddr,
+			WebSocketAddress:    wsAddr,
 			TLSConfig:           tlsConfig,
 			Realm:               testDeviceRealm,
 			Keys:                cfg.Keys,
@@ -208,6 +221,29 @@ func TestRunStandaloneBridgesProcedures(t *testing.T) {
 			require.ErrorContains(t, resp.Err, "no_such_procedure")
 		})
 	}
+}
+
+func TestRunStandaloneOverWebSocket(t *testing.T) {
+	d := startStandalone(t, nil, map[string]string{testUser: testPassword})
+
+	var s *xconn.Session
+	var err error
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		if s, err = xconn.ConnectCRA(context.Background(), d.wsURL, testDeviceRealm, testUser, testPassword); err == nil ||
+			time.Now().After(deadline) {
+			break
+		}
+	}
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = s.Leave() })
+
+	resp := s.Call(testCaller).Do()
+	require.NoError(t, resp.Err)
+	require.Equal(t, testUser, resp.ArgStringOr(1, ""))
+	require.Equal(t, "owner", resp.ArgStringOr(2, ""))
+
+	_, err = xconn.ConnectCRA(context.Background(), d.wsURL, testDeviceRealm, testUser, "wrong")
+	require.Error(t, err, "authenticated like the other transports")
 }
 
 func TestRunStandaloneSessionPerCaller(t *testing.T) {

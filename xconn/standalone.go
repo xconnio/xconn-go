@@ -23,7 +23,11 @@ type StandaloneConfig struct {
 	// WebTransportAddress, if set, is where to serve the device over WebTransport
 	// (host:port, UDP), at WebTransportPath.
 	WebTransportAddress string
-	// TLSConfig holds the server certificate for both transports.
+	// WebSocketAddress, if set, is where to serve the device over WebSocket (host:port, TCP),
+	// for WAMP clients with neither QUIC nor WebTransport. It's plain, without TLS, so best
+	// kept to localhost or a network you trust. It carries WAMP only: no raw streams.
+	WebSocketAddress string
+	// TLSConfig holds the server certificate for QUIC and WebTransport.
 	TLSConfig *tls.Config
 	// Realm is the device realm served.
 	Realm string
@@ -40,14 +44,14 @@ type StandaloneConfig struct {
 	ICEServers []xconnwebrtc.ICEServer
 }
 
-// RunStandalone serves the device realm over QUIC and/or WebTransport until ctx is done,
+// RunStandalone serves the device realm over QUIC, WebTransport and/or WebSocket until ctx is done,
 // bridging app's procedures onto it and relaying raw streams and WebRTC data channels to
 // the app.
 func RunStandalone(ctx context.Context, app *App, cfg *StandaloneConfig) error {
-	if cfg.QUICAddress == "" && cfg.WebTransportAddress == "" {
-		return errors.New("standalone mode needs a QUIC or WebTransport address")
+	if cfg.QUICAddress == "" && cfg.WebTransportAddress == "" && cfg.WebSocketAddress == "" {
+		return errors.New("standalone mode needs a QUIC, WebTransport or WebSocket address")
 	}
-	if cfg.TLSConfig == nil {
+	if cfg.TLSConfig == nil && (cfg.QUICAddress != "" || cfg.WebTransportAddress != "") {
 		return errors.New("standalone mode needs a TLS config")
 	}
 
@@ -86,6 +90,14 @@ func RunStandalone(ctx context.Context, app *App, cfg *StandaloneConfig) error {
 		wtStreams = listener.AcceptStream()
 		log.Printf("standalone mode: serving realm %s over WebTransport on %s (path %s)", cfg.Realm,
 			listener.Addr(), WebTransportPath)
+	}
+	if cfg.WebSocketAddress != "" {
+		listener, err := server.ListenAndServeWebSocket(xconn.NetworkTCP, cfg.WebSocketAddress)
+		if err != nil {
+			return err
+		}
+		defer listener.Close()
+		log.Printf("standalone mode: serving realm %s over WebSocket on %s", cfg.Realm, listener.Addr())
 	}
 
 	localSession, err := xconn.ConnectInMemory(router, cfg.Realm)
